@@ -58,11 +58,19 @@ ShellRoot {
     property string volumeMic: "0%"
     property bool micMuted: false
     property string bluetoothStatus: "off"
-    property bool vpnLiaActive: false
-    property bool vpnSkygateActive: false
-    property bool vpnLiaConnecting: false
-    property bool vpnSkygateConnecting: false
     property string vpnDisconnectTarget: ""
+
+    ListModel { id: vpnModel }
+
+    function vpnSetActive(name, active) {
+        for (var i = 0; i < vpnModel.count; i++) {
+            if (vpnModel.get(i).name === name) {
+                vpnModel.setProperty(i, "active", active);
+                if (active) vpnModel.setProperty(i, "connecting", false);
+                return;
+            }
+        }
+    }
     property bool remminaExpanded: false
     property bool batteryMode: false
     property bool showBatteryModeIndicator: false
@@ -140,10 +148,25 @@ ShellRoot {
     Process { id: pWifiOff; command: ["nmcli", "radio", "wifi", "off"] }
     Process { id: pBtOn; command: ["rfkill", "unblock", "bluetooth"] }
     Process { id: pBtOff; command: ["rfkill", "block", "bluetooth"] }
-    Process { id: pVpnLia; command: ["nmcli", "con", "up", "LIA_ROC"] }
-    Process { id: pVpnSkygate; command: ["nmcli", "con", "up", "Skygate Office"] }
-    Process { id: pVpnLiaDown; command: ["nmcli", "con", "down", "LIA_ROC"] }
-    Process { id: pVpnSkygateDown; command: ["nmcli", "con", "down", "Skygate Office"] }
+    Process { id: pVpnUp }
+    Process { id: pVpnDown }
+    Process { id: pPowerShutdown; command: ["systemctl", "poweroff"] }
+    Process { id: pPowerReboot;   command: ["systemctl", "reboot"] }
+    Process { id: pPowerSuspend;  command: ["sh", "-c", "hyprlock & sleep 1 && systemctl suspend"] }
+    Process { id: pPowerLock;     command: ["hyprlock"] }
+    Process { id: pPowerLogout;   command: ["hyprctl", "dispatch", "exit"] }
+
+    Process {
+        id: pVpnScan
+        command: ["sh", "-c", "nmcli -t -f NAME,TYPE con show | awk -F: '$2==\"vpn\"{print $1}' | sort"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                var name = data.trim();
+                if (name !== "") vpnModel.append({ name: name, active: false, connecting: false });
+            }
+        }
+    }
 
     Process { id: pRemmina }
 
@@ -338,16 +361,21 @@ ShellRoot {
         running: true; stdout: SplitParser { onRead: data => root.bluetoothStatus = data.trim() }
     }
     Process {
-        command: ["sh", "-c", "while true; do nmcli -t -f NAME,TYPE,STATE con show --active 2>/dev/null | awk -F: 'BEGIN{l=0;s=0} $1==\"LIA_ROC\"&&$2==\"vpn\"&&$3==\"activated\"{l=1} $1==\"Skygate Office\"&&$2==\"vpn\"&&$3==\"activated\"{s=1} END{print l\":\"s}'; sleep 2; done"]
+        command: ["sh", "-c", "while true; do nmcli -t -f NAME,TYPE,STATE con show --active 2>/dev/null | awk -F: '$2==\"vpn\"&&$3==\"activated\"{print $1}'; echo \"---\"; sleep 2; done"]
         running: true
+        property var activeBatch: []
+        property bool inBatch: false
         stdout: SplitParser {
             onRead: data => {
-                var parts = data.trim().split(":");
-                if (parts.length === 2) {
-                    root.vpnLiaActive = parts[0] === "1";
-                    root.vpnSkygateActive = parts[1] === "1";
-                    if (root.vpnLiaConnecting && root.vpnLiaActive) root.vpnLiaConnecting = false;
-                    if (root.vpnSkygateConnecting && root.vpnSkygateActive) root.vpnSkygateConnecting = false;
+                var line = data.trim();
+                if (line === "---") {
+                    for (var i = 0; i < vpnModel.count; i++) {
+                        var n = vpnModel.get(i).name;
+                        root.vpnSetActive(n, parent.activeBatch.indexOf(n) !== -1);
+                    }
+                    parent.activeBatch = [];
+                } else if (line !== "") {
+                    parent.activeBatch = parent.activeBatch.concat([line]);
                 }
             }
         }
@@ -1262,45 +1290,30 @@ ShellRoot {
                         }
                     }
                     
-                    // VPN Row
-                    RowLayout {
-                        spacing: 8
-                        Layout.fillWidth: true
-
-                        ModernSplitButton {
-                            text: root.vpnLiaConnecting ? "Connecting..." : "LIA ROC"
-                            iconText: "󰖂"
-                            isActive: root.vpnLiaActive
-                            accent: "#FF9500"
-                            onIconClicked: {
-                                if (root.vpnLiaActive) {
-                                    root.vpnDisconnectTarget = "LIA_ROC";
-                                } else {
-                                    root.vpnDisconnectTarget = "";
-                                    root.vpnLiaConnecting = true;
-                                    pVpnLia.running = true;
+                    // VPN Row (dynamic)
+                    Repeater {
+                        model: vpnModel
+                        delegate: RowLayout {
+                            Layout.fillWidth: true
+                            ModernSplitButton {
+                                Layout.fillWidth: true
+                                text: model.connecting ? "Connecting..." : model.name
+                                iconText: "󰖂"
+                                isActive: model.active
+                                accent: "#FF9500"
+                                onIconClicked: {
+                                    if (model.active) {
+                                        root.vpnDisconnectTarget = model.name;
+                                    } else {
+                                        root.vpnDisconnectTarget = "";
+                                        vpnModel.setProperty(index, "connecting", true);
+                                        pVpnUp.command = ["nmcli", "con", "up", model.name];
+                                        pVpnUp.running = true;
+                                    }
                                 }
+                                onMainClicked: iconClicked()
+                                onRightIconClicked: iconClicked()
                             }
-                            onMainClicked: iconClicked()
-                            onRightIconClicked: iconClicked()
-                        }
-
-                        ModernSplitButton {
-                            text: root.vpnSkygateConnecting ? "Connecting..." : "Skygate"
-                            iconText: "󰖂"
-                            isActive: root.vpnSkygateActive
-                            accent: "#FF9500"
-                            onIconClicked: {
-                                if (root.vpnSkygateActive) {
-                                    root.vpnDisconnectTarget = "Skygate Office";
-                                } else {
-                                    root.vpnDisconnectTarget = "";
-                                    root.vpnSkygateConnecting = true;
-                                    pVpnSkygate.running = true;
-                                }
-                            }
-                            onMainClicked: iconClicked()
-                            onRightIconClicked: iconClicked()
                         }
                     }
 
@@ -1320,12 +1333,13 @@ ShellRoot {
                             spacing: 8
 
                             Text {
-                                text: "Disconnect " + (root.vpnDisconnectTarget === "LIA_ROC" ? "LIA ROC" : "Skygate") + "?"
+                                text: "Disconnect " + root.vpnDisconnectTarget + "?"
                                 color: root.colFg
                                 font.family: root.fontFamily
                                 font.pixelSize: 13
                                 font.bold: true
                                 Layout.fillWidth: true
+                                elide: Text.ElideRight
                             }
 
                             MouseArea {
@@ -1352,8 +1366,8 @@ ShellRoot {
                                 Layout.preferredHeight: 32
                                 hoverEnabled: true
                                 onClicked: {
-                                    if (root.vpnDisconnectTarget === "LIA_ROC") pVpnLiaDown.running = true;
-                                    else pVpnSkygateDown.running = true;
+                                    pVpnDown.command = ["nmcli", "con", "down", root.vpnDisconnectTarget];
+                                    pVpnDown.running = true;
                                     root.vpnDisconnectTarget = "";
                                 }
                                 Rectangle {
@@ -1658,6 +1672,54 @@ ShellRoot {
                                     root.timerText = root.formatTime(root.timerTotal);
                                 }
                             }
+                        }
+                    }
+
+                    // Power Row
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 1
+                        color: Qt.rgba(1, 1, 1, 0.08)
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        ModernButton {
+                            iconText: ""
+                            accent: "#cc9900"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 36
+                            onClicked: pPowerLock.running = true
+                        }
+                        ModernButton {
+                            iconText: "⏾"
+                            accent: "#4A90D9"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 36
+                            onClicked: pPowerSuspend.running = true
+                        }
+                        ModernButton {
+                            iconText: "󰍃"
+                            accent: "#FF9500"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 36
+                            onClicked: pPowerLogout.running = true
+                        }
+                        ModernButton {
+                            iconText: ""
+                            accent: "#5CB85C"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 36
+                            onClicked: pPowerReboot.running = true
+                        }
+                        ModernButton {
+                            iconText: "⏻"
+                            accent: "#FF3B30"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 36
+                            onClicked: pPowerShutdown.running = true
                         }
                     }
 
