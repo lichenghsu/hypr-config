@@ -22,8 +22,8 @@ ShellRoot {
     property bool isBarMode: windowCount === 1
     property real notchWidth: notchLayout.implicitWidth
     
-    property bool isAnyPopupOpen: controlCenter.show || appLauncherPopup.show || clipboardManagerPopup.show || themeSwitcherPopup.show || wifiMenuPopup.show || powerMenuPopup.show || bluetoothMenuPopup.show
-    property bool isAnyPopupAnimActive: isAnyPopupOpen || controlCenter.animHeight > 36 || appLauncherPopup.animHeight > 36 || clipboardManagerPopup.animHeight > 36 || themeSwitcherPopup.animHeight > 36 || wifiMenuPopup.animHeight > 36 || powerMenuPopup.animHeight > 36 || bluetoothMenuPopup.animHeight > 36
+    property bool isAnyPopupOpen: controlCenter.show || appLauncherPopup.show || clipboardManagerPopup.show || themeSwitcherPopup.show || wifiMenuPopup.show || powerMenuPopup.show || bluetoothMenuPopup.show || wallpaperPickerPopup.show
+    property bool isAnyPopupAnimActive: isAnyPopupOpen || controlCenter.animHeight > 36 || appLauncherPopup.animHeight > 36 || clipboardManagerPopup.animHeight > 36 || themeSwitcherPopup.animHeight > 36 || wifiMenuPopup.animHeight > 36 || powerMenuPopup.animHeight > 36 || bluetoothMenuPopup.animHeight > 36 || wallpaperPickerPopup.animHeight > 36
 
     Process {
         command: ["/home/miles/.config/quickshell/count_tiled.sh"]
@@ -1958,6 +1958,11 @@ ShellRoot {
         shellRoot: root
     }
 
+    WallpaperPicker {
+        id: wallpaperPickerPopup
+        shellRoot: root
+    }
+
     WifiMenu {
         id: wifiMenuPopup
         shellRoot: root
@@ -1995,6 +2000,9 @@ ShellRoot {
         }
         function toggleThemeSwitcher() {
             themeSwitcherPopup.show = !themeSwitcherPopup.show;
+        }
+        function toggleWallpaperPicker() {
+            wallpaperPickerPopup.show = !wallpaperPickerPopup.show;
         }
         function toggleWifiMenu() {
             wifiMenuPopup.show = !wifiMenuPopup.show;

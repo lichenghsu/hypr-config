@@ -26,6 +26,7 @@ hl.bind(mainMod .. " + F12", hl.dsp.exec_cmd(p.lock))
 hl.bind(mainMod .. " + SHIFT + F12", hl.dsp.exec_cmd("brightnessctl s 0"))
 hl.bind("XF86Launch1", hl.dsp.exec_cmd(p.rog))
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_theme.sh"))
+hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_wallpaper.sh"))
 hl.bind("mouse:277", hl.dsp.window.close())
 local battery_mode = false
 hl.bind(mainMod .. " + B", function()
