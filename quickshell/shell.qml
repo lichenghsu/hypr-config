@@ -154,7 +154,7 @@ ShellRoot {
     Process { id: pPowerReboot;   command: ["systemctl", "reboot"] }
     Process { id: pPowerSuspend;  command: ["sh", "-c", "hyprlock & sleep 1 && systemctl suspend"] }
     Process { id: pPowerLock;     command: ["hyprlock"] }
-    Process { id: pPowerLogout;   command: ["hyprctl", "dispatch", "exit"] }
+    Process { id: pPowerLogout;   command: ["pkill", "-x", "Hyprland"] }
 
     Process {
         id: pVpnScan
