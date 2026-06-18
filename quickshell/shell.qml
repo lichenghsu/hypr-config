@@ -1687,14 +1687,14 @@ ShellRoot {
                         spacing: 6
 
                         ModernButton {
-                            iconText: ""
+                            iconText: "󰌾"
                             accent: "#cc9900"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
                             onClicked: pPowerLock.running = true
                         }
                         ModernButton {
-                            iconText: "⏾"
+                            iconText: "󰒲"
                             accent: "#4A90D9"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
@@ -1708,14 +1708,14 @@ ShellRoot {
                             onClicked: pPowerLogout.running = true
                         }
                         ModernButton {
-                            iconText: ""
+                            iconText: "󰜉"
                             accent: "#5CB85C"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
                             onClicked: pPowerReboot.running = true
                         }
                         ModernButton {
-                            iconText: "⏻"
+                            iconText: "󰐥"
                             accent: "#FF3B30"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
