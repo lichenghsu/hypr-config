@@ -71,6 +71,24 @@ hl.window_rule({
 })
 
 hl.window_rule({
+    name      = "line-main",
+    match     = { class = "line.exe" },
+    float     = true,
+    size      = "1882 1170",
+    center    = true,
+    workspace = "special:line silent",
+})
+
+hl.window_rule({
+    name      = "line-tray",
+    match     = { class = "explorer.exe", title = "^$" },
+    float     = true,
+    size      = "44 571",
+    move      = "(monitor_w - 506) (monitor_h - 886)",
+    workspace = "special:line silent",
+})
+
+hl.window_rule({
     name      = "keepassxc",
     match     = { class = "org.keepassxc.KeePassXC" },
     float     = true,
