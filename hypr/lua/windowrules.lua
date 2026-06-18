@@ -137,7 +137,7 @@ hl.window_rule({
     match          = { class = "nm-openconnect-auth-dialog" },
     float          = true,
     size           = "500 400",
-    center         = true,
+    move           = "(monitor_w / 2 - 250) 50",
     stayfocused    = true,
-    suppress_event = "fullscreen",
+    suppress_event = "fullscreen maximize",
 })
