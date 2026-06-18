@@ -31,5 +31,10 @@ hl.on("hyprland.start", function ()
 
   hl.timer(function()
       hl.exec_cmd("keepassxc")
+      hl.exec_cmd("kontact")
   end, { timeout = 3000, type = "oneshot" })
+
+  hl.timer(function()
+      hl.exec_cmd("flatpak run --command=bottles-cli com.usebottles.bottles run -p LineLauncher -b LINE")
+  end, { timeout = 6000, type = "oneshot" })
 end)

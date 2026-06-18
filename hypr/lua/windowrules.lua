@@ -89,12 +89,30 @@ hl.window_rule({
 })
 
 hl.window_rule({
+    name      = "kontact",
+    match     = { class = "org.kde.kontact" },
+    float     = true,
+    size      = "1200 800",
+    center    = true,
+    workspace = "special:kontact silent",
+})
+
+hl.window_rule({
     name      = "keepassxc",
     match     = { class = "org.keepassxc.KeePassXC" },
     float     = true,
     size      = "900 600",
     center    = true,
     workspace = "special:keepass silent",
+})
+
+hl.window_rule({
+    name      = "kontact",
+    match     = { class = "org.kde.kontact" },
+    float     = true,
+    size      = "1200 800",
+    center    = true,
+    workspace = "special:kontact silent",
 })
 
 hl.window_rule({

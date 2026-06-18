@@ -4,7 +4,6 @@ local mainMod = "SUPER"
 -- Basic binds
 hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(p.terminal))
 hl.bind(mainMod .. " + C", hl.dsp.window.close())
-hl.bind(mainMod .. " + M", hl.dsp.exit())
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
 hl.bind(mainMod .. " + SHIFT + Space", function()
     hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
@@ -112,6 +111,7 @@ end
 hl.bind(mainMod .. " + S",         hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + K",         hl.dsp.workspace.toggle_special("keepass"))
 hl.bind(mainMod .. " + L",         hl.dsp.workspace.toggle_special("line"))
+hl.bind(mainMod .. " + M",         hl.dsp.workspace.toggle_special("kontact"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
 hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind(mainMod .. " + mouse_up",   hl.dsp.focus({ workspace = "e-1" }))
