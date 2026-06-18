@@ -71,6 +71,15 @@ hl.window_rule({
 })
 
 hl.window_rule({
+    name      = "keepassxc",
+    match     = { class = "org.keepassxc.KeePassXC" },
+    float     = true,
+    size      = "900 600",
+    center    = true,
+    workspace = "special:keepass silent",
+})
+
+hl.window_rule({
     name  = "spotify",
     match = { class = "^(Spotify|spotify)$" },
     float = true,

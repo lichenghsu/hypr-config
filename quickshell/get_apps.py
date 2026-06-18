@@ -7,7 +7,9 @@ from pathlib import Path
 def get_apps():
     dirs = [
         Path("/usr/share/applications"),
-        Path.home() / ".local/share/applications"
+        Path.home() / ".local/share/applications",
+        Path("/var/lib/flatpak/exports/share/applications"),
+        Path.home() / ".local/share/flatpak/exports/share/applications",
     ]
     apps = []
     seen = set()

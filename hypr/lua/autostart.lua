@@ -28,4 +28,8 @@ hl.on("hyprland.start", function ()
   hl.exec_cmd("/home/miles/.config/hypr/scripts/switch_theme.sh minimal")
   hl.exec_cmd("rm -f $XDG_RUNTIME_DIR/wob.fifo && mkfifo $XDG_RUNTIME_DIR/wob.fifo")
   hl.exec_cmd("cliphist list | tail -n +501 | cliphist delete")
+
+  hl.timer(function()
+      hl.exec_cmd("keepassxc")
+  end, { timeout = 3000, type = "oneshot" })
 end)
