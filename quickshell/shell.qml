@@ -361,21 +361,21 @@ ShellRoot {
         running: true; stdout: SplitParser { onRead: data => root.bluetoothStatus = data.trim() }
     }
     Process {
+        id: pVpnPoll
         command: ["sh", "-c", "while true; do nmcli -t -f NAME,TYPE,STATE con show --active 2>/dev/null | awk -F: '$2==\"vpn\"&&$3==\"activated\"{print $1}'; echo \"---\"; sleep 2; done"]
         running: true
         property var activeBatch: []
-        property bool inBatch: false
         stdout: SplitParser {
             onRead: data => {
                 var line = data.trim();
                 if (line === "---") {
                     for (var i = 0; i < vpnModel.count; i++) {
                         var n = vpnModel.get(i).name;
-                        root.vpnSetActive(n, parent.activeBatch.indexOf(n) !== -1);
+                        root.vpnSetActive(n, pVpnPoll.activeBatch.indexOf(n) !== -1);
                     }
-                    parent.activeBatch = [];
+                    pVpnPoll.activeBatch = [];
                 } else if (line !== "") {
-                    parent.activeBatch = parent.activeBatch.concat([line]);
+                    pVpnPoll.activeBatch = pVpnPoll.activeBatch.concat([line]);
                 }
             }
         }
