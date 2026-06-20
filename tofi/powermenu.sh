@@ -8,6 +8,6 @@ case "$choice" in
     "Shutdown") systemctl poweroff ;;
     "Lock") hyprlock ;;
     "Reboot") systemctl reboot ;;
-    "Suspend") hyprlock & sleep 1 && systemctl suspend ;;
+    "Suspend") systemctl suspend ;;
     "Logout") hyprctl dispatch "hl.dsp.exit()" ;;
 esac

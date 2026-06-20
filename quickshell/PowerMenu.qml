@@ -140,7 +140,7 @@ PanelWindow {
     
     Process { id: pShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pReboot; command: ["systemctl", "reboot"] }
-    Process { id: pSuspend; command: ["sh", "-c", "hyprlock & sleep 1 && systemctl suspend"] }
+    Process { id: pSuspend; command: ["systemctl", "suspend"] }
     Process { id: pLock; command: ["hyprlock"] }
     Process { id: pLogout; command: ["hyprctl", "dispatch", "exit"] }
 }
