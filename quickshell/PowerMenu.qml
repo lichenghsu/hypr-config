@@ -45,8 +45,8 @@ PanelWindow {
             show = false;
             if (selectedIndex === 0) pShutdown.running = true;
             else if (selectedIndex === 1) pReboot.running = true;
-            else if (selectedIndex === 2) pSuspend.running = true;
-            else if (selectedIndex === 3) pLock.running = true;
+            else if (selectedIndex === 2) pLock.running = true;
+            else if (selectedIndex === 3) pSuspend.running = true;
             else if (selectedIndex === 4) pLogout.running = true;
         }
         
@@ -106,23 +106,23 @@ PanelWindow {
                     Text { anchors.centerIn: parent; text: ""; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 24 }
                     MouseArea { id: rbMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pReboot.running = true } }
                 }
-                // Suspend
-                Rectangle {
-                    width: 64; height: 64; radius: 32
-                    color: (spMouse.containsMouse || selectedIndex === 2) ? Qt.rgba(0.2, 0.2, 1.0, 0.8) : Qt.rgba(1, 1, 1, 0.1)
-                    scale: (spMouse.containsMouse || selectedIndex === 2) ? 1.1 : 1.0
-                    Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150 } }
-                    Text { anchors.centerIn: parent; text: "⏾"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 24 }
-                    MouseArea { id: spMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pSuspend.running = true } }
-                }
                 // Lock
                 Rectangle {
                     width: 64; height: 64; radius: 32
-                    color: (lkMouse.containsMouse || selectedIndex === 3) ? Qt.rgba(0.8, 0.2, 0.8, 0.8) : Qt.rgba(1, 1, 1, 0.1)
-                    scale: (lkMouse.containsMouse || selectedIndex === 3) ? 1.1 : 1.0
+                    color: (lkMouse.containsMouse || selectedIndex === 2) ? Qt.rgba(0.8, 0.2, 0.8, 0.8) : Qt.rgba(1, 1, 1, 0.1)
+                    scale: (lkMouse.containsMouse || selectedIndex === 2) ? 1.1 : 1.0
                     Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150 } }
                     Text { anchors.centerIn: parent; text: ""; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 24 }
                     MouseArea { id: lkMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pLock.running = true } }
+                }
+                // Suspend
+                Rectangle {
+                    width: 64; height: 64; radius: 32
+                    color: (spMouse.containsMouse || selectedIndex === 3) ? Qt.rgba(0.35, 0.61, 0.84, 0.8) : Qt.rgba(1, 1, 1, 0.1)
+                    scale: (spMouse.containsMouse || selectedIndex === 3) ? 1.1 : 1.0
+                    Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150 } }
+                    Text { anchors.centerIn: parent; text: "󰒲"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 24 }
+                    MouseArea { id: spMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pSuspend.running = true } }
                 }
                 // Logout
                 Rectangle {
@@ -140,7 +140,7 @@ PanelWindow {
     
     Process { id: pShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pReboot; command: ["systemctl", "reboot"] }
-    Process { id: pSuspend; command: ["systemctl", "suspend"] }
     Process { id: pLock; command: ["hyprlock"] }
+    Process { id: pSuspend; command: ["systemctl", "suspend"] }
     Process { id: pLogout; command: ["hyprctl", "dispatch", "exit"] }
 }

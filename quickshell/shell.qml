@@ -152,8 +152,9 @@ ShellRoot {
     Process { id: pVpnDown }
     Process { id: pPowerShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pPowerReboot;   command: ["systemctl", "reboot"] }
-    Process { id: pPowerSuspend;  command: ["sh", "-c", "hyprlock & sleep 1 && systemctl suspend"] }
+
     Process { id: pPowerLock;     command: ["hyprlock"] }
+    Process { id: pPowerSuspend;  command: ["systemctl", "suspend"] }
     Process { id: pPowerLogout;   command: ["pkill", "-x", "Hyprland"] }
 
     Process {
@@ -1695,11 +1696,12 @@ ShellRoot {
                         }
                         ModernButton {
                             iconText: "󰒲"
-                            accent: "#4A90D9"
+                            accent: "#5B9BD5"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
                             onClicked: pPowerSuspend.running = true
                         }
+
                         ModernButton {
                             iconText: "󰍃"
                             accent: "#FF9500"
