@@ -1,15 +1,50 @@
-color=000000
-inside-color=333333
-ring-color=444444
-key-hl-color=ffffff
-text-color=ffffff
-line-color=00000000
-separator-color=00000000
-bs-hl-color=ff0000
-ring-wrong-color=ff0000
-inside-wrong-color=333333
+# swaylock-effects — Style A: screenshot + heavy blur + centered clock
 
-hide-keyboard-layout
+# Background: take screenshot and blur it
+screenshots
+effect-blur=4x2
+effect-greyscale
+effect-vignette=0.0:0.6
+
+# Clock
+clock
+timestr=%H:%M
+datestr=%A, %B %d
+font=JetBrainsMono Nerd Font
+font-size=64
+
+# Indicator ring
+indicator
 indicator-radius=120
 indicator-thickness=8
-font-size=16
+
+# Colors — transparent base, ring and text visible
+color=00000000
+inside-color=00000000
+inside-ver-color=00000000
+inside-wrong-color=00000033
+inside-clear-color=00000000
+
+ring-color=ffffff11
+ring-ver-color=88c0d033
+ring-wrong-color=bf616a66
+ring-clear-color=ffffff11
+
+key-hl-color=ffffff66
+bs-hl-color=bf616a66
+
+text-color=ffffff99
+text-ver-color=ffffff99
+text-wrong-color=bf616a99
+text-clear-color=ffffff99
+
+line-color=00000000
+line-ver-color=00000000
+line-wrong-color=00000000
+line-clear-color=00000000
+
+separator-color=00000000
+
+# Misc
+hide-keyboard-layout
+ignore-empty-password
