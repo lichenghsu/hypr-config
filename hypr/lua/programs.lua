@@ -1,6 +1,6 @@
 local programs = {}
 
-programs.terminal = "footclient"
+programs.terminal = "kitty"
 programs.fileManager = "footclient yazi"
 programs.menu = "/home/miles/.local/bin/smart_menu.sh"
 programs.bar = "quickshell"
