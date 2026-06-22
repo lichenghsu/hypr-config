@@ -101,6 +101,10 @@ ShellRoot {
         onTriggered: root.showMicIndicator = false
     }
 
+    property int claudeRemainPct: 0
+    property string claudeResetIn: "--"
+    property string claudeWeekCost: "0.00"
+
     property string spotifyStatus: "offline"
     property string spotifyText: ""
     property string wifiIcon: "󰤯"
@@ -289,7 +293,7 @@ ShellRoot {
 
     // Background Process Loops
     Process {
-        command: ["sh", "-c", "while true; do awk '{line[NR]=$1} END {printf \"%.1f\", (line[1] * line[2]) / 1000000000000}' /sys/class/power_supply/BAT1/current_now /sys/class/power_supply/BAT1/voltage_now 2>/dev/null || echo '0.0'; echo; sleep 3; done"]
+        command: ["sh", "-c", "while true; do status=$(cat /sys/class/power_supply/BAT1/status 2>/dev/null); if [ \"$status\" = \"Discharging\" ]; then awk '{line[NR]=$1} END {printf \"%.1f\", (line[1] * line[2]) / 1000000000000}' /sys/class/power_supply/BAT1/current_now /sys/class/power_supply/BAT1/voltage_now 2>/dev/null; else echo \"AC\"; fi; echo; sleep 3; done"]
         running: true; stdout: SplitParser { onRead: data => root.powerDraw = data.trim() }
     }
     Process {
@@ -412,7 +416,7 @@ ShellRoot {
 
     Process {
         command: ["sh", "-c", "while true; do asusctl leds get 2>/dev/null | awk '{print $NF}'; sleep 3; done"]
-        running: true; stdout: SplitParser { 
+        running: true; stdout: SplitParser {
             onRead: data => {
                 var d = data.trim().toLowerCase();
                 if (d === 'off') root.kbdBrightnessLevel = "0";
@@ -422,6 +426,23 @@ ShellRoot {
             }
         }
     }
+
+    Process {
+        id: pClaudeUsage
+        command: ["python3", "/home/miles/.config/quickshell/claude_usage.sh"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                var parts = data.trim().split("|");
+                if (parts.length === 3) {
+                    root.claudeRemainPct = parseInt(parts[0]) || 0;
+                    root.claudeResetIn = parts[1];
+                    root.claudeWeekCost = parts[2];
+                }
+            }
+        }
+    }
+    Timer { interval: 60000; running: true; repeat: true; onTriggered: pClaudeUsage.running = true }
 
 
     // A helper to make clickable modules easily
@@ -1074,12 +1095,31 @@ ShellRoot {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
-                        
-                        Text { text: "󱐋 " + root.powerDraw + "W"; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
+
+                        Text { text: "󱐋 " + root.powerDraw + (root.powerDraw === "AC" ? "" : "W"); color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
                         Text { text: " " + root.temperature + "°"; color: parseInt(root.temperature) >= 80 ? root.colCrit : root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
-                        Text { text: "󰮯 " + root.updates; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; visible: parseInt(root.updates) > 0 }
+                        Text { text: "󰠯 " + root.updates; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; visible: parseInt(root.updates) > 0 }
                     }
-                    
+
+                    // Claude Code session usage
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        Text { text: "󰀖"; color: "#CC785C"; font.family: root.fontFamily; font.pixelSize: 12 }
+                        Text { text: "Claude"; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12 }
+
+                        Item { Layout.fillWidth: true }
+
+                        Text {
+                            text: root.claudeRemainPct + "%"
+                            color: root.claudeRemainPct < 20 ? root.colCrit : (root.claudeRemainPct < 40 ? "#FFA500" : root.colMuted)
+                            font.family: root.fontFamily; font.pixelSize: 12; font.bold: true
+                        }
+                        Text { text: root.claudeResetIn; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 11 }
+                        Text { text: "$" + root.claudeWeekCost + "/wk"; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 11 }
+                    }
+
                     Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,1,1,0.1) }
                     
                     // Spotify Media Player

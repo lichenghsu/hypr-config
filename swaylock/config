@@ -1,0 +1,15 @@
+color=000000
+inside-color=333333
+ring-color=444444
+key-hl-color=ffffff
+text-color=ffffff
+line-color=00000000
+separator-color=00000000
+bs-hl-color=ff0000
+ring-wrong-color=ff0000
+inside-wrong-color=333333
+
+hide-keyboard-layout
+indicator-radius=120
+indicator-thickness=8
+font-size=16
