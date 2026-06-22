@@ -141,6 +141,14 @@ hl.window_rule({
 })
 
 hl.window_rule({
+    name   = "drawing",
+    match  = { class = "^com.github.maoschanz.drawing$" },
+    float  = true,
+    size   = "1000 700",
+    center = true,
+})
+
+hl.window_rule({
     name   = "openconnect-auth",
     match  = { class = "nm-openconnect-auth-dialog" },
     float  = true,
