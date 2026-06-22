@@ -1,5 +1,5 @@
 #!/bin/bash
-# Kills hyprlock before sleep/hibernate and relaunches it fresh after resume.
+# Kills swaylock before sleep/hibernate and relaunches it fresh after resume.
 # Avoids "lockscreen app died" error caused by GPU context invalidation on resume.
 # Placed in /usr/lib/systemd/system-sleep/
 # systemd-sleep args: $1=operation (suspend/hibernate/...), $2=pre|post
@@ -10,11 +10,11 @@ RUNTIME_DIR="/run/user/${UID_NUM}"
 
 case "$2" in
   pre)
-    if pgrep -u "${USER}" hyprlock >/dev/null 2>&1; then
-      pkill -u "${USER}" hyprlock
+    if pgrep -u "${USER}" swaylock >/dev/null 2>&1; then
+      pkill -u "${USER}" swaylock
       for _ in $(seq 20); do
         sleep 0.2
-        pgrep -u "${USER}" hyprlock >/dev/null 2>&1 || break
+        pgrep -u "${USER}" swaylock >/dev/null 2>&1 || break
       done
     fi
     ;;

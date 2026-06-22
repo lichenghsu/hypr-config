@@ -157,7 +157,7 @@ ShellRoot {
     Process { id: pPowerShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pPowerReboot;   command: ["systemctl", "reboot"] }
 
-    Process { id: pPowerLock;     command: ["hyprlock"] }
+    Process { id: pPowerLock;     command: ["swaylock"] }
     Process { id: pPowerSuspend;  command: ["systemctl", "suspend"] }
     Process { id: pPowerLogout;   command: ["pkill", "-x", "Hyprland"] }
 

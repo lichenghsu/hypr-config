@@ -9,7 +9,7 @@ programs.screenshot = 'mkdir -p "/mnt/shared-data/ScreenShots/$(date +%Y-%m-%d)"
 programs.screenshot_full = 'mkdir -p "/mnt/shared-data/ScreenShots/$(date +%Y-%m-%d)" && grim - | satty --filename - --output-filename "/mnt/shared-data/ScreenShots/%Y-%m-%d/%H%M%S.png"'
 programs.browser = "zen-browser"
 programs.powermenu = "/home/miles/.local/bin/smart_powermenu.sh"
-programs.lock = "hyprlock"
+programs.lock = "swaylock"
 programs.note = "obsidian"
 programs.dock = ""
 
