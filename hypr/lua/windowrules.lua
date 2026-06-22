@@ -133,6 +133,14 @@ hl.window_rule({
 })
 
 hl.window_rule({
+    name   = "kitty",
+    match  = { class = "^kitty$" },
+    float  = true,
+    size   = "850 650",
+    center = true,
+})
+
+hl.window_rule({
     name           = "openconnect-auth",
     match          = { class = "nm-openconnect-auth-dialog" },
     float          = true,
