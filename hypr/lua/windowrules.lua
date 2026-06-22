@@ -141,10 +141,9 @@ hl.window_rule({
 })
 
 hl.window_rule({
-    name        = "openconnect-auth",
-    match       = { class = "nm-openconnect-auth-dialog" },
-    float       = true,
-    size        = "500 400",
-    center      = true,
-    stayfocused = true,
+    name   = "openconnect-auth",
+    match  = { class = "nm-openconnect-auth-dialog" },
+    float  = true,
+    size   = "500 400",
+    center = true,
 })
