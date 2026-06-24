@@ -104,6 +104,15 @@ hl.bind("ALT + left",  hl.dsp.window.resize({ x = -30, y = 0,  relative = true }
 hl.bind("ALT + up",    hl.dsp.window.resize({ x = 0,   y = -30, relative = true }), { repeating = true })
 hl.bind("ALT + down",  hl.dsp.window.resize({ x = 0,   y = 30,  relative = true }), { repeating = true })
 
+-- Move current workspace to left/right monitor
+hl.bind(mainMod .. " + SHIFT + comma",  hl.dsp.workspace.move({ monitor = "eDP-1" }))
+hl.bind(mainMod .. " + SHIFT + period", hl.dsp.workspace.move({ monitor = "HDMI-A-1" }))
+
+-- Close/dismiss current workspace (jumps to previous non-empty ws, auto-removes empty)
+hl.bind(mainMod .. " + SHIFT + w", function()
+    hl.dispatch(hl.dsp.focus({ workspace = "e-1" }))
+end)
+
 -- Workspaces
 hl.bind(mainMod .. " + Space", hl.dsp.focus({ workspace = "empty" }))
 for i = 1, 10 do
