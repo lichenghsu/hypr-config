@@ -59,8 +59,14 @@ ShellRoot {
     property bool micMuted: false
     property string bluetoothStatus: "off"
     property string vpnDisconnectTarget: ""
+    property bool audioSinkExpanded: false
+    property bool audioSourceExpanded: false
+    property string defaultSink: ""
+    property string defaultSource: ""
 
     ListModel { id: vpnModel }
+    ListModel { id: audioSinkModel }
+    ListModel { id: audioSourceModel }
 
     function vpnSetActive(name, active) {
         for (var i = 0; i < vpnModel.count; i++) {
@@ -73,6 +79,7 @@ ShellRoot {
     }
     property bool remminaExpanded: false
     property bool batteryMode: false
+
     property bool showBatteryModeIndicator: false
     
     onBatteryModeChanged: {
@@ -154,6 +161,59 @@ ShellRoot {
     Process { id: pBtOff; command: ["rfkill", "block", "bluetooth"] }
     Process { id: pVpnUp }
     Process { id: pVpnDown }
+
+    Process {
+        id: pGetDefaultSink
+        command: ["sh", "-c", "pactl get-default-sink 2>/dev/null"]
+        stdout: SplitParser { onRead: data => { root.defaultSink = data.trim() } }
+    }
+    Process {
+        id: pGetDefaultSource
+        command: ["sh", "-c", "pactl get-default-source 2>/dev/null"]
+        stdout: SplitParser { onRead: data => { root.defaultSource = data.trim() } }
+    }
+    Process {
+        id: pGetSinks
+        command: ["sh", "-c", "pactl list sinks | awk '/\\tName:/{name=$2} /\\tDescription:/{line=$0; sub(/^\\tDescription:[ \\t]*/, \"\", line); print name\"|\"line}'"]
+        stdout: SplitParser {
+            onRead: data => {
+                var parts = data.split("|");
+                if (parts.length >= 2)
+                    audioSinkModel.append({ name: parts[0].trim(), displayName: parts.slice(1).join("|").trim() });
+            }
+        }
+        onRunningChanged: {
+            if (running) { audioSinkModel.clear(); pGetDefaultSink.running = true; }
+        }
+    }
+    Process {
+        id: pGetSources
+        command: ["sh", "-c", "pactl list sources | awk '/\\tName:/{name=$2} /\\tDescription:/{line=$0; sub(/^\\tDescription:[ \\t]*/, \"\", line); if (line !~ /Monitor of/) print name\"|\"line}'"]
+        stdout: SplitParser {
+            onRead: data => {
+                var parts = data.split("|");
+                if (parts.length >= 2)
+                    audioSourceModel.append({ name: parts[0].trim(), displayName: parts.slice(1).join("|").trim() });
+            }
+        }
+        onRunningChanged: {
+            if (running) { audioSourceModel.clear(); pGetDefaultSource.running = true; }
+        }
+    }
+    Process {
+        id: pSetDefaultSink
+        property string sinkName: ""
+        onRunningChanged: {
+            if (running) command = ["pactl", "set-default-sink", sinkName];
+        }
+    }
+    Process {
+        id: pSetDefaultSource
+        property string sourceName: ""
+        onRunningChanged: {
+            if (running) command = ["pactl", "set-default-source", sourceName];
+        }
+    }
     Process { id: pPowerShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pPowerReboot;   command: ["systemctl", "reboot"] }
 
@@ -271,6 +331,8 @@ ShellRoot {
     Process { id: pKbdBrightSet }
 
     Process { id: pWattSet }
+
+
 
     Process { id: pSpotPlay; command: ["playerctl", "--player=spotify", "play-pause"] }
     Process { id: pSpotNext; command: ["playerctl", "--player=spotify", "next"] }
@@ -442,7 +504,7 @@ ShellRoot {
             }
         }
     }
-    Timer { interval: 60000; running: true; repeat: true; onTriggered: pClaudeUsage.running = true }
+    Timer { interval: 60000; running: true; repeat: true; onTriggered: { if (!pClaudeUsage.running) pClaudeUsage.running = true } }
 
 
     // A helper to make clickable modules easily
@@ -905,6 +967,8 @@ ShellRoot {
             else {
                 root.vpnDisconnectTarget = "";
                 root.remminaExpanded = false;
+                root.audioSinkExpanded = false;
+                root.audioSourceExpanded = false;
             }
         }
         
@@ -1161,61 +1225,179 @@ ShellRoot {
                         spacing: 8
                         
                         // Volume
-                        RowLayout {
-                            spacing: 8
-                            MouseArea {
-                                Layout.preferredWidth: 24
-                                Layout.preferredHeight: 24
-                                hoverEnabled: true
-                                onClicked: pVolMute.running = true
-                                scale: containsPress ? 0.9 : (containsMouse ? 1.1 : 1.0)
-                                Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: root.volumeMuted ? "󰝟" : ""
-                                    color: root.volumeMuted ? root.colMuted : root.colFg
-                                    font.family: root.fontFamily
-                                    font.pixelSize: 18 
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                MouseArea {
+                                    Layout.preferredWidth: 24
+                                    Layout.preferredHeight: 24
+                                    hoverEnabled: true
+                                    onClicked: pVolMute.running = true
+                                    scale: containsPress ? 0.9 : (containsMouse ? 1.1 : 1.0)
+                                    Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: root.volumeMuted ? "󰝟" : ""
+                                        color: root.volumeMuted ? root.colMuted : root.colFg
+                                        font.family: root.fontFamily
+                                        font.pixelSize: 18
+                                    }
+                                }
+                                ModernSlider {
+                                    value: parseInt(root.volumeOut) / 100.0
+                                    onMoved: {
+                                        root.volumeOut = Math.round(value * 100) + "%"
+                                        pVolSet.command = ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", value.toFixed(2)]
+                                        pVolSet.running = true
+                                    }
+                                }
+                                MouseArea {
+                                    Layout.preferredWidth: 20
+                                    Layout.preferredHeight: 24
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        root.audioSinkExpanded = !root.audioSinkExpanded;
+                                        if (root.audioSinkExpanded) pGetSinks.running = true;
+                                    }
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: root.audioSinkExpanded ? "󰅃" : "󰅀"
+                                        color: root.audioSinkExpanded ? root.colFg : root.colMuted
+                                        font.family: root.fontFamily
+                                        font.pixelSize: 11
+                                    }
                                 }
                             }
-                            ModernSlider {
-                                value: parseInt(root.volumeOut) / 100.0
-                                onMoved: {
-                                    root.volumeOut = Math.round(value * 100) + "%"
-                                    pVolSet.command = ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", value.toFixed(2)]
-                                    pVolSet.running = true
+                            Repeater {
+                                model: root.audioSinkExpanded ? audioSinkModel : null
+                                delegate: MouseArea {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 28
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        root.defaultSink = model.name;
+                                        pSetDefaultSink.sinkName = model.name;
+                                        pSetDefaultSink.running = true;
+                                    }
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius: 8
+                                        color: parent.containsMouse ? Qt.rgba(1,1,1,0.1) : "transparent"
+                                    }
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 28
+                                        anchors.rightMargin: 8
+                                        spacing: 6
+                                        Text {
+                                            text: model.name === root.defaultSink ? "󰄪" : ""
+                                            color: model.name === root.defaultSink ? "#007AFF" : root.colMuted
+                                            font.family: root.fontFamily
+                                            font.pixelSize: 10
+                                        }
+                                        Text {
+                                            text: model.displayName
+                                            color: model.name === root.defaultSink ? root.colFg : root.colMuted
+                                            font.family: root.fontFamily
+                                            font.pixelSize: 11
+                                            font.bold: model.name === root.defaultSink
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                        }
+                                    }
                                 }
                             }
-                            
                         }
-                        
+
                         // Mic
-                        RowLayout {
-                            spacing: 8
-                            MouseArea {
-                                Layout.preferredWidth: 24
-                                Layout.preferredHeight: 24
-                                hoverEnabled: true
-                                onClicked: pMicMute.running = true
-                                scale: containsPress ? 0.9 : (containsMouse ? 1.1 : 1.0)
-                                Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: root.micMuted ? "" : ""
-                                    color: root.micMuted ? root.colMuted : root.colFg
-                                    font.family: root.fontFamily
-                                    font.pixelSize: 18 
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                MouseArea {
+                                    Layout.preferredWidth: 24
+                                    Layout.preferredHeight: 24
+                                    hoverEnabled: true
+                                    onClicked: pMicMute.running = true
+                                    scale: containsPress ? 0.9 : (containsMouse ? 1.1 : 1.0)
+                                    Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: root.micMuted ? "" : ""
+                                        color: root.micMuted ? root.colMuted : root.colFg
+                                        font.family: root.fontFamily
+                                        font.pixelSize: 18
+                                    }
+                                }
+                                ModernSlider {
+                                    value: parseInt(root.volumeMic) / 100.0
+                                    onMoved: {
+                                        root.volumeMic = Math.round(value * 100) + "%"
+                                        pVolSet.command = ["wpctl", "set-volume", "@DEFAULT_AUDIO_SOURCE@", value.toFixed(2)]
+                                        pVolSet.running = true
+                                    }
+                                }
+                                MouseArea {
+                                    Layout.preferredWidth: 20
+                                    Layout.preferredHeight: 24
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        root.audioSourceExpanded = !root.audioSourceExpanded;
+                                        if (root.audioSourceExpanded) pGetSources.running = true;
+                                    }
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: root.audioSourceExpanded ? "󰅃" : "󰅀"
+                                        color: root.audioSourceExpanded ? root.colFg : root.colMuted
+                                        font.family: root.fontFamily
+                                        font.pixelSize: 11
+                                    }
                                 }
                             }
-                            ModernSlider {
-                                value: parseInt(root.volumeMic) / 100.0
-                                onMoved: {
-                                    root.volumeMic = Math.round(value * 100) + "%"
-                                    pVolSet.command = ["wpctl", "set-volume", "@DEFAULT_AUDIO_SOURCE@", value.toFixed(2)]
-                                    pVolSet.running = true
+                            Repeater {
+                                model: root.audioSourceExpanded ? audioSourceModel : null
+                                delegate: MouseArea {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 28
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        root.defaultSource = model.name;
+                                        pSetDefaultSource.sourceName = model.name;
+                                        pSetDefaultSource.running = true;
+                                    }
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius: 8
+                                        color: parent.containsMouse ? Qt.rgba(1,1,1,0.1) : "transparent"
+                                    }
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 28
+                                        anchors.rightMargin: 8
+                                        spacing: 6
+                                        Text {
+                                            text: model.name === root.defaultSource ? "󰄪" : ""
+                                            color: model.name === root.defaultSource ? "#007AFF" : root.colMuted
+                                            font.family: root.fontFamily
+                                            font.pixelSize: 10
+                                        }
+                                        Text {
+                                            text: model.displayName
+                                            color: model.name === root.defaultSource ? root.colFg : root.colMuted
+                                            font.family: root.fontFamily
+                                            font.pixelSize: 11
+                                            font.bold: model.name === root.defaultSource
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                        }
+                                    }
                                 }
                             }
-                            
                         }
                         // Brightness
                         RowLayout {
@@ -1286,7 +1468,7 @@ ShellRoot {
                                     pBatLimitSet.running = true
                                 }
                             }
-                            Text { 
+                            Text {
                                 text: root.batLimit + "%"
                                 color: root.colFg
                                 font.family: root.fontFamily
@@ -1295,6 +1477,7 @@ ShellRoot {
                                 horizontalAlignment: Text.AlignRight
                             }
                         }
+
 
                     }
                     
@@ -1517,7 +1700,7 @@ ShellRoot {
                                         Layout.preferredHeight: 32
                                         hoverEnabled: true
                                         onClicked: {
-                                            pRemmina.command = ["remmina", model.filePath];
+                                            pRemmina.command = ["bash", "-c", "remmina \"$1\" &", "--", model.filePath];
                                             pRemmina.running = true;
                                             root.remminaExpanded = false;
                                         }
