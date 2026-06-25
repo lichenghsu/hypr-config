@@ -17,12 +17,16 @@
 bin/          # smart_*.sh IPC wrapper（quickshell ipc 用）
 fish/         # Fish shell 設定
 foot/         # Foot 終端機設定
+gnupg/        # ~/.gnupg/gpg-agent.conf
 hypr/
   lua/        # keybindings, programs, input, autostart
   modules/    # windowrules, look_and_feel, input
   themes/     # 多主題 color scheme
+kde/          # ~/.config/kdeglobals（KDE 顏色/widget style）
+qt6ct/        # ~/.config/qt6ct/qt6ct.conf（Qt6 非 KDE app 樣式）
 quickshell/   # shell.qml 主 UI
 waybar/       # 備用 waybar 設定
+zsh/          # ~/.zshenv（QT_QPA_PLATFORMTHEME 等環境變數）
 ```
 
 ## 注意事項
