@@ -143,6 +143,7 @@ hl.bind(mainMod .. " + XF86AudioRaiseVolume", hl.dsp.exec_cmd("playerctl next"),
 hl.bind(mainMod .. " + XF86AudioLowerVolume", hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
 hl.bind(mainMod .. " + XF86AudioMicMute", hl.dsp.exec_cmd("/home/miles/.local/bin/spotify_restart.sh"),   { locked = true })
 
+hl.bind("XF86PowerOff", hl.dsp.exec_cmd(p.powermenu), { locked = true })
 hl.bind("XF86AudioNext",  hl.dsp.exec_cmd("playerctl next"),       { locked = true })
 hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioPlay",  hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
