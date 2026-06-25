@@ -1,5 +1,5 @@
 [colors-dark]
-foreground=ffffff
-background=000000
-selection-foreground=000000
-selection-background=ffffff
+foreground=e1ecee
+background=080d0f
+selection-foreground=080d0f
+selection-background=e1ecee

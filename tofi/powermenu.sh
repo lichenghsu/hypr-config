@@ -9,5 +9,5 @@ case "$choice" in
     "Lock") hyprlock ;;
     "Suspend") systemctl suspend ;;
     "Reboot") systemctl reboot ;;
-    "Logout") hyprctl dispatch "hl.dsp.exit()" ;;
+    "Logout") hyprctl dispatch exit ;;
 esac
