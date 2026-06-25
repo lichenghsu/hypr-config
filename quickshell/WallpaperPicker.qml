@@ -11,6 +11,7 @@ PanelWindow {
     property bool show: false
     property var shellRoot
     property real animHeight: animRect.height
+    property bool matugenMode: false
 
     WlrLayershell.keyboardFocus: show ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
@@ -89,12 +90,39 @@ PanelWindow {
                     anchors.fill: parent
                     spacing: 12
 
-                    Text {
-                        text: "Wallpapers"
-                        color: shellRoot ? shellRoot.colFg : "white"
-                        font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
-                        font.pixelSize: 14
-                        font.bold: true
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: "Wallpapers"
+                            color: shellRoot ? shellRoot.colFg : "white"
+                            font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
+                            font.pixelSize: 14
+                            font.bold: true
+                            Layout.fillWidth: true
+                        }
+
+                        Rectangle {
+                            width: 90; height: 22; radius: 8
+                            color: rootWindow.matugenMode ? Qt.rgba(1, 0.6, 0, 0.18) : Qt.rgba(1, 1, 1, 0.08)
+                            border.color: rootWindow.matugenMode ? "#FF9500" : Qt.rgba(1, 1, 1, 0.15)
+                            border.width: 1
+                            Behavior on color { ColorAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 200 } }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: rootWindow.matugenMode ? "󰏘 Matugen" : "󰏘 Static"
+                                color: rootWindow.matugenMode ? "#FF9500" : (shellRoot ? shellRoot.colMuted : "#888")
+                                font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
+                                font.pixelSize: 10
+                                font.bold: true
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: rootWindow.matugenMode = !rootWindow.matugenMode
+                            }
+                        }
                     }
 
                     GridView {
@@ -152,7 +180,9 @@ PanelWindow {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     onClicked: {
-                                        pApply.command = ["/home/miles/.local/bin/set_wallpaper.sh", model.path];
+                                        pApply.command = rootWindow.matugenMode
+                                            ? ["/home/miles/.local/bin/matugen_theme.sh", model.path]
+                                            : ["/home/miles/.local/bin/set_wallpaper.sh", model.path];
                                         pApply.running = true;
                                         rootWindow.show = false;
                                     }

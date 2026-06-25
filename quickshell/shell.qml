@@ -114,6 +114,16 @@ ShellRoot {
 
     property string spotifyStatus: "offline"
     property string spotifyText: ""
+
+    property string mprisPlayer: ""
+    property string mprisStatus: "offline"
+    property string mprisTitle: ""
+    property string mprisArtist: ""
+    property string mprisArtUrl: ""
+    property int    mprisLength: 0
+    property int    mprisPosition: 0
+    property real   mprisProgress: 0.0
+
     property string wifiIcon: "󰤯"
     property string wifiText: "Disconnected"
 
@@ -261,7 +271,7 @@ ShellRoot {
         command: ["/home/miles/.local/bin/battery_mode.sh"]
     }
 
-    Process { id: pSpotPrev; command: ["playerctl", "--player=spotify", "previous"] }
+    Process { id: pSpotPrev; command: ["playerctl", "previous"] }
 
     Process {
         id: pBright
@@ -334,8 +344,8 @@ ShellRoot {
 
 
 
-    Process { id: pSpotPlay; command: ["playerctl", "--player=spotify", "play-pause"] }
-    Process { id: pSpotNext; command: ["playerctl", "--player=spotify", "next"] }
+    Process { id: pSpotPlay; command: ["playerctl", "play-pause"] }
+    Process { id: pSpotNext; command: ["playerctl", "next"] }
     Process { id: pGpu; command: ["sh", "-c", "supergfxctl -m Hybrid; hyprctl dispatch \"hl.dsp.exit()\""] }
 
     Process { id: pGpuInt; command: ["sh", "-c", "supergfxctl -m Integrated; hyprctl dispatch \"hl.dsp.exit()\""] }
@@ -466,12 +476,51 @@ ShellRoot {
         }
     }
     Process {
-        command: ["sh", "-c", "while true; do status=$(playerctl --player=spotify status 2>/dev/null || echo 'offline'); if [ \"$status\" != 'offline' ]; then text=$(playerctl --player=spotify metadata --format '{{title}} - {{artist}}' 2>/dev/null); echo \"$status|$text\"; else echo 'offline|'; fi; sleep 0.5; done"]
-        running: true; stdout: SplitParser { 
+        command: ["sh", "-c", "while true; do out=$(playerctl metadata --format '{{playerName}}|{{status}}|{{title}}|{{artist}}|{{mpris:artUrl}}|{{mpris:length}}' 2>/dev/null); [ -z \"$out\" ] && echo 'offline||||0' || echo \"$out\"; sleep 0.5; done"]
+        running: true
+        stdout: SplitParser {
             onRead: data => {
                 var p = data.split("|");
-                root.spotifyStatus = p[0].trim();
-                root.spotifyText = p[1] ? p[1].trim() : "";
+                if (p[0].trim() === "offline" || p.length < 5) {
+                    root.mprisStatus = "offline"; root.spotifyStatus = "offline";
+                    root.mprisPlayer = root.mprisTitle = root.mprisArtist = root.mprisArtUrl = "";
+                    root.mprisLength = 0;
+                    return;
+                }
+                root.mprisPlayer   = p[0].trim();
+                root.mprisStatus   = p[1].trim();
+                root.mprisTitle    = p[2].trim();
+                root.mprisArtist   = p[3].trim();
+                root.mprisArtUrl   = p[4].trim();
+                root.mprisLength   = parseInt(p[5].trim()) || 0;
+                if (root.mprisPlayer === "spotify") {
+                    root.spotifyStatus = root.mprisStatus;
+                    root.spotifyText   = root.mprisTitle + (root.mprisArtist ? " — " + root.mprisArtist : "");
+                } else {
+                    root.spotifyStatus = "offline";
+                }
+            }
+        }
+    }
+    Timer {
+        interval: 1000; running: root.mprisStatus === "Playing"; repeat: true
+        onTriggered: {
+            if (root.mprisLength > 0) {
+                root.mprisPosition = Math.min(root.mprisPosition + 1000000, root.mprisLength);
+                root.mprisProgress = root.mprisPosition / root.mprisLength;
+            }
+        }
+    }
+    Process {
+        command: ["sh", "-c", "while true; do playerctl position 2>/dev/null || echo 0; sleep 5; done"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                var pos = parseFloat(data.trim());
+                if (!isNaN(pos) && root.mprisLength > 0) {
+                    root.mprisPosition = Math.round(pos * 1000000);
+                    root.mprisProgress = root.mprisPosition / root.mprisLength;
+                }
             }
         }
     }
@@ -1186,38 +1235,118 @@ ShellRoot {
 
                     Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,1,1,0.1) }
                     
-                    // Spotify Media Player
+                    // MPRIS Media Player (generic: Spotify, Firefox, etc.)
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 8
-                        visible: root.spotifyStatus !== "offline"
-                        
+                        visible: root.mprisStatus !== "offline"
+
+                        // Album art + track info
                         RowLayout {
                             Layout.fillWidth: true
-                            Text { text: ""; color: "#1DB954"; font.family: root.fontFamily; font.pixelSize: 18 }
-                            Text {
-                                text: root.spotifyText
-                                color: root.colFg
-                                font.family: root.fontFamily
-                                font.pixelSize: 14
-                                font.bold: true
+                            spacing: 10
+
+                            Rectangle {
+                                width: 56; height: 56; radius: 8
+                                color: Qt.rgba(1, 1, 1, 0.08)
+                                clip: true
+
+                                Image {
+                                    id: albumArt
+                                    anchors.fill: parent
+                                    source: (root.mprisArtUrl.startsWith("file://") || root.mprisArtUrl.startsWith("https://")) ? root.mprisArtUrl : ""
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                    asynchronous: true
+                                    visible: source !== "" && status === Image.Ready
+                                }
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: albumArt.source === "" || albumArt.status !== Image.Ready
+                                    text: root.mprisPlayer === "spotify" ? "" : "󰝚"
+                                    color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colMuted
+                                    font.family: root.fontFamily
+                                    font.pixelSize: 24
+                                }
+                            }
+
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                elide: Text.ElideRight
+                                spacing: 2
+                                Text {
+                                    text: root.mprisTitle
+                                    color: root.colFg
+                                    font.family: root.fontFamily; font.pixelSize: 12; font.bold: true
+                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                }
+                                Text {
+                                    text: root.mprisArtist
+                                    color: root.colMuted
+                                    font.family: root.fontFamily; font.pixelSize: 11
+                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                }
+                                Text {
+                                    text: root.mprisPlayer
+                                    color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colMuted
+                                    font.family: root.fontFamily; font.pixelSize: 9; font.bold: true
+                                }
                             }
                         }
-                        
+
+                        // Progress bar + time labels
+                        Item {
+                            Layout.fillWidth: true
+                            height: 20
+
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width; height: 4; radius: 2
+                                color: Qt.rgba(1, 1, 1, 0.1)
+
+                                Rectangle {
+                                    width: parent.width * root.mprisProgress
+                                    height: parent.height; radius: 2
+                                    color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colFg
+                                    Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 400 } }
+                                }
+                            }
+                            Text {
+                                anchors.left: parent.left; anchors.bottom: parent.bottom
+                                text: {
+                                    var s = Math.floor(root.mprisPosition / 1000000);
+                                    return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + s % 60;
+                                }
+                                color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 9
+                            }
+                            Text {
+                                anchors.right: parent.right; anchors.bottom: parent.bottom
+                                text: {
+                                    var s = Math.floor(root.mprisLength / 1000000);
+                                    return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + s % 60;
+                                }
+                                color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 9
+                            }
+                        }
+
+                        // Controls
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 8
                             Item { Layout.fillWidth: true }
                             ModernButton { Layout.preferredWidth: 48; Layout.preferredHeight: 40; iconText: "󰒮"; onClicked: { pSpotPrev.running = true } }
-                            ModernButton { Layout.preferredWidth: 64; Layout.preferredHeight: 40; iconText: root.spotifyStatus === "Playing" ? "󰏤" : "󰐊"; isActive: root.spotifyStatus === "Playing"; accent: "#1DB954"; onClicked: { pSpotPlay.running = true } }
+                            ModernButton {
+                                Layout.preferredWidth: 64; Layout.preferredHeight: 40
+                                iconText: root.mprisStatus === "Playing" ? "󰏤" : "󰐊"
+                                isActive: root.mprisStatus === "Playing"
+                                accent: root.mprisPlayer === "spotify" ? "#1DB954" : root.colFg
+                                onClicked: { pSpotPlay.running = true }
+                            }
                             ModernButton { Layout.preferredWidth: 48; Layout.preferredHeight: 40; iconText: "󰒭"; onClicked: { pSpotNext.running = true } }
                             Item { Layout.fillWidth: true }
                         }
                     }
-                    
-                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,1,1,0.1); visible: root.spotifyStatus !== "offline" }
+
+                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,1,1,0.1); visible: root.mprisStatus !== "offline" }
 
                     // Sliders
                     ColumnLayout {
@@ -1897,6 +2026,16 @@ ShellRoot {
                                 }
                             }
                         }
+                        ModernButton {
+                            id: btnOverview
+                            iconText: "󱢈"
+                            isActive: windowOverviewPopup.show
+                            accent: "#007AFF"
+                            onClicked: {
+                                windowOverviewPopup.show = !windowOverviewPopup.show
+                                controlCenter.show = false
+                            }
+                        }
                     }
 
                     // Power Row
@@ -2197,7 +2336,12 @@ ShellRoot {
         id: bluetoothMenuPopup
         shellRoot: root
     }
-    
+
+    WindowOverview {
+        id: windowOverviewPopup
+        shellRoot: root
+    }
+
     IpcHandler {
         id: qsIpc
         target: "qsIpc"
@@ -2240,6 +2384,14 @@ ShellRoot {
         }
         function refreshBatteryMode() {
             pCheckBatteryMode.running = true;
+        }
+        function toggleWindowOverview() {
+            windowOverviewPopup.show = !windowOverviewPopup.show;
+        }
+        function updateColors(bg: string, fg: string, accent: string) {
+            root.colBg     = bg;
+            root.colFg     = fg;
+            root.colAccent = accent;
         }
     }
 

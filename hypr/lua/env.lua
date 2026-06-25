@@ -1,4 +1,6 @@
-hl.env("XCURSOR_SIZE", "24")
-hl.env("HYPRCURSOR_SIZE", "24")
+hl.env("XCURSOR_THEME", "Skyrim-by-ru5tyshark-cursors")
+hl.env("HYPRCURSOR_THEME", "Skyrim-by-ru5tyshark-cursors")
+hl.env("XCURSOR_SIZE", "48")
+hl.env("HYPRCURSOR_SIZE", "48")
 hl.env("GDK_SCALE", "2")
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
