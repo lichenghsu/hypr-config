@@ -108,9 +108,15 @@ ShellRoot {
         onTriggered: root.showMicIndicator = false
     }
 
-    property int claudeRemainPct: 0
-    property string claudeResetIn: "--"
-    property string claudeWeekCost: "0.00"
+    property string claudeBlockRemain: "--"
+    property int claudeBlockUsedPct: 0
+    property string claudeWeekRemain: "--"
+    property int claudeWeekRemainPct: 0
+
+    property bool islandActive: root.mprisStatus !== "offline" && root.mprisTitle !== ""
+    property var cavaBars: []
+    property string barClock: Qt.formatDateTime(new Date(), "HH:mm")
+    property bool caffeineOn: false
 
     property string spotifyStatus: "offline"
     property string spotifyText: ""
@@ -272,6 +278,9 @@ ShellRoot {
     }
 
     Process { id: pSpotPrev; command: ["playerctl", "previous"] }
+    Process { id: pCaffeineOn; command: ["pkill", "hypridle"] }
+    Process { id: pCaffeineOff; command: ["hypridle"] }
+    Process { id: pSeek }
 
     Process {
         id: pBright
@@ -399,7 +408,7 @@ ShellRoot {
         }
     }
     Process {
-        command: ["sh", "-c", "while true; do sudo ryzenadj -i 2>/dev/null | awk -F'|' '/STAPM LIMIT/ {print int($3)}'; sleep 10; done"]
+        command: ["sh", "-c", "while true; do ryzenadj -i 2>/dev/null | awk -F'|' '/STAPM LIMIT/ {print int($3)}'; sleep 10; done"]
         running: true; stdout: SplitParser { 
             onRead: data => {
                 var d = parseInt(data.trim());
@@ -540,21 +549,35 @@ ShellRoot {
 
     Process {
         id: pClaudeUsage
-        command: ["python3", "/home/miles/.config/quickshell/claude_usage.sh"]
+        command: ["python3", "/home/miles/Lab/hypr/dotfiles/scripts/claude_usage.sh"]
         running: true
         stdout: SplitParser {
             onRead: data => {
                 var parts = data.trim().split("|");
-                if (parts.length === 3) {
-                    root.claudeRemainPct = parseInt(parts[0]) || 0;
-                    root.claudeResetIn = parts[1];
-                    root.claudeWeekCost = parts[2];
+                if (parts.length === 4) {
+                    root.claudeBlockRemain = parts[0];
+                    root.claudeBlockUsedPct = parseInt(parts[1]) || 0;
+                    root.claudeWeekRemain = parts[2];
+                    root.claudeWeekRemainPct = parseInt(parts[3]) || 0;
                 }
             }
         }
     }
-    Timer { interval: 60000; running: true; repeat: true; onTriggered: { if (!pClaudeUsage.running) pClaudeUsage.running = true } }
+    Timer { interval: 300000; running: true; repeat: true; onTriggered: { if (!pClaudeUsage.running) pClaudeUsage.running = true } }
 
+    Timer { interval: 10000; running: true; repeat: true; onTriggered: root.barClock = Qt.formatDateTime(new Date(), "HH:mm") }
+
+    Process {
+        id: pCava
+        command: ["cava", "-p", "/home/miles/.config/quickshell/cava_bar.ini"]
+        running: root.islandActive && !musicPopup.show
+        stdout: SplitParser {
+            onRead: data => {
+                var vals = data.trim().split(";").map(function(v) { return parseInt(v) || 0 })
+                if (vals.length > 1) root.cavaBars = vals
+            }
+        }
+    }
 
     // A helper to make clickable modules easily
     component Mod: MouseArea {
@@ -632,6 +655,52 @@ ShellRoot {
         border.color: Qt.rgba(1, 1, 1, 0.1)
         border.width: root.isBarMode ? 0 : 1
         
+        // ── Left: clock ──────────────────────────────────────────────────
+        MouseArea {
+            anchors.left: parent.left
+            anchors.leftMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            width: 52; height: parent.height
+            visible: root.isBarMode && !root.showOsd
+            onClicked: controlCenter.show = true
+            Text {
+                anchors.centerIn: parent
+                text: root.barClock
+                color: root.colFg
+                font.family: root.fontFamily; font.pixelSize: root.fontSize; font.bold: true
+            }
+        }
+
+        // ── Right: battery ────────────────────────────────────────────────
+        MouseArea {
+            anchors.right: parent.right
+            anchors.rightMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            width: 28; height: parent.height
+            visible: root.isBarMode && !root.showOsd && !controlCenter.show
+            onClicked: controlCenter.show = true
+            Text {
+                anchors.centerIn: parent
+                property int cap: parseInt(root.batteryCap)
+                text: {
+                    if (root.batteryCharging) return ""
+                    if (cap > 80) return ""
+                    if (cap > 60) return ""
+                    if (cap > 40) return ""
+                    if (cap > 20) return ""
+                    return ""
+                }
+                color: {
+                    var cap = parseInt(root.batteryCap)
+                    if (cap <= 15 && !root.batteryCharging) return root.colCrit
+                    if (cap <= 30 && !root.batteryCharging) return "#FFA500"
+                    if (root.batteryCharging) return "#76B900"
+                    return root.colFg
+                }
+                font.family: root.fontFamily; font.pixelSize: root.fontSize + 2
+            }
+        }
+
         RowLayout {
             id: notchLayout
             opacity: root.isAnyPopupOpen ? 0 : 1
@@ -640,7 +709,7 @@ ShellRoot {
             anchors.horizontalCenter: parent.horizontalCenter
             height: parent.height
             spacing: 8
-            
+
             Repeater {
                 model: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
                 Mod {
@@ -651,7 +720,7 @@ ShellRoot {
                     textColor: isActive ? root.colFg : root.colMuted
                     bgColor: "transparent"
                     show: (ws !== undefined || isActive) && !root.showOsd
-                    onClicked: Hyprland.dispatch("workspace " + modelData)
+                    onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + modelData + " })")
                 }
             }
             
@@ -753,7 +822,217 @@ ShellRoot {
             }
         }
     }
+
+    // ── Island pill: overlays bar center when music plays ─────────
+    Rectangle {
+        id: islandPill
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.topMargin: root.isBarMode ? 0 : 4
+        z: 1
+        visible: root.islandActive
+        width: root.islandActive ? 360 : 0
+        height: 32
+        radius: root.isBarMode ? 0 : 16
+        color: Qt.rgba(0.02, 0.02, 0.02, 0.98); clip: true
+        Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutExpo } }
+        Behavior on anchors.topMargin { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
+        Behavior on radius { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
+
+        MouseArea { anchors.fill: parent; onClicked: musicPopup.show = !musicPopup.show }
+
+        Row {
+            anchors.centerIn: parent; spacing: 3
+            opacity: musicPopup.show ? 0 : 1
+            Behavior on opacity { NumberAnimation { duration: 150 } }
+            visible: opacity > 0
+            Repeater {
+                model: root.cavaBars
+                Item {
+                    width: 4; height: 20
+                    Rectangle {
+                        width: parent.width
+                        height: Math.max(2, Math.round(modelData * 20 / 20))
+                        anchors.bottom: parent.bottom; radius: 1
+                        color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colFg
+                        Behavior on height { NumberAnimation { duration: 80 } }
+                    }
+                }
+            }
+        }
+        Text {
+            anchors.centerIn: parent; width: parent.width - 24
+            text: root.mprisTitle; color: root.colFg
+            font.family: root.fontFamily; font.pixelSize: 11; font.bold: true
+            elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
+            opacity: musicPopup.show ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 150 } }
+        }
+    }
 }
+
+    PopupWindow {
+        id: musicPopup
+        property bool show: false
+        grabFocus: show
+        visible: show || musicCard.opacity > 0
+        color: "transparent"
+        anchor {
+            window: root
+            rect: Qt.rect(root.width / 2 - 210, 0, 420, root.height)
+            edges: Edges.Bottom
+            gravity: Edges.Bottom
+        }
+        implicitWidth: 420
+        implicitHeight: 200
+        Keys.onEscapePressed: musicPopup.show = false
+
+        Rectangle {
+            id: musicCard
+            anchors.fill: parent
+            anchors.topMargin: 6
+            color: Qt.rgba(0.07, 0.07, 0.07, 0.97)
+            radius: 18
+            opacity: musicPopup.show ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 16
+                spacing: 12
+
+                // Top row: album art + title/artist
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 14
+
+                    Rectangle {
+                        width: 64; height: 64; radius: 10
+                        color: "#1C1C1C"; clip: true
+                        layer.enabled: true
+                        Image {
+                            id: musicArt
+                            anchors.fill: parent
+                            source: (root.mprisArtUrl.startsWith("file://") || root.mprisArtUrl.startsWith("https://")) ? root.mprisArtUrl : ""
+                            fillMode: Image.PreserveAspectCrop; smooth: true; asynchronous: true
+                            visible: source !== "" && status === Image.Ready
+                        }
+                        Text {
+                            anchors.centerIn: parent
+                            text: root.mprisPlayer === "spotify" ? "" : "󰝚"
+                            color: root.mprisPlayer === "spotify" ? "#1DB954" : "#3A3A3A"
+                            font.family: root.fontFamily; font.pixelSize: 26
+                            visible: musicArt.source === "" || musicArt.status !== Image.Ready
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 3
+
+                        Text {
+                            text: root.mprisTitle
+                            color: "#F0F0F0"
+                            font.family: root.fontFamily; font.pixelSize: 14; font.bold: true
+                            elide: Text.ElideRight; Layout.fillWidth: true
+                        }
+                        Text {
+                            text: root.mprisArtist
+                            color: root.mprisPlayer === "spotify" ? "#1DB954" : "#777"
+                            font.family: root.fontFamily; font.pixelSize: 11
+                            elide: Text.ElideRight; Layout.fillWidth: true
+                        }
+                    }
+                }
+
+                // Progress bar (tall hit area for sensitivity)
+                Item {
+                    Layout.fillWidth: true
+                    height: 28
+
+                    // Time labels
+                    Text {
+                        anchors.left: parent.left; anchors.top: parent.top
+                        text: { var s=Math.floor(root.mprisPosition/1000000); return Math.floor(s/60)+":"+(s%60<10?"0":"")+s%60 }
+                        color: "#555"; font.family: root.fontFamily; font.pixelSize: 9
+                    }
+                    Text {
+                        anchors.right: parent.right; anchors.top: parent.top
+                        text: { var s=Math.floor(root.mprisLength/1000000); return Math.floor(s/60)+":"+(s%60<10?"0":"")+s%60 }
+                        color: "#555"; font.family: root.fontFamily; font.pixelSize: 9
+                    }
+
+                    // Track + dot
+                    Item {
+                        anchors.left: parent.left; anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: 16
+
+                        property real prog: root.mprisProgress
+
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width; height: 4; radius: 2
+                            color: "#2A2A2A"
+                            Rectangle {
+                                id: seekFill
+                                width: parent.width * root.mprisProgress
+                                height: 4; radius: 2
+                                color: root.mprisPlayer === "spotify" ? "#1DB954" : "#E0E0E0"
+                                Behavior on width { NumberAnimation { duration: 250 } }
+                            }
+                        }
+                        // Dot handle
+                        Rectangle {
+                            x: Math.max(0, Math.min(parent.width - width, parent.width * root.mprisProgress - width/2))
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 12; height: 12; radius: 6
+                            color: root.mprisPlayer === "spotify" ? "#1DB954" : "#FFFFFF"
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.topMargin: -8; anchors.bottomMargin: -8
+                            preventStealing: true
+                            function seek(mx) {
+                                if (root.mprisLength > 0) {
+                                    var sec = Math.max(0, Math.min(1, mx / width)) * root.mprisLength / 1000000
+                                    pSeek.command = ["playerctl", "position", String(Math.round(sec))]
+                                    pSeek.running = true
+                                }
+                            }
+                            onClicked: function(mouse) { seek(mouse.x) }
+                            onPositionChanged: function(mouse) { if (pressed) seek(mouse.x) }
+                        }
+                    }
+                }
+
+                // Controls
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    Item { Layout.fillWidth: true }
+                    ModernButton {
+                        Layout.preferredWidth: 44; Layout.preferredHeight: 36
+                        iconText: "󰒮"; onClicked: pSpotPrev.running = true
+                    }
+                    ModernButton {
+                        Layout.preferredWidth: 60; Layout.preferredHeight: 36
+                        iconText: root.mprisStatus === "Playing" ? "󰏤" : "󰐊"
+                        isActive: root.mprisStatus === "Playing"
+                        accent: root.mprisPlayer === "spotify" ? "#1DB954" : root.colFg
+                        onClicked: pSpotPlay.running = true
+                    }
+                    ModernButton {
+                        Layout.preferredWidth: 44; Layout.preferredHeight: 36
+                        iconText: "󰒭"; onClicked: pSpotNext.running = true
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+            }
+        }
+    }
 
 
     component ModernBatteryIcon: Item {
@@ -1215,136 +1494,79 @@ ShellRoot {
                     }
 
                     // Claude Code session usage
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-
-                        Text { text: "󰀖"; color: "#CC785C"; font.family: root.fontFamily; font.pixelSize: 12 }
-                        Text { text: "Claude"; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12 }
-
-                        Item { Layout.fillWidth: true }
-
-                        Text {
-                            text: root.claudeRemainPct + "%"
-                            color: root.claudeRemainPct < 20 ? root.colCrit : (root.claudeRemainPct < 40 ? "#FFA500" : root.colMuted)
-                            font.family: root.fontFamily; font.pixelSize: 12; font.bold: true
-                        }
-                        Text { text: root.claudeResetIn; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 11 }
-                        Text { text: "$" + root.claudeWeekCost + "/wk"; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 11 }
-                    }
-
-                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,1,1,0.1) }
-                    
-                    // MPRIS Media Player (generic: Spotify, Firefox, etc.)
                     ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-                        visible: root.mprisStatus !== "offline"
+                        Layout.fillWidth: true; spacing: 8
 
-                        // Album art + track info
                         RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 10
+                            Layout.fillWidth: true; spacing: 6
+                            Text { text: "󰀖"; color: "#CC785C"; font.family: root.fontFamily; font.pixelSize: 12 }
+                            Text { text: "Claude"; color: root.colFg; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
+                            Item { Layout.fillWidth: true }
+                        }
 
-                            Rectangle {
-                                width: 56; height: 56; radius: 8
-                                color: Qt.rgba(1, 1, 1, 0.08)
-                                clip: true
-
-                                Image {
-                                    id: albumArt
-                                    anchors.fill: parent
-                                    source: (root.mprisArtUrl.startsWith("file://") || root.mprisArtUrl.startsWith("https://")) ? root.mprisArtUrl : ""
-                                    fillMode: Image.PreserveAspectCrop
-                                    smooth: true
-                                    asynchronous: true
-                                    visible: source !== "" && status === Image.Ready
-                                }
-                                Text {
-                                    anchors.centerIn: parent
-                                    visible: albumArt.source === "" || albumArt.status !== Image.Ready
-                                    text: root.mprisPlayer === "spotify" ? "" : "󰝚"
-                                    color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colMuted
-                                    font.family: root.fontFamily
-                                    font.pixelSize: 24
-                                }
-                            }
-
-                            ColumnLayout {
+                        // Current session block
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 3
+                            RowLayout {
                                 Layout.fillWidth: true
-                                spacing: 2
+                                Text { text: "Current session"; color: root.colFg; font.family: root.fontFamily; font.pixelSize: 11 }
+                                Item { Layout.fillWidth: true }
                                 Text {
-                                    text: root.mprisTitle
-                                    color: root.colFg
-                                    font.family: root.fontFamily; font.pixelSize: 12; font.bold: true
-                                    elide: Text.ElideRight; Layout.fillWidth: true
-                                }
-                                Text {
-                                    text: root.mprisArtist
-                                    color: root.colMuted
-                                    font.family: root.fontFamily; font.pixelSize: 11
-                                    elide: Text.ElideRight; Layout.fillWidth: true
-                                }
-                                Text {
-                                    text: root.mprisPlayer
-                                    color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colMuted
-                                    font.family: root.fontFamily; font.pixelSize: 9; font.bold: true
+                                    property int pct: root.claudeBlockUsedPct
+                                    text: pct + "% used"
+                                    color: pct > 80 ? root.colCrit : (pct > 60 ? "#FFA500" : root.colFg)
+                                    font.family: root.fontFamily; font.pixelSize: 11; font.bold: pct > 60
                                 }
                             }
-                        }
-
-                        // Progress bar + time labels
-                        Item {
-                            Layout.fillWidth: true
-                            height: 20
-
                             Rectangle {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width; height: 4; radius: 2
-                                color: Qt.rgba(1, 1, 1, 0.1)
-
+                                Layout.fillWidth: true; height: 6; radius: 3
+                                color: Qt.rgba(1,1,1,0.12)
                                 Rectangle {
-                                    width: parent.width * root.mprisProgress
-                                    height: parent.height; radius: 2
-                                    color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colFg
-                                    Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 400 } }
+                                    property int pct: root.claudeBlockUsedPct
+                                    width: Math.min(parent.width, parent.width * pct / 100)
+                                    height: parent.height; radius: parent.radius
+                                    color: pct > 80 ? root.colCrit : (pct > 60 ? "#FFA500" : "#4A9EFF")
+                                    Behavior on width { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
                                 }
                             }
                             Text {
-                                anchors.left: parent.left; anchors.bottom: parent.bottom
-                                text: {
-                                    var s = Math.floor(root.mprisPosition / 1000000);
-                                    return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + s % 60;
-                                }
-                                color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 9
-                            }
-                            Text {
-                                anchors.right: parent.right; anchors.bottom: parent.bottom
-                                text: {
-                                    var s = Math.floor(root.mprisLength / 1000000);
-                                    return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + s % 60;
-                                }
-                                color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 9
+                                text: "Resets in " + root.claudeBlockRemain
+                                color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 10
                             }
                         }
 
-                        // Controls
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-                            Item { Layout.fillWidth: true }
-                            ModernButton { Layout.preferredWidth: 48; Layout.preferredHeight: 40; iconText: "󰒮"; onClicked: { pSpotPrev.running = true } }
-                            ModernButton {
-                                Layout.preferredWidth: 64; Layout.preferredHeight: 40
-                                iconText: root.mprisStatus === "Playing" ? "󰏤" : "󰐊"
-                                isActive: root.mprisStatus === "Playing"
-                                accent: root.mprisPlayer === "spotify" ? "#1DB954" : root.colFg
-                                onClicked: { pSpotPlay.running = true }
+                        // Weekly limits
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 3
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Text { text: "All models"; color: root.colFg; font.family: root.fontFamily; font.pixelSize: 11 }
+                                Item { Layout.fillWidth: true }
+                                Text {
+                                    property int pct: root.claudeWeekRemainPct
+                                    text: pct + "% used"
+                                    color: pct > 80 ? root.colCrit : (pct > 60 ? "#FFA500" : root.colFg)
+                                    font.family: root.fontFamily; font.pixelSize: 11; font.bold: pct > 60
+                                }
                             }
-                            ModernButton { Layout.preferredWidth: 48; Layout.preferredHeight: 40; iconText: "󰒭"; onClicked: { pSpotNext.running = true } }
-                            Item { Layout.fillWidth: true }
+                            Rectangle {
+                                Layout.fillWidth: true; height: 6; radius: 3
+                                color: Qt.rgba(1,1,1,0.12)
+                                Rectangle {
+                                    property int pct: root.claudeWeekRemainPct
+                                    width: Math.min(parent.width, parent.width * pct / 100)
+                                    height: parent.height; radius: parent.radius
+                                    color: pct > 80 ? root.colCrit : (pct > 60 ? "#FFA500" : "#4A9EFF")
+                                    Behavior on width { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
+                                }
+                            }
+                            Text {
+                                text: "Resets in " + root.claudeWeekRemain
+                                color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 10
+                            }
                         }
                     }
+
 
                     Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,1,1,0.1); visible: root.mprisStatus !== "offline" }
 

@@ -1,47 +1,140 @@
 #!/usr/bin/env python3
-import json, subprocess, sys
-from datetime import datetime, timezone
+import json
+import glob
+import os
+import subprocess
+from datetime import datetime, timezone, timedelta
+
+# --- Calibration ---
+# Block %: weighted = out*15 + cc*3.75 + cr*0.30; pct = weighted / BLOCK_LIMIT_WEIGHTED
+# Derived from first data point (21% usage at known token counts). Adjust if plan changes.
+BLOCK_LIMIT_WEIGHTED      = 9_176_752
+
+# Weekly: costUSD since last reset / WEEKLY_LIMIT_USD
+WEEKLY_LIMIT_USD          = 176.6
+
+# Claude Pro weekly reset: day-of-week + UTC time
+WEEKLY_RESET_WEEKDAY      = 4      # 0=Mon ... 4=Fri
+WEEKLY_RESET_HOUR         = 12
+WEEKLY_RESET_MINUTE       = 30
+
+# Idle gaps longer than this (minutes) mark a new session start
+SESSION_GAP_THRESHOLD_MIN = 10
 
 def run(cmd):
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, check=False)
     return r.stdout.strip()
 
-# --- Active block: time remaining ---
-block_json = run(["npx", "ccusage", "blocks", "--json", "--active"])
-remain_pct = 0
-reset_str = "--"
-block_cost = 0.0
+def fmt_duration(sec):
+    sec = int(sec)
+    d = sec // 86400
+    h = (sec % 86400) // 3600
+    m = (sec % 3600) // 60
+    if d > 0:
+        return f"{d}d{h}h"
+    if h > 0:
+        return f"{h}h{m:02d}m"
+    return f"{m}m"
+
+def find_session_offset(block_start):
+    """Scan JSONL to find the biggest idle gap in this block.
+    Returns timedelta from billing-block-start to the true session start."""
+    timestamps = []
+    base   = os.path.expanduser("~/.claude/projects")
+    cutoff = block_start - timedelta(hours=1)
+    for f in glob.glob(os.path.join(base, "**/*.jsonl"), recursive=True):
+        try:
+            if datetime.fromtimestamp(os.path.getmtime(f), tz=timezone.utc) < cutoff:
+                continue
+            with open(f) as fh:
+                for line in fh:
+                    try:
+                        d = json.loads(line)
+                        ts = d.get("timestamp") or d.get("created_at")
+                        if ts:
+                            t = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                            if t >= block_start:
+                                timestamps.append(t)
+                    except:
+                        pass
+        except:
+            pass
+
+    if len(timestamps) < 2:
+        return timedelta(0)
+
+    timestamps.sort()
+    best_gap_min, session_start = 0.0, block_start
+    for i in range(1, len(timestamps)):
+        gap_min = (timestamps[i] - timestamps[i - 1]).total_seconds() / 60
+        if gap_min > best_gap_min:
+            best_gap_min = gap_min
+            session_start = timestamps[i]
+
+    if best_gap_min < SESSION_GAP_THRESHOLD_MIN:
+        return timedelta(0)
+    return session_start - block_start
+
+
+# --- Active block ---
+block_remain_str = "--"
+block_used_pct   = 0
+session_offset   = timedelta(0)
 
 try:
-    blocks = json.loads(block_json).get("blocks", [])
-    if blocks:
-        b = blocks[0]
-        now = datetime.now(timezone.utc)
-        end = datetime.fromisoformat(b["endTime"].replace("Z", "+00:00"))
-        start = datetime.fromisoformat(b["startTime"].replace("Z", "+00:00"))
-        total_sec = (end - start).total_seconds()
-        remain_sec = max(0, (end - now).total_seconds())
-        remain_pct = int(remain_sec / total_sec * 100)
-        h = int(remain_sec // 3600)
-        m = int((remain_sec % 3600) // 60)
-        reset_str = f"{h}h{m:02d}m" if h > 0 else f"{m}m"
-        block_cost = b.get("costUSD", 0.0)
+    block_json = run(["ccusage", "blocks", "--json", "--active", "--offline"])
+    if block_json:
+        blocks = json.loads(block_json).get("blocks", [])
+        if blocks:
+            b           = blocks[0]
+            now_utc     = datetime.now(timezone.utc)
+            block_start = datetime.fromisoformat(b["startTime"].replace("Z", "+00:00"))
+            block_end   = datetime.fromisoformat(b["endTime"].replace("Z", "+00:00"))
+
+            session_offset = find_session_offset(block_start)
+            effective_end  = block_end + session_offset
+
+            remain_sec       = max(0, (effective_end - now_utc).total_seconds())
+            block_remain_str = fmt_duration(remain_sec)
+
+            tc       = b.get("tokenCounts", {})
+            weighted = (tc.get("outputTokens", 0) * 15 +
+                        tc.get("cacheCreationInputTokens", 0) * 3.75 +
+                        tc.get("cacheReadInputTokens", 0) * 0.30)
+            block_used_pct = min(100, int(weighted / BLOCK_LIMIT_WEIGHTED * 100))
 except Exception:
     pass
 
-# --- Weekly cost ---
-week_cost = 0.0
+
+# --- Weekly cycle ---
+week_remain_str = "--"
+week_used_pct   = 0
+
 try:
-    week_json = run(["npx", "ccusage", "weekly", "--json"])
-    weeks = json.loads(week_json).get("weekly", [])
-    current_week_str = datetime.now().strftime("%Y-%m-%d")
-    # Find the most recent week entry (all agents combined)
-    for w in reversed(weeks):
-        if w.get("agent") == "all":
-            week_cost = w.get("totalCost", 0.0)
-            break
+    now_utc = datetime.now(timezone.utc)
+
+    days_since_reset = (now_utc.weekday() - WEEKLY_RESET_WEEKDAY) % 7
+    week_start = (now_utc.replace(hour=WEEKLY_RESET_HOUR, minute=WEEKLY_RESET_MINUTE,
+                                  second=0, microsecond=0)
+                  - timedelta(days=days_since_reset))
+    if week_start > now_utc:
+        week_start -= timedelta(days=7)
+
+    # Apply same idle offset to weekly reset window
+    week_end          = week_start + timedelta(days=7) + session_offset
+    week_remain_sec   = max(0, (week_end - now_utc).total_seconds())
+    week_remain_str   = fmt_duration(week_remain_sec)
+
+    all_blocks_json = run(["ccusage", "blocks", "--json", "--offline"])
+    if all_blocks_json:
+        week_cost = sum(
+            blk.get("costUSD", 0)
+            for blk in json.loads(all_blocks_json).get("blocks", [])
+            if datetime.fromisoformat(blk["startTime"].replace("Z", "+00:00")) >= week_start
+        )
+        week_used_pct = min(100, int(week_cost / WEEKLY_LIMIT_USD * 100))
 except Exception:
     pass
 
-# Output: remain_pct|reset_str|week_cost
-print(f"{remain_pct}|{reset_str}|{week_cost:.2f}")
+# Output: block_remain|block_used_pct|week_remain|week_used_pct
+print(f"{block_remain_str}|{block_used_pct}|{week_remain_str}|{week_used_pct}")
