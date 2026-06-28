@@ -885,12 +885,13 @@ ShellRoot {
         }
         implicitWidth: 420
         implicitHeight: 200
-        Keys.onEscapePressed: musicPopup.show = false
 
         Rectangle {
             id: musicCard
             anchors.fill: parent
             anchors.topMargin: 6
+            focus: musicPopup.show
+            Keys.onEscapePressed: musicPopup.show = false
             color: Qt.rgba(0.07, 0.07, 0.07, 0.97)
             radius: 18
             opacity: musicPopup.show ? 1 : 0

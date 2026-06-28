@@ -158,6 +158,8 @@ PanelWindow {
                                     fillMode: Image.PreserveAspectCrop
                                     smooth: true
                                     asynchronous: true
+                                    sourceSize.width: 200
+                                    sourceSize.height: 66
                                 }
 
                                 Text {
