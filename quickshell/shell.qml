@@ -9,6 +9,7 @@ import Quickshell.Io
 ShellRoot {
     PanelWindow {
     id: root
+    screen: Quickshell.screens.find(s => !s.name.startsWith("eDP")) ?? Quickshell.screens.find(s => s.name.startsWith("eDP")) ?? Quickshell.screens[0]
 
     property color colBg: "#000000"
     property color colFg: "#ffffff"
@@ -831,6 +832,10 @@ ShellRoot {
         anchors.topMargin: root.isBarMode ? 0 : 4
         z: 1
         visible: root.islandActive
+        opacity: root.isAnyPopupOpen ? 0.0 : 1.0
+        scale: root.isAnyPopupOpen ? 0.85 : 1.0
+        Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 200 } }
+        Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
         width: root.islandActive ? 360 : 0
         height: 32
         radius: root.isBarMode ? 0 : 16
