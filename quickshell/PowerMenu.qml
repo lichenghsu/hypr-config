@@ -142,5 +142,5 @@ PanelWindow {
     Process { id: pReboot; command: ["systemctl", "reboot"] }
     Process { id: pLock; command: ["swaylock"] }
     Process { id: pSuspend; command: ["systemctl", "suspend"] }
-    Process { id: pLogout; command: ["hyprctl", "dispatch", "exit"] }
+    Process { id: pLogout; command: ["pkill", "-x", "Hyprland"] }
 }
