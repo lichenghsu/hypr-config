@@ -8,6 +8,10 @@ Scope {
     property bool active: false
     property bool authFailed: false
 
+    readonly property string matrixChars: "ｦｱｼﾝABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*()-+=[]{}|;:,./<>?"
+    readonly property int atlasCharW: 14
+    readonly property int atlasCharH: 18
+
     function activate() {
         lockRoot.active = true
         lockRoot.authFailed = false
@@ -38,6 +42,13 @@ Scope {
         running: false
     }
 
+    Timer {
+        id: authFailTimer
+        interval: 10
+        repeat: false
+        onTriggered: lockRoot.authFailed = true
+    }
+
     Process {
         id: pAuth
         property string pendingPw: ""
@@ -46,7 +57,7 @@ Scope {
         onStarted: write(pAuth.pendingPw + "\n")
         onExited: function(exitCode, exitStatus) {
             if (exitCode === 0) lockRoot.deactivate()
-            else lockRoot.authFailed = true
+            else authFailTimer.start()
         }
     }
 
@@ -59,7 +70,7 @@ Scope {
             screen: modelData
 
             visible: lockRoot.active
-            color: "transparent"
+            color: "black"
             exclusionMode: ExclusionMode.Ignore
 
             WlrLayershell.layer: WlrLayer.Overlay
@@ -78,94 +89,48 @@ Scope {
                 ?? Quickshell.screens[0]
             )
 
-            // Half-resolution canvas scaled 2×: each fillText renders 4× fewer pixels
+            // Atlas lives inside each PanelWindow — cannot share across windows
             Canvas {
-                id: matrixCanvas
-                width: Math.ceil(parent.width / 2)
-                height: Math.ceil(parent.height / 2)
-                x: 0; y: 0
-                scale: 2
-                transformOrigin: Item.TopLeft
-
-                property var cols: []
-                property int charW: 8
-                property int charH: 9
-                property string chars: "ｦｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789"
-                property var greenPalette: {
-                    var p = []
-                    for (var i = 0; i < 20; i++) {
-                        var g = 30 + Math.floor(180 * (i / 19))
-                        p.push("rgb(0," + g + ",0)")
-                    }
-                    return p
-                }
-
-                function randChar() {
-                    return chars[Math.floor(Math.random() * chars.length)]
-                }
-
-                function initCols() {
-                    var n = Math.ceil(width / charW)
-                    var h = height, cH = charH, c = []
-                    for (var i = 0; i < n; i++) {
-                        var len = 5 + Math.floor(Math.random() * 12)
-                        var trail = []
-                        for (var j = 0; j < len; j++) trail.push(randChar())
-                        c.push({
-                            x: i * charW,
-                            y: -Math.floor(Math.random() * (h / cH)) * cH,
-                            speed: 1 + Math.random(),
-                            len: len,
-                            trail: trail
-                        })
-                    }
-                    cols = c
-                }
-
-                onWidthChanged: initCols()
-                onHeightChanged: initCols()
-                Component.onCompleted: initCols()
+                id: atlasCanvas
+                visible: false
+                width: lockRoot.matrixChars.length * lockRoot.atlasCharW
+                height: lockRoot.atlasCharH * 4   // 4 tiers: head, bright, medium, dim
 
                 onPaint: {
                     var ctx = getContext("2d")
-                    var w = width, h = height, cH = charH
-                    var c = cols, n = c.length
-                    var pal = greenPalette, palMax = pal.length - 1
-
-                    ctx.fillStyle = "rgba(0,0,0,0.2)"
-                    ctx.fillRect(0, 0, w, h)
-                    ctx.font = "bold " + cH + "px monospace"
+                    ctx.clearRect(0, 0, width, height)
+                    ctx.font = "bold " + lockRoot.atlasCharH + "px monospace"
                     ctx.textBaseline = "top"
-
-                    for (var i = 0; i < n; i++) {
-                        var col = c[i]
-                        var colLen = col.len
-                        var trail = col.trail
-                        var colY = col.y
-                        var x = col.x
-
-                        for (var j = 0; j < colLen; j++) {
-                            var y = colY - j * cH
-                            if (y < -cH || y >= h) continue
-                            ctx.fillStyle = j === 0 ? "#ccffcc" : pal[Math.floor(palMax * (1 - j / colLen))]
-                            if (Math.random() < 0.03) trail[j] = randChar()
-                            ctx.fillText(trail[j], x, y)
-                        }
-
-                        col.y += col.speed * cH
-                        if (col.y - colLen * cH >= h) {
-                            col.y = 0
-                            col.speed = 1 + Math.random()
-                            col.len = 5 + Math.floor(Math.random() * 12)
-                        }
+                    var chars = lockRoot.matrixChars
+                    var cW = lockRoot.atlasCharW, cH = lockRoot.atlasCharH
+                    var colors = ["#ccffcc", "#00cc44", "#007722", "#003311"]
+                    for (var tier = 0; tier < 4; tier++) {
+                        ctx.fillStyle = colors[tier]
+                        for (var i = 0; i < chars.length; i++)
+                            ctx.fillText(chars[i], i * cW, tier * cH)
                     }
                 }
+                Component.onCompleted: requestPaint()
+            }
+
+            // ── GPU matrix rain ───────────────────────────────────────────
+            ShaderEffect {
+                anchors.fill: parent
+
+                property var atlasSource: atlasCanvas
+                property real time: 0.0
+                property real gridW: lockRoot.atlasCharW / overlayWin.width
+                property real gridH: lockRoot.atlasCharH / overlayWin.height
+                property real numChars: lockRoot.matrixChars.length
+                property real trailLen: 14.0
+
+                fragmentShader: Qt.resolvedUrl("matrix.frag.qsb")
 
                 Timer {
-                    interval: overlayWin.isPrimary ? 33 : 100
+                    interval: 33
                     running: lockRoot.active
                     repeat: true
-                    onTriggered: matrixCanvas.requestPaint()
+                    onTriggered: parent.time += 0.033
                 }
             }
 
@@ -239,14 +204,16 @@ Scope {
                     height: 32
 
                     property bool shaking: false
+                    property real shakeOffset: 0
+                    transform: Translate { x: dotsContainer.shakeOffset }
 
                     SequentialAnimation {
                         id: shakeAnim
-                        NumberAnimation { target: dotsContainer; property: "x"; to: dotsContainer.x - 10; duration: 40 }
-                        NumberAnimation { target: dotsContainer; property: "x"; to: dotsContainer.x + 18; duration: 60 }
-                        NumberAnimation { target: dotsContainer; property: "x"; to: dotsContainer.x - 14; duration: 50 }
-                        NumberAnimation { target: dotsContainer; property: "x"; to: dotsContainer.x + 8; duration: 50 }
-                        NumberAnimation { target: dotsContainer; property: "x"; to: dotsContainer.x; duration: 40 }
+                        NumberAnimation { target: dotsContainer; property: "shakeOffset"; to: -10; duration: 40 }
+                        NumberAnimation { target: dotsContainer; property: "shakeOffset"; to:  18; duration: 60 }
+                        NumberAnimation { target: dotsContainer; property: "shakeOffset"; to: -14; duration: 50 }
+                        NumberAnimation { target: dotsContainer; property: "shakeOffset"; to:   8; duration: 50 }
+                        NumberAnimation { target: dotsContainer; property: "shakeOffset"; to:   0; duration: 40 }
                         onFinished: dotsContainer.shaking = false
                     }
 
@@ -275,6 +242,19 @@ Scope {
                 }
 
                 // ── Error ─────────────────────────────────────────────────
+                Connections {
+                    target: lockRoot
+                    function onAuthFailedChanged() {
+                        if (!lockRoot.authFailed || !overlayWin.isPrimary) return
+                        lockRoot.authFailed = false
+                        dotsContainer.shaking = true
+                        shakeAnim.restart()
+                        errorMsg.visible = true
+                        errorMsg.opacity = 1
+                        errorTimer.restart()
+                    }
+                }
+
                 Text {
                     id: errorMsg
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -291,25 +271,13 @@ Scope {
                     Timer {
                         id: errorTimer
                         interval: 2000
-                        onTriggered: errorMsg.opacity = 0
-                    }
-
-                    onOpacityChanged: if (opacity === 0) { visible = false; passwordField.text = "" }
-
-                    Connections {
-                        target: lockRoot
-                        function onAuthFailedChanged() {
-                            if (lockRoot.authFailed) {
-                                passwordField.text = ""
-                                dotsContainer.shaking = true
-                                shakeAnim.restart()
-                                errorMsg.visible = true
-                                errorMsg.opacity = 1
-                                errorTimer.restart()
-                                lockRoot.authFailed = false
-                            }
+                        onTriggered: {
+                            errorMsg.opacity = 0
+                            passwordField.text = ""
                         }
                     }
+
+                    onOpacityChanged: if (opacity === 0) visible = false
                 }
             }
         }
