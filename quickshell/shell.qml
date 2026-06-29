@@ -2624,6 +2624,9 @@ ShellRoot {
             root.colFg     = fg;
             root.colAccent = accent;
         }
+        function lock() {
+            lockScreen.activate()
+        }
     }
 
     LockScreen { id: lockScreen }

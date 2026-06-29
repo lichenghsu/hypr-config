@@ -1,4 +1,3 @@
 #!/bin/bash
-# Trigger the Quickshell lock screen.
-# Used by hypridle, keybindings, and any external caller instead of swaylock.
-echo "lock" > "$HOME/.cache/qs-lock-trigger"
+# Trigger Quickshell lock screen via IPC
+qs ipc call qsIpc lock

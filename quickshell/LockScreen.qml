@@ -8,22 +8,6 @@ Scope {
     id: lockRoot
     property bool active: false
 
-    // Watch for external lock trigger written by qs-lock script
-    FileView {
-        id: triggerFile
-        path: "/home/miles/.cache/qs-lock-trigger"
-        watchChanges: true
-        onFileChanged: {
-            var content = triggerFile.text()
-            if (content.trim().length > 0) {
-                lockRoot.activate()
-                pClearTrigger.running = true
-            }
-        }
-    }
-
-    Process { id: pClearTrigger; command: ["sh", "-c", "echo -n > /home/miles/.cache/qs-lock-trigger"] }
-
     // Actual cmatrix command running in foot terminal
     Process {
         id: pCmatrix
