@@ -140,7 +140,7 @@ PanelWindow {
     
     Process { id: pShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pReboot; command: ["systemctl", "reboot"] }
-    Process { id: pLock; command: ["swaylock"] }
+    Process { id: pLock; command: ["/home/miles/.local/bin/qs-lock"] }
     Process { id: pSuspend; command: ["systemctl", "suspend"] }
     Process { id: pLogout; command: ["pkill", "-x", "Hyprland"] }
 }

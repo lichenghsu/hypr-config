@@ -234,7 +234,7 @@ ShellRoot {
     Process { id: pPowerShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pPowerReboot;   command: ["systemctl", "reboot"] }
 
-    Process { id: pPowerLock;     command: ["swaylock"] }
+    Process { id: pPowerLock;     command: ["/home/miles/.local/bin/qs-lock"] }
     Process { id: pPowerSuspend;  command: ["systemctl", "suspend"] }
     Process { id: pPowerLogout;   command: ["pkill", "-x", "Hyprland"] }
 
@@ -2626,4 +2626,5 @@ ShellRoot {
         }
     }
 
+    LockScreen { id: lockScreen }
     }

@@ -9,7 +9,7 @@ programs.screenshot = '/home/miles/.local/bin/screenshot.sh'
 programs.screenshot_full = '/home/miles/.local/bin/screenshot_full.sh'
 programs.browser = "zen-browser"
 programs.powermenu = "/home/miles/.local/bin/smart_powermenu.sh"
-programs.lock = "swaylock"
+programs.lock = "/home/miles/.local/bin/qs-lock"
 programs.note = "obsidian"
 programs.dock = ""
 
