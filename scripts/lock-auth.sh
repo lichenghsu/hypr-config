@@ -1,4 +1,5 @@
-#!/bin/bash
-# Reads password from stdin, passes directly to unix_chkpwd via exec
-# Using exec avoids any shell variable interpolation of the password
-exec /sbin/unix_chkpwd "$USER" nonull
+#!/usr/bin/env python3
+import sys, os, pam
+password = sys.stdin.readline().rstrip("\n")
+p = pam.pam()
+sys.exit(0 if p.authenticate(os.environ["USER"], password) else 1)
