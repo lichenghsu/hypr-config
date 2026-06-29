@@ -551,7 +551,7 @@ ShellRoot {
     Process {
         id: pClaudeUsage
         command: ["python3", "/home/miles/Lab/hypr/dotfiles/scripts/claude_usage.sh"]
-        running: true
+        running: false
         stdout: SplitParser {
             onRead: data => {
                 var parts = data.trim().split("|");
@@ -564,7 +564,10 @@ ShellRoot {
             }
         }
     }
-    Timer { interval: 300000; running: true; repeat: true; onTriggered: { if (!pClaudeUsage.running) pClaudeUsage.running = true } }
+    Timer {
+        interval: 300000; running: true; repeat: true; triggeredOnStart: true
+        onTriggered: { pClaudeUsage.running = false; pClaudeUsage.running = true }
+    }
 
     Timer { interval: 10000; running: true; repeat: true; onTriggered: root.barClock = Qt.formatDateTime(new Date(), "HH:mm") }
 
