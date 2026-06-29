@@ -254,12 +254,94 @@ Scope {
                     }
                 }
 
+                // ── Matrix Glitch Date (with 2077 State Freezer) ───────────────────────────
                 Text {
+                    id: dateText
                     anchors.horizontalCenter: parent.horizontalCenter
-                    color: "#009920"
                     font.pixelSize: 14
                     font.family: "Share Tech Mono"
-                    text: Qt.formatDate(new Date(), "dddd, MMMM d")
+
+                    property bool isCyberpunkGlitch: false
+                    property string frozenGlitchText: ""
+
+                    Timer {
+                        id: cyberpunkFreezeTimer
+                        interval: 1800
+                        repeat: false
+                        onTriggered: {
+                            dateText.isCyberpunkGlitch = false;
+                        }
+                    }
+
+                    text: isCyberpunkGlitch
+                    ? frozenGlitchText
+                    : (clockText.glitchActive ? getGlitchedDate() : Qt.formatDate(clockText.now, "dddd, MMMM d, yyyy"))
+
+                    color: lockRoot.authFailed
+                    ? "#ff3333"
+                    : (isCyberpunkGlitch ? "#fcee0a" : (clockText.glowTrigger ? "#ffffff" : "#009920"))
+
+                    function getGlitchedDate() {
+                        if (isCyberpunkGlitch) return frozenGlitchText;
+
+                        if (Math.random() < 0.20) {
+                            isCyberpunkGlitch = true;
+
+                            var brokenDays = [
+                                "NIGHT_CITY", "SYSTEM_ERR//", "░N░U░L░L░",
+                                "CORE_PANIC", "GHOST_IN_SYS", "0x7F_GHOST", "⚠️_OVERFLOW"
+                            ];
+                            var fakeDay = brokenDays[Math.floor(Math.random() * brokenDays.length)];
+
+                            var brokenMonths = [
+                                "0xFA_SECTOR", "█▍BAD_ICE", "NET_OVERRIDE",
+                                "NETWATCH_ERR", "NEO_TOKYO_//", "FXXK_CORP_SYS", "CRIT_DATA"
+                            ];
+                            var fakeMonth = Math.random() < 0.5
+                            ? brokenMonths[Math.floor(Math.random() * brokenMonths.length)]
+                            : Qt.formatDate(clockText.now, "MMM");
+
+                            var realDayNum = Qt.formatDate(clockText.now, "d");
+                            var fakeDayNum = Math.random() < 0.5
+                            ? realDayNum
+                            : ["0x" + parseInt(realDayNum).toString(16).toUpperCase(), "NaN", "Ø", "##"][Math.floor(Math.random() * 4)];
+
+                            var fakeYear = ["2077", "2077//", "[2077]", "0x081D", "20XX"][Math.floor(Math.random() * 5)];
+
+                            frozenGlitchText = fakeDay + ", " + fakeMonth + " " + fakeDayNum + ", " + fakeYear;
+                            cyberpunkFreezeTimer.restart();
+
+                            return frozenGlitchText;
+                        }
+
+                        if (Math.random() < 0.12) {
+                            var systemAlerts = [
+                                "⚠️ SYSTEM FAILURE ⚠️",
+                                "► DETECT_INTRUSION: 403",
+                                "// OVERRIDE_ACTIVATED //",
+                                "▒▒ ERR_DATA_CORRUPT ▒▒",
+                                " [ ACCESS_DENIED ] "
+                            ];
+                            return systemAlerts[Math.floor(Math.random() * systemAlerts.length)];
+                        }
+
+                        var normalDate = Qt.formatDate(clockText.now, "dddd, MMMM d, yyyy");
+                        var result = "";
+                        var pool = lockRoot.matrixChars;
+
+                        for (var i = 0; i < normalDate.length; i++) {
+                            if (normalDate[i] === ' ' || normalDate[i] === ',') {
+                                result += normalDate[i];
+                            } else {
+                                if (Math.random() < 0.35) {
+                                    result += pool[Math.floor(Math.random() * pool.length)];
+                                } else {
+                                    result += normalDate[i];
+                                }
+                            }
+                        }
+                        return result;
+                    }
                 }
 
                 // Hidden input — off-screen to avoid I-beam cursor
@@ -291,8 +373,9 @@ Scope {
 
                     Item {
                         id: dotsContainer
+                        clip: true
                         anchors.centerIn: parent
-                        width: parent.width - 20
+                        width: parent.width - 28
                         height: parent.height
 
                         property bool shaking: false
@@ -317,40 +400,49 @@ Scope {
                             font.family: "'Share Tech Mono', 'Courier New', 'JetBrainsMono Nerd Font', monospace"
                         }
 
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 6
-                            visible: !pAuth.running
+                        Item {
+                            width: passwordRow.width
+                            height: parent.height
 
-                            Repeater {
-                                model: Math.min(passwordField.text.length, 24)
+                            anchors.centerIn: passwordRow.width < dotsContainer.width ? parent : undefined
+                            anchors.right: passwordRow.width >= dotsContainer.width ? parent.right : undefined
+
+                            Row {
+                                id: passwordRow
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 6
+                                visible: !pAuth.running
+
+                                Repeater {
+                                    model: Math.min(passwordField.text.length, 24)
+
+                                    Text {
+                                        font.family: "Share Tech Mono"
+                                        font.pixelSize: 16
+                                        font.bold: true
+
+                                        text: dotsContainer.shaking && ((Math.sin(index + dotsContainer.glitchSeed) + 1) / 2 < 0.65)
+                                        ? lockRoot.matrixChars[Math.floor((Math.sin(index * 45.67 + dotsContainer.glitchSeed) + 1) / 2 * lockRoot.matrixChars.length)]
+                                        : "■"
+
+                                        color: dotsContainer.shaking ? "#ff1133" : "#00ff41"
+                                        Behavior on color { ColorAnimation { duration: 60 } }
+                                    }
+                                }
 
                                 Text {
+                                    id: liveCursor
                                     font.family: "Share Tech Mono"
                                     font.pixelSize: 16
                                     font.bold: true
 
-                                    text: dotsContainer.shaking && ((Math.sin(index + dotsContainer.glitchSeed) + 1) / 2 < 0.65)
-                                    ? lockRoot.matrixChars[Math.floor((Math.sin(index * 45.67 + dotsContainer.glitchSeed) + 1) / 2 * lockRoot.matrixChars.length)]
-                                    : "■"
+                                    text: dotsContainer.shaking
+                                    ? lockRoot.matrixChars[Math.floor(Math.random() * lockRoot.matrixChars.length)]
+                                    : (dotsContainer.cursorBlink ? "█" : " ")
 
-                                    color: dotsContainer.shaking ? "#ff1133" : "#00ff41"
-                                    Behavior on color { ColorAnimation { duration: 60 } }
+                                    color: dotsContainer.shaking ? "#ff1133" : (dotsContainer.cursorBlink ? "#ffffff" : "transparent")
+                                    visible: passwordField.text.length < 24
                                 }
-                            }
-
-                            Text {
-                                font.family: "Share Tech Mono"
-                                font.pixelSize: 16
-                                font.bold: true
-
-                                text: dotsContainer.shaking
-                                ? lockRoot.matrixChars[Math.floor(Math.random() * lockRoot.matrixChars.length)]
-                                : (dotsContainer.cursorBlink ? "█" : " ")
-
-                                color: dotsContainer.shaking ? "#ff1133" : (dotsContainer.cursorBlink ? "#ffffff" : "transparent")
-
-                                visible: passwordField.text.length < 24
                             }
                         }
 
@@ -361,7 +453,7 @@ Scope {
                             repeat: true
                             onTriggered: {
                                 dotsContainer.cursorBlink = !dotsContainer.cursorBlink
-                                cursorTimer.interval = Math.random() * 400 + 100 // 每次重新隨機化頻率
+                                cursorTimer.interval = Math.random() * 400 + 100
                             }
                         }
 
@@ -404,7 +496,7 @@ Scope {
                 Text {
                     id: errorMsg
                     anchors.horizontalCenter: parent.horizontalCenter
-                    font.pixelSize: 14 // 稍微放大一點更清晰
+                    font.pixelSize: 14
                     font.family: "Share Tech Mono"
                     font.bold: true
 
