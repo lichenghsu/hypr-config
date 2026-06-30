@@ -6,6 +6,7 @@ import QtQuick
 Scope {
     id: lockRoot
     property bool active: false
+    property bool preLockActive: false
     property bool authFailed: false
     property bool authSuccess: false
     property bool intrusionActive: false
@@ -16,16 +17,18 @@ Scope {
     readonly property int atlasCharH: 18
 
     function activate() {
-        lockRoot.active = true
         lockRoot.authFailed = false
         lockRoot.authSuccess = false
         lockRoot.intrusionActive = false
         lockRoot.intrusionPhase = 0
+        lockRoot.preLockActive = true
+        preLockTimer.start()
         pSubmap.running = true
     }
 
     function deactivate() {
         lockRoot.active = false
+        lockRoot.preLockActive = false
         lockRoot.authFailed = false
         lockRoot.authSuccess = false
         pReset.running = true
@@ -82,6 +85,17 @@ Scope {
     }
 
     Timer {
+        id: preLockTimer
+        interval: 2200
+        running: false
+        repeat: false
+        onTriggered: {
+            lockRoot.preLockActive = false
+            lockRoot.active = true
+        }
+    }
+
+    Timer {
         id: intrusionTriggerTimer
         running: lockRoot.active && !lockRoot.authSuccess && !lockRoot.intrusionActive
         repeat: true
@@ -117,12 +131,12 @@ Scope {
             required property var modelData
             screen: modelData
 
-            visible: lockRoot.active
+            visible: lockRoot.active || lockRoot.preLockActive
             color: "black"
             exclusionMode: ExclusionMode.Ignore
 
             WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: lockRoot.active
+            WlrLayershell.keyboardFocus: (lockRoot.active || lockRoot.preLockActive)
             ? WlrKeyboardFocus.Exclusive
             : WlrKeyboardFocus.None
             WlrLayershell.namespace: "qs-lockscreen"
@@ -170,15 +184,124 @@ Scope {
                 fragmentShader: Qt.resolvedUrl("matrix.frag.qsb")
                 Timer {
                     interval: 33
-                    running: lockRoot.active
+                    running: lockRoot.active || lockRoot.preLockActive
                     repeat: true
                     onTriggered: parent.time += 0.033
                 }
             }
 
+            Item {
+                id: preLockOverlay
+                anchors.fill: parent
+                visible: overlayWin.isPrimary && lockRoot.preLockActive
+
+                property int tick: 0
+
+                Timer {
+                    interval: 55
+                    running: lockRoot.preLockActive
+                    repeat: true
+                    onTriggered: preLockOverlay.tick = (preLockOverlay.tick + 1) % 10000
+                }
+
+                function mainText(t) {
+                    if (t < 9) {
+                        var pool = lockRoot.matrixChars
+                        var r = ""
+                        for (var i = 0; i < 8; i++) r += pool[Math.floor(Math.random() * pool.length)]
+                        return r
+                    }
+                    if (t < 22) {
+                        var p1 = ["LOCKDOWN", "LOCK.SYS", "ENGAGING", "SECURING", "!CORTEX!", "OVERLOAD"]
+                        return p1[Math.floor(t / 3) % p1.length]
+                    }
+                    if (t < 33) {
+                        var p2 = ["LOCKED__", "SECURE__", "ARMED___", "ENGAGED_"]
+                        return p2[Math.floor(t / 2) % p2.length]
+                    }
+                    return "LOCKED__"
+                }
+
+                function mainColor(t) {
+                    if (t < 9)  return (t % 2 === 0) ? "#ff1133" : "#ff4455"
+                    if (t < 22) return (t % 3 === 0) ? "#ffaa00" : "#ff6600"
+                    if (t < 33) return (t % 2 === 0) ? "#00aaff" : "#00d4ff"
+                    return "#00ff41"
+                }
+
+                readonly property var statusLines: [
+                    ">> CYBERWARE OVERLOAD: DETECTED",
+                    ">> NEURAL LINK: DESTABILIZING",
+                    ">> CORTEX ICE: FRAGMENTING",
+                    ">> EMERGENCY LOCKDOWN: INITIATED",
+                    ">> MAGI SECURITY PROTOCOL: ACTIVE",
+                    ">> A.T. FIELD: ENGAGING",
+                    ">> TERMINAL DOGMA: LOCKED",
+                    ">> ALL ACCESS: REVOKED",
+                    ">> SYSTEM SECURED"
+                ]
+
+                Text {
+                    anchors.top: parent.top
+                    anchors.topMargin: 38
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    font.pixelSize: 15
+                    font.family: "Share Tech Mono"
+                    font.bold: true
+                    text: preLockOverlay.tick < 5 ? ""
+                        : preLockOverlay.tick < 20 ? "!!  SYSTEM ALERT: LOCKDOWN INITIATED  !!"
+                        : ">>  NERV SECURITY PROTOCOL: ACTIVE  <<"
+                    color: preLockOverlay.tick < 20 ? "#ff1133" : "#ffcc00"
+                    opacity: (preLockOverlay.tick % 3 === 0) ? 0.3 : 1.0
+                }
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 22
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        font.pixelSize: 96
+                        font.family: "Share Tech Mono"
+                        font.bold: true
+                        text: preLockOverlay.mainText(preLockOverlay.tick)
+                        color: preLockOverlay.mainColor(preLockOverlay.tick)
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        font.pixelSize: 15
+                        font.family: "Share Tech Mono"
+                        text: preLockOverlay.statusLines[
+                            Math.min(Math.floor(preLockOverlay.tick / 4), preLockOverlay.statusLines.length - 1)
+                        ]
+                        color: preLockOverlay.tick < 22 ? "#ff6666" : preLockOverlay.tick < 33 ? "#88ccff" : "#00cc44"
+                        opacity: 0.85
+                    }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: "#22ff1133"
+                    visible: false
+                    opacity: 0
+
+                    SequentialAnimation {
+                        running: lockRoot.preLockActive
+                        loops: 1
+                        PropertyAction  { target: parent; property: "visible"; value: true }
+                        NumberAnimation { target: parent; property: "opacity"; to: 0.28; duration: 65 }
+                        NumberAnimation { target: parent; property: "opacity"; to: 0.0;  duration: 130 }
+                        NumberAnimation { target: parent; property: "opacity"; to: 0.16; duration: 65 }
+                        NumberAnimation { target: parent; property: "opacity"; to: 0.0;  duration: 200 }
+                        PropertyAction  { target: parent; property: "visible"; value: false }
+                    }
+                }
+            }
+
             Column {
                 anchors.centerIn: parent
-                visible: overlayWin.isPrimary
+                visible: overlayWin.isPrimary && lockRoot.active
                 spacing: 28
 
                 onVisibleChanged: if (visible) focusTimer.start()
