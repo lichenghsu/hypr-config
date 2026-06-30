@@ -91,9 +91,17 @@ Scope {
         running: false
         repeat: false
         onTriggered: {
-            lockRoot.preLockActive = false
             lockRoot.active = true
+            preLockHideTimer.start()
         }
+    }
+
+    Timer {
+        id: preLockHideTimer
+        interval: 80
+        running: false
+        repeat: false
+        onTriggered: lockRoot.preLockActive = false
     }
 
     Timer {
@@ -194,6 +202,7 @@ Scope {
             Item {
                 id: preLockOverlay
                 anchors.fill: parent
+                z: 10
                 visible: overlayWin.isPrimary && lockRoot.preLockActive
 
                 property int tick: 0
@@ -302,7 +311,7 @@ Scope {
 
             Column {
                 anchors.centerIn: parent
-                visible: overlayWin.isPrimary && lockRoot.active && !lockRoot.preLockActive
+                visible: overlayWin.isPrimary && lockRoot.active
                 spacing: 28
 
                 onVisibleChanged: if (visible) focusTimer.start()
