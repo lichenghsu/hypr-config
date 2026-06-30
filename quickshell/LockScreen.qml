@@ -22,6 +22,7 @@ Scope {
         lockRoot.intrusionActive = false
         lockRoot.intrusionPhase = 0
         lockRoot.preLockActive = true
+        successUnlockTimer.stop()
         preLockTimer.start()
         pSubmap.running = true
     }
@@ -301,7 +302,7 @@ Scope {
 
             Column {
                 anchors.centerIn: parent
-                visible: overlayWin.isPrimary && lockRoot.active
+                visible: overlayWin.isPrimary && lockRoot.active && !lockRoot.preLockActive
                 spacing: 28
 
                 onVisibleChanged: if (visible) focusTimer.start()
