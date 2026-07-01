@@ -11,6 +11,7 @@ Scope {
     property bool authSuccess: false
     property bool intrusionActive: false
     property int  intrusionPhase: 0
+    property bool errorVisible: false
 
     readonly property string matrixChars: "ｦｱｼﾝｲｳｴｵｶｷｸｹｺｻｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝｳﾞｰ･0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%&*()-+=[]{}|;:,./<>?♀αΦζ♀∞β㏒±∩"
     readonly property int atlasCharW: 14
@@ -22,7 +23,7 @@ Scope {
         lockRoot.intrusionActive = false
         lockRoot.intrusionPhase = 0
         lockRoot.preLockActive = true
-        errorMsg.showError = false
+        lockRoot.errorVisible = false
         successUnlockTimer.stop()
         preLockTimer.start()
         pSubmap.running = true
@@ -33,6 +34,7 @@ Scope {
         lockRoot.preLockActive = false
         lockRoot.authFailed = false
         lockRoot.authSuccess = false
+        lockRoot.errorVisible = false
         pReset.running = true
     }
 
@@ -786,7 +788,7 @@ Scope {
                         if (!lockRoot.authFailed || !overlayWin.isPrimary) return
                         lockRoot.authFailed = false
                         dotsContainer.shaking = true
-                        errorMsg.showError = true
+                        lockRoot.errorVisible = true
                         decryptTimer.tickCount = 0
                         errorTimer.restart()
                     }
@@ -804,12 +806,10 @@ Scope {
                     property string targetText: "SYSTEM ERROR: ACCESS DENIED"
                     property string currentText: "SYSTEM ERROR: ACCESS DENIED"
                     property bool glitchActive: false
-                    property bool showError: false
-
                     color: "#ff1133"
 
-                    visible: showError
-                    opacity: showError ? 1.0 : 0.0
+                    visible: lockRoot.errorVisible
+                    opacity: lockRoot.errorVisible ? 1.0 : 0.0
 
                     Behavior on opacity { NumberAnimation { duration: 200 } }
 
@@ -832,7 +832,7 @@ Scope {
                         id: decryptTimer
                         interval: 40
                         repeat: true
-                        running: errorMsg.showError
+                        running: lockRoot.errorVisible
 
                         property int tickCount: 0
 
@@ -855,12 +855,11 @@ Scope {
                         onTriggered: {
                             decryptTimer.tickCount = 0
                             errorMsg.glitchActive = false
-                            errorMsg.showError = false
+                            lockRoot.errorVisible = false
                             if (typeof passwordField !== "undefined") passwordField.text = ""
                         }
                     }
 
-                    onOpacityChanged: if (opacity === 0) visible = false
                 }
             }
 
