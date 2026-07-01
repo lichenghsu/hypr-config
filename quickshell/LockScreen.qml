@@ -22,6 +22,7 @@ Scope {
         lockRoot.intrusionActive = false
         lockRoot.intrusionPhase = 0
         lockRoot.preLockActive = true
+        errorMsg.showError = false
         successUnlockTimer.stop()
         preLockTimer.start()
         pSubmap.running = true
@@ -783,11 +784,11 @@ Scope {
                     target: lockRoot
                     function onAuthFailedChanged() {
                         if (!lockRoot.authFailed || !overlayWin.isPrimary) return
-                            lockRoot.authFailed = false
-                            dotsContainer.shaking = true
-                            errorMsg.visible = true
-                            errorMsg.opacity = 1
-                            errorTimer.restart()
+                        lockRoot.authFailed = false
+                        dotsContainer.shaking = true
+                        errorMsg.showError = true
+                        decryptTimer.tickCount = 0
+                        errorTimer.restart()
                     }
                 }
 
@@ -803,11 +804,12 @@ Scope {
                     property string targetText: "SYSTEM ERROR: ACCESS DENIED"
                     property string currentText: "SYSTEM ERROR: ACCESS DENIED"
                     property bool glitchActive: false
+                    property bool showError: false
 
                     color: "#ff1133"
 
-                    visible: lockRoot.authFailed
-                    opacity: lockRoot.authFailed ? 1.0 : 0.0
+                    visible: showError
+                    opacity: showError ? 1.0 : 0.0
 
                     Behavior on opacity { NumberAnimation { duration: 200 } }
 
@@ -830,7 +832,7 @@ Scope {
                         id: decryptTimer
                         interval: 40
                         repeat: true
-                        running: lockRoot.authFailed
+                        running: errorMsg.showError
 
                         property int tickCount: 0
 
@@ -849,12 +851,11 @@ Scope {
                     Timer {
                         id: errorTimer
                         interval: 2200
-                        running: lockRoot.authFailed
                         repeat: false
                         onTriggered: {
                             decryptTimer.tickCount = 0
                             errorMsg.glitchActive = false
-                            lockRoot.authFailed = false
+                            errorMsg.showError = false
                             if (typeof passwordField !== "undefined") passwordField.text = ""
                         }
                     }
