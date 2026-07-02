@@ -28,21 +28,30 @@ PanelWindow {
         if (show) {
             wallpaperModel.clear();
             pScan.running = true;
+            pWarmCache.running = true;
         }
     }
 
     Process {
         id: pScan
-        command: ["sh", "-c", "find ~/.config/hypr/wallpaper -maxdepth 1 -type f \\( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' \\) | sort"]
+        command: ["sh", "-c", "find ~/.config/hypr/wallpaper -type f \\( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' \\) | sort | while read -r p; do h=$(sha1sum \"$p\" | cut -d' ' -f1); t=\"$HOME/.cache/wallpaper/thumbs/$h.sqre\"; [ -f \"$t\" ] && echo \"$p|$t\" || echo \"$p|$p\"; done"]
         stdout: SplitParser {
             onRead: data => {
-                var p = data.trim();
-                if (p.length > 0) {
+                var line = data.trim();
+                if (line.length > 0) {
+                    var parts = line.split("|");
+                    var p = parts[0];
+                    var thumb = parts[1] || p;
                     var name = p.split("/").pop().replace(/\.[^/.]+$/, "");
-                    wallpaperModel.append({ path: p, name: name });
+                    wallpaperModel.append({ path: p, thumb: thumb, name: name });
                 }
             }
         }
+    }
+
+    Process {
+        id: pWarmCache
+        command: ["/home/miles/.local/bin/wallpaper_cache.sh", "--all"]
     }
 
     Process { id: pApply }
@@ -154,7 +163,7 @@ PanelWindow {
                                     anchors.left: parent.left
                                     anchors.right: parent.right
                                     height: 66
-                                    source: "file://" + model.path
+                                    source: "file://" + model.thumb
                                     fillMode: Image.PreserveAspectCrop
                                     smooth: true
                                     asynchronous: true

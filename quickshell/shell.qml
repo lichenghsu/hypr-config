@@ -109,11 +109,6 @@ ShellRoot {
         onTriggered: root.showMicIndicator = false
     }
 
-    property string claudeBlockRemain: "--"
-    property int claudeBlockUsedPct: 0
-    property string claudeWeekRemain: "--"
-    property int claudeWeekRemainPct: 0
-
     property bool islandActive: root.mprisStatus !== "offline" && root.mprisTitle !== ""
     property var cavaBars: []
     property string barClock: Qt.formatDateTime(new Date(), "HH:mm")
@@ -546,27 +541,6 @@ ShellRoot {
                 else if (d === 'high') root.kbdBrightnessLevel = "3";
             }
         }
-    }
-
-    Process {
-        id: pClaudeUsage
-        command: ["python3", "/home/miles/Lab/hypr/dotfiles/scripts/claude_usage.sh"]
-        running: false
-        stdout: SplitParser {
-            onRead: data => {
-                var parts = data.trim().split("|");
-                if (parts.length === 4) {
-                    root.claudeBlockRemain = parts[0];
-                    root.claudeBlockUsedPct = parseInt(parts[1]) || 0;
-                    root.claudeWeekRemain = parts[2];
-                    root.claudeWeekRemainPct = parseInt(parts[3]) || 0;
-                }
-            }
-        }
-    }
-    Timer {
-        interval: 300000; running: true; repeat: true; triggeredOnStart: true
-        onTriggered: { pClaudeUsage.running = false; pClaudeUsage.running = true }
     }
 
     Timer { interval: 10000; running: true; repeat: true; onTriggered: root.barClock = Qt.formatDateTime(new Date(), "HH:mm") }
@@ -1502,81 +1476,6 @@ ShellRoot {
                         Text { text: "󰠯 " + root.updates; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; visible: parseInt(root.updates) > 0 }
                     }
 
-                    // Claude Code session usage
-                    ColumnLayout {
-                        Layout.fillWidth: true; spacing: 8
-
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 6
-                            Text { text: "󰀖"; color: "#CC785C"; font.family: root.fontFamily; font.pixelSize: 12 }
-                            Text { text: "Claude"; color: root.colFg; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
-                            Item { Layout.fillWidth: true }
-                        }
-
-                        // Current session block
-                        ColumnLayout {
-                            Layout.fillWidth: true; spacing: 3
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Current session"; color: root.colFg; font.family: root.fontFamily; font.pixelSize: 11 }
-                                Item { Layout.fillWidth: true }
-                                Text {
-                                    property int pct: root.claudeBlockUsedPct
-                                    text: pct + "% used"
-                                    color: pct > 80 ? root.colCrit : (pct > 60 ? "#FFA500" : root.colFg)
-                                    font.family: root.fontFamily; font.pixelSize: 11; font.bold: pct > 60
-                                }
-                            }
-                            Rectangle {
-                                Layout.fillWidth: true; height: 6; radius: 3
-                                color: Qt.rgba(1,1,1,0.12)
-                                Rectangle {
-                                    property int pct: root.claudeBlockUsedPct
-                                    width: Math.min(parent.width, parent.width * pct / 100)
-                                    height: parent.height; radius: parent.radius
-                                    color: pct > 80 ? root.colCrit : (pct > 60 ? "#FFA500" : "#4A9EFF")
-                                    Behavior on width { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
-                                }
-                            }
-                            Text {
-                                text: "Resets in " + root.claudeBlockRemain
-                                color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 10
-                            }
-                        }
-
-                        // Weekly limits
-                        ColumnLayout {
-                            Layout.fillWidth: true; spacing: 3
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "All models"; color: root.colFg; font.family: root.fontFamily; font.pixelSize: 11 }
-                                Item { Layout.fillWidth: true }
-                                Text {
-                                    property int pct: root.claudeWeekRemainPct
-                                    text: pct + "% used"
-                                    color: pct > 80 ? root.colCrit : (pct > 60 ? "#FFA500" : root.colFg)
-                                    font.family: root.fontFamily; font.pixelSize: 11; font.bold: pct > 60
-                                }
-                            }
-                            Rectangle {
-                                Layout.fillWidth: true; height: 6; radius: 3
-                                color: Qt.rgba(1,1,1,0.12)
-                                Rectangle {
-                                    property int pct: root.claudeWeekRemainPct
-                                    width: Math.min(parent.width, parent.width * pct / 100)
-                                    height: parent.height; radius: parent.radius
-                                    color: pct > 80 ? root.colCrit : (pct > 60 ? "#FFA500" : "#4A9EFF")
-                                    Behavior on width { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
-                                }
-                            }
-                            Text {
-                                text: "Resets in " + root.claudeWeekRemain
-                                color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 10
-                            }
-                        }
-                    }
-
-
                     Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,1,1,0.1); visible: root.mprisStatus !== "offline" }
 
                     // Sliders
@@ -2060,9 +1959,17 @@ ShellRoot {
                                         Layout.preferredHeight: 32
                                         hoverEnabled: true
                                         onClicked: {
-                                            pRemmina.command = ["bash", "-c", "remmina \"$1\" &", "--", model.filePath];
-                                            pRemmina.running = true;
-                                            root.remminaExpanded = false;
+                                            onClicked: {
+                                                // 1. 先強制停止/重置上一次的行程狀態（依據 QuickShell API，通常是 terminate() 或 stop()）
+                                                if (pRemmina.running) {
+                                                    pRemmina.terminate();
+                                                }
+
+                                                // 2. 重新指派指令並啟動
+                                                pRemmina.command = ["remmina", "--connect", model.filePath];
+                                                pRemmina.running = true;
+                                                root.remminaExpanded = false;
+                                            }
                                         }
 
                                         Rectangle {
