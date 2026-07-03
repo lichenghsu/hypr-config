@@ -5,6 +5,18 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "default-float",
+	match = { class = ".*" },
+	float = true,
+})
+
+hl.window_rule({
+	name = "zed-tile",
+	match = { class = "dev.zed.Zed" },
+	float = false,
+})
+
+hl.window_rule({
 	name = "fix-xwayland-drags",
 	match = {
 		class = "^$",
@@ -140,4 +152,21 @@ hl.window_rule({
 	float = true,
 	size = "500 400",
 	center = true,
+})
+
+-- AnyDesk's renderer breaks on the HiDPI primary panel (eDP-1, scale 2.0),
+-- but renders correctly on the 1.0-scale external monitor, so pin it there.
+hl.window_rule({
+	name = "anydesk-monitor",
+	match = { class = "anydesk" },
+	monitor = "HDMI-A-1",
+})
+
+-- VMS is an Xwayland app; Xwayland can only broadcast one global DPI
+-- (matching the primary monitor), so pin it to eDP-1 to avoid rendering
+-- 2x oversized on the external monitor.
+hl.window_rule({
+	name = "vms-monitor",
+	match = { class = "Vms-desktop" },
+	monitor = "eDP-1",
 })

@@ -36,6 +36,7 @@ Scope {
         lockRoot.authSuccess = false
         lockRoot.errorVisible = false
         pReset.running = true
+        pRestartShell.running = true
     }
 
     function submitPassword(pw) {
@@ -53,6 +54,16 @@ Scope {
     Process {
         id: pReset
         command: ["hyprctl", "dispatch", "submap", "reset"]
+        running: false
+    }
+
+    // Restart quickshell on unlock to recover from monitor hotplug while locked
+    // (e.g. external monitor unplugged at office, different one plugged in at home).
+    // Dispatched via hyprctl so the restart script is spawned by Hyprland, not
+    // quickshell itself, and survives quickshell being killed.
+    Process {
+        id: pRestartShell
+        command: ["hyprctl", "dispatch", "exec", "/home/miles/.local/bin/qs-restart.sh"]
         running: false
     }
 
@@ -294,6 +305,7 @@ Scope {
                 }
 
                 Rectangle {
+                    id: preLockFlashRect
                     anchors.fill: parent
                     color: "#22ff1133"
                     visible: false
@@ -302,12 +314,12 @@ Scope {
                     SequentialAnimation {
                         running: lockRoot.preLockActive
                         loops: 1
-                        PropertyAction  { target: parent; property: "visible"; value: true }
-                        NumberAnimation { target: parent; property: "opacity"; to: 0.28; duration: 65 }
-                        NumberAnimation { target: parent; property: "opacity"; to: 0.0;  duration: 130 }
-                        NumberAnimation { target: parent; property: "opacity"; to: 0.16; duration: 65 }
-                        NumberAnimation { target: parent; property: "opacity"; to: 0.0;  duration: 200 }
-                        PropertyAction  { target: parent; property: "visible"; value: false }
+                        PropertyAction  { target: preLockFlashRect; property: "visible"; value: true }
+                        NumberAnimation { target: preLockFlashRect; property: "opacity"; to: 0.28; duration: 65 }
+                        NumberAnimation { target: preLockFlashRect; property: "opacity"; to: 0.0;  duration: 130 }
+                        NumberAnimation { target: preLockFlashRect; property: "opacity"; to: 0.16; duration: 65 }
+                        NumberAnimation { target: preLockFlashRect; property: "opacity"; to: 0.0;  duration: 200 }
+                        PropertyAction  { target: preLockFlashRect; property: "visible"; value: false }
                     }
                 }
             }
