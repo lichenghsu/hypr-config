@@ -2531,6 +2531,11 @@ PopupWindow {
         shellRoot: root
     }
 
+    KeyOverlay {
+        id: keyOverlayPopup
+        shellRoot: root
+    }
+
     IpcHandler {
         id: qsIpc
         target: "qsIpc"
@@ -2576,6 +2581,9 @@ PopupWindow {
         }
         function toggleWindowOverview() {
             windowOverviewPopup.show = !windowOverviewPopup.show;
+        }
+        function toggleKeyOverlay() {
+            keyOverlayPopup.show = !keyOverlayPopup.show;
         }
         function updateColors(bg: string, fg: string, accent: string) {
             root.colBg     = bg;

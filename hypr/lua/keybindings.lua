@@ -153,5 +153,6 @@ hl.bind("XF86AudioPlay",  hl.dsp.exec_cmd("playerctl play-pause"), { locked = tr
 hl.bind("XF86AudioPrev",  hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
 
 hl.bind(mainMod .. " + Tab", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_overview.sh"))
+hl.bind(mainMod .. " + X", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_keyoverlay.sh"))
 
 -- Switch: lock handled by post-sleep hook to avoid GPU context crash on resume
