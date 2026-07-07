@@ -123,6 +123,15 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "obsidian",
+	match = { class = "^obsidian$" },
+	float = true,
+	size = "1200 800",
+	center = true,
+	workspace = "special:note silent",
+})
+
+hl.window_rule({
 	name = "foot",
 	match = { class = "^(foot|footclient)$" },
 	float = true,

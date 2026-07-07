@@ -11,6 +11,7 @@ PanelWindow {
     property bool show: false
     property var shellRoot
     property int currentWs: 1
+    property int specialWsId: 0
     property string searchText: ""
     property int selectedIndex: 0
 
@@ -23,6 +24,8 @@ PanelWindow {
             if (!w.wayland || w.wayland.minimized) continue
             if (searchText.length > 0) {
                 if (matchesSearch(w)) result.push(w)
+            } else if (currentWs === rootWindow.specialWsId) {
+                if (w.workspace && w.workspace.id < 0) result.push(w)
             } else if (w.workspace && w.workspace.id === currentWs) {
                 result.push(w)
             }
@@ -83,6 +86,15 @@ PanelWindow {
         var idx = Math.min(selectedIndex, filteredList.length - 1)
         idx += dy !== 0 ? dy * gridColumns : dx
         selectedIndex = Math.max(0, Math.min(idx, filteredList.length - 1))
+    }
+
+    // dot order: workspaces 1-10, then the special-workspace tab
+    property var dotOrder: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, specialWsId]
+    function cycleWorkspace(dir) {
+        var idx = dotOrder.indexOf(currentWs)
+        if (idx === -1) idx = 0
+        idx = (idx + dir + dotOrder.length) % dotOrder.length
+        currentWs = dotOrder[idx]
     }
 
     function activateSelected() {
@@ -173,6 +185,36 @@ PanelWindow {
                     }
                 }
             }
+
+            // dedicated tab for pinned/special workspaces (magic, note, keepass, line, kontact...)
+            Rectangle {
+                id: specialDot
+                width: 34
+                height: 34
+                radius: 17
+                color: rootWindow.currentWs === rootWindow.specialWsId
+                       ? (shellRoot ? shellRoot.colAccent : "#007AFF")
+                       : specialMa.containsMouse
+                         ? Qt.rgba(1, 1, 1, 0.18)
+                         : Qt.rgba(1, 1, 1, 0.05)
+
+                Behavior on color { ColorAnimation { duration: shellRoot && shellRoot.batteryMode ? 0 : 120 } }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰐃"
+                    font.pixelSize: 15
+                    font.family: shellRoot ? shellRoot.fontFamily : "monospace"
+                    color: rootWindow.currentWs === rootWindow.specialWsId ? "#000" : (shellRoot ? shellRoot.colFg : "#fff")
+                }
+
+                MouseArea {
+                    id: specialMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: rootWindow.currentWs = rootWindow.specialWsId
+                }
+            }
         }
 
         // search bar — filters windows by title/appId across all workspaces
@@ -242,6 +284,8 @@ PanelWindow {
                 Keys.onRightPressed: rootWindow.moveSelection(1, 0)
                 Keys.onUpPressed: rootWindow.moveSelection(0, -1)
                 Keys.onDownPressed: rootWindow.moveSelection(0, 1)
+                Keys.onTabPressed: rootWindow.cycleWorkspace(1)
+                Keys.onBacktabPressed: rootWindow.cycleWorkspace(-1)
             }
         }
 
@@ -270,7 +314,9 @@ PanelWindow {
                     visible: modelData.wayland && !modelData.wayland.minimized
                              && (rootWindow.searchText.length > 0
                                  ? rootWindow.matchesSearch(modelData)
-                                 : modelData.workspace && modelData.workspace.id === rootWindow.currentWs)
+                                 : rootWindow.currentWs === rootWindow.specialWsId
+                                   ? (modelData.workspace && modelData.workspace.id < 0)
+                                   : modelData.workspace && modelData.workspace.id === rootWindow.currentWs)
                     width: 400
                     height: visible ? 280 : 0
                     radius: 12
@@ -318,20 +364,27 @@ PanelWindow {
 
                     // workspace badge, shown while searching across all workspaces
                     Rectangle {
-                        visible: rootWindow.searchText.length > 0 && modelData.workspace
+                        visible: (rootWindow.searchText.length > 0 || rootWindow.currentWs === rootWindow.specialWsId) && modelData.workspace
                         anchors.top: parent.top
                         anchors.left: parent.left
                         anchors.margins: 8
-                        width: 24
+                        width: modelData.workspace && modelData.workspace.id < 0 ? implicitBadgeWidth : 24
                         height: 24
                         radius: 12
                         color: Qt.rgba(0, 0, 0, 0.7)
                         border.color: shellRoot ? shellRoot.colAccent : "#007AFF"
                         border.width: 1
 
+                        property int implicitBadgeWidth: badgeText.implicitWidth + 16
+
                         Text {
+                            id: badgeText
                             anchors.centerIn: parent
-                            text: modelData.workspace ? modelData.workspace.id : ""
+                            text: modelData.workspace
+                                  ? (modelData.workspace.id < 0
+                                     ? modelData.workspace.name.replace("special:", "")
+                                     : modelData.workspace.id)
+                                  : ""
                             color: shellRoot ? shellRoot.colFg : "#fff"
                             font.bold: true
                             font.pixelSize: 11
