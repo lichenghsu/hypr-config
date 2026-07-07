@@ -12,8 +12,31 @@ PanelWindow {
     property var shellRoot
     property int currentWs: 1
     property string searchText: ""
+    property int selectedIndex: 0
 
-    WlrLayershell.keyboardFocus: show ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    property var filteredList: {
+        if (!Hyprland.toplevels || !Hyprland.toplevels.values) return []
+        var list = Hyprland.toplevels.values
+        var result = []
+        for (var i = 0; i < list.length; i++) {
+            var w = list[i]
+            if (!w.wayland || w.wayland.minimized) continue
+            if (searchText.length > 0) {
+                if (matchesSearch(w)) result.push(w)
+            } else if (w.workspace && w.workspace.id === currentWs) {
+                result.push(w)
+            }
+        }
+        return result
+    }
+    property var selectedWindow: filteredList.length > 0
+                                  ? filteredList[Math.min(selectedIndex, filteredList.length - 1)]
+                                  : null
+    property int gridColumns: Math.max(1, Math.floor((width - 120 + 24) / (400 + 24)))
+
+    onCurrentWsChanged: selectedIndex = 0
+
+    WlrLayershell.keyboardFocus: show ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     WlrLayershell.layer: WlrLayer.Overlay
     anchors.top: true
     anchors.bottom: true
@@ -27,6 +50,7 @@ PanelWindow {
         if (show) {
             currentWs = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1
             searchText = ""
+            selectedIndex = 0
             focusTimer.start()
         } else {
             contextMenu.close()
@@ -54,17 +78,17 @@ PanelWindow {
         return t.indexOf(q) !== -1 || a.indexOf(q) !== -1
     }
 
-    function activateFirstMatch() {
-        if (searchText.length === 0) return
-        if (!Hyprland.toplevels || !Hyprland.toplevels.values) return
-        var list = Hyprland.toplevels.values
-        for (var i = 0; i < list.length; i++) {
-            var w = list[i]
-            if (w.wayland && !w.wayland.minimized && matchesSearch(w)) {
-                rootWindow.show = false
-                w.wayland.activate()
-                return
-            }
+    function moveSelection(dx, dy) {
+        if (filteredList.length === 0) return
+        var idx = Math.min(selectedIndex, filteredList.length - 1)
+        idx += dy !== 0 ? dy * gridColumns : dx
+        selectedIndex = Math.max(0, Math.min(idx, filteredList.length - 1))
+    }
+
+    function activateSelected() {
+        if (selectedWindow && selectedWindow.wayland) {
+            rootWindow.show = false
+            selectedWindow.wayland.activate()
         }
     }
 
@@ -203,14 +227,21 @@ PanelWindow {
                 font.pixelSize: 13
                 focus: rootWindow.show
                 text: rootWindow.searchText
-                onTextChanged: rootWindow.searchText = text
+                onTextChanged: {
+                    rootWindow.searchText = text
+                    rootWindow.selectedIndex = 0
+                }
 
                 Keys.onEscapePressed: {
                     if (contextMenu.visible) contextMenu.close()
                     else if (text.length > 0) text = ""
                     else rootWindow.show = false
                 }
-                Keys.onReturnPressed: rootWindow.activateFirstMatch()
+                Keys.onReturnPressed: rootWindow.activateSelected()
+                Keys.onLeftPressed: rootWindow.moveSelection(-1, 0)
+                Keys.onRightPressed: rootWindow.moveSelection(1, 0)
+                Keys.onUpPressed: rootWindow.moveSelection(0, -1)
+                Keys.onDownPressed: rootWindow.moveSelection(0, 1)
             }
         }
 
@@ -233,6 +264,7 @@ PanelWindow {
                 delegate: Rectangle {
                     id: card
                     required property var modelData
+                    property bool isSelected: rootWindow.selectedWindow === modelData
 
                     // when searching, match across all workspaces; otherwise show only the selected workspace
                     visible: modelData.wayland && !modelData.wayland.minimized
@@ -247,10 +279,12 @@ PanelWindow {
                     color: cardMa.containsMouse
                            ? Qt.rgba(1, 1, 1, 0.12)
                            : Qt.rgba(0.05, 0.05, 0.05, 0.92)
-                    border.color: modelData.activated
-                                  ? (shellRoot ? shellRoot.colAccent : "#007AFF")
-                                  : Qt.rgba(1, 1, 1, 0.12)
-                    border.width: modelData.activated ? 2 : 1
+                    border.color: isSelected
+                                  ? "#ffffff"
+                                  : modelData.activated
+                                    ? (shellRoot ? shellRoot.colAccent : "#007AFF")
+                                    : Qt.rgba(1, 1, 1, 0.12)
+                    border.width: isSelected ? 3 : (modelData.activated ? 2 : 1)
 
                     Behavior on color {
                         ColorAnimation { duration: shellRoot && shellRoot.batteryMode ? 0 : 150 }

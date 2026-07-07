@@ -9,7 +9,7 @@ import Quickshell.Io
 ShellRoot {
     PanelWindow {
     id: root
-    screen: Quickshell.screens.find(s => !s.name.startsWith("eDP")) ?? Quickshell.screens.find(s => s.name.startsWith("eDP")) ?? Quickshell.screens[0]
+    screen: Quickshell.screens.find(s => s.name.startsWith("eDP")) ?? Quickshell.screens[0]
 
     property color colBg: "#000000"
     property color colFg: "#ffffff"
@@ -22,7 +22,7 @@ ShellRoot {
     property int windowCount: 0
     property bool isBarMode: windowCount === 1
     property real notchWidth: notchLayout.implicitWidth
-    
+
     property bool isAnyPopupOpen: controlCenter.show || appLauncherPopup.show || clipboardManagerPopup.show || themeSwitcherPopup.show || wifiMenuPopup.show || powerMenuPopup.show || bluetoothMenuPopup.show || wallpaperPickerPopup.show
     property bool isAnyPopupAnimActive: isAnyPopupOpen || controlCenter.animHeight > 36 || appLauncherPopup.animHeight > 36 || clipboardManagerPopup.animHeight > 36 || themeSwitcherPopup.animHeight > 36 || wifiMenuPopup.animHeight > 36 || powerMenuPopup.animHeight > 36 || bluetoothMenuPopup.animHeight > 36 || wallpaperPickerPopup.animHeight > 36
 
@@ -82,12 +82,12 @@ ShellRoot {
     property bool batteryMode: false
 
     property bool showBatteryModeIndicator: false
-    
+
     onBatteryModeChanged: {
         showBatteryModeIndicator = true;
         batteryModeTimer.restart();
     }
-    
+
     Timer {
         id: batteryModeTimer
         interval: 1000
@@ -96,12 +96,12 @@ ShellRoot {
     }
 
     property bool showMicIndicator: false
-    
+
     onMicMutedChanged: {
         showMicIndicator = true;
         micIndicatorTimer.restart();
     }
-    
+
     Timer {
         id: micIndicatorTimer
         interval: 1000
@@ -141,16 +141,16 @@ ShellRoot {
     property bool stopwatchRunning: false
     property int stopwatchSeconds: 0
     property string stopwatchText: "00:00"
-    
+
     property bool timerRunning: false
     property int timerSeconds: 0
     property int timerTotal: 300 // 5 minutes default
     property string timerText: "05:00"
-    
+
     property int pomodoroState: 0 // 0 = off, 1 = work, 2 = break
     property int pomodoroWorkTotal: 1500 // 25 minutes
     property int pomodoroBreakTotal: 300 // 5 minutes
-    
+
     function formatTime(s) {
         var m = Math.floor(s / 60);
         var sec = s % 60;
@@ -335,7 +335,7 @@ ShellRoot {
             }
         }
     }
-    
+
     Process { id: pNotify }
 
     Process {
@@ -355,7 +355,7 @@ ShellRoot {
 
     Process { id: pGpuInt; command: ["sh", "-c", "supergfxctl -m Integrated; hyprctl dispatch \"hl.dsp.exit()\""] }
     Process { id: pGpuHyb; command: ["sh", "-c", "supergfxctl -m Hybrid; hyprctl dispatch \"hl.dsp.exit()\""] }
-    
+
     Process { id: pNoteHyprland; command: ["kate", "/home/miles/.config/hypr"] }
     Process { id: pNoteWaybar; command: ["kate", "/home/miles/.config/waybar/"] }
     Process { id: pNoteTofi; command: ["kate", "/home/miles/.config/tofi/"] }
@@ -366,7 +366,7 @@ ShellRoot {
     Process { id: pNoteFastfetch; command: ["kate", "/home/miles/.config/fastfetch"] }
     Process { id: pNoteQuickshell; command: ["kate", "/home/miles/.config/quickshell"] }
 
-    
+
 
     // Background Process Loops
     Process {
@@ -383,7 +383,7 @@ ShellRoot {
     }
     Process {
         command: ["sh", "-c", "while true; do cap=$(cat /sys/class/power_supply/BAT1/capacity 2>/dev/null || echo 0); acad=$(cat /sys/class/power_supply/ACAD/online 2>/dev/null || echo 0); echo \"$cap $acad\"; sleep 5; done"]
-        running: true; stdout: SplitParser { 
+        running: true; stdout: SplitParser {
             onRead: data => {
                 var parts = data.trim().split(" ");
                 root.batteryCap = parts[0];
@@ -393,7 +393,7 @@ ShellRoot {
     }
     Process {
         command: ["sh", "-c", "while true; do asusctl battery info 2>/dev/null; sleep 10; done"]
-        running: true; stdout: SplitParser { 
+        running: true; stdout: SplitParser {
             onRead: data => {
                 var d = data.trim();
                 if (d.includes("Current battery charge limit:")) {
@@ -405,7 +405,7 @@ ShellRoot {
     }
     Process {
         command: ["sh", "-c", "while true; do ryzenadj -i 2>/dev/null | awk -F'|' '/STAPM LIMIT/ {print int($3)}'; sleep 10; done"]
-        running: true; stdout: SplitParser { 
+        running: true; stdout: SplitParser {
             onRead: data => {
                 var d = parseInt(data.trim());
                 if (!isNaN(d) && d > 0) root.cpuWattage = d;
@@ -418,7 +418,7 @@ ShellRoot {
     }
     Process {
         command: ["sh", "-c", "while true; do wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null; sleep 0.5; done"]
-        running: true; stdout: SplitParser { 
+        running: true; stdout: SplitParser {
             onRead: data => {
                 var d = data.trim();
                 root.volumeMuted = d.includes("[MUTED]");
@@ -429,7 +429,7 @@ ShellRoot {
     }
     Process {
         command: ["sh", "-c", "while true; do wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null; sleep 0.5; done"]
-        running: true; stdout: SplitParser { 
+        running: true; stdout: SplitParser {
             onRead: data => {
                 var d = data.trim();
                 root.micMuted = d.includes("[MUTED]");
@@ -464,7 +464,7 @@ ShellRoot {
     }
     Process {
         command: ["sh", "-c", "while true; do sig=$(LC_ALL=C nmcli -t -f active,signal dev wifi | grep '^yes' | cut -d: -f2); if [ -z \"$sig\" ]; then echo 'disc'; else echo \"$sig\"; fi; sleep 3; done"]
-        running: true; stdout: SplitParser { 
+        running: true; stdout: SplitParser {
             onRead: data => {
                 var d = data.trim();
                 if (d === 'disc') { root.wifiIcon = "󰤮"; root.wifiText = "Disconnected"; }
@@ -567,13 +567,13 @@ ShellRoot {
         property bool show: true
         property real customWidth: 0
         default property alias customContent: contentBox.data
-        
+
         Layout.fillHeight: true
         Layout.preferredWidth: show ? (customWidth > 0 ? customWidth + 16 : modText.implicitWidth + 16) : 0
-        Behavior on Layout.preferredWidth { 
-            NumberAnimation { duration: root.batteryMode ? 0 : 300; easing.type: Easing.OutExpo } 
+        Behavior on Layout.preferredWidth {
+            NumberAnimation { duration: root.batteryMode ? 0 : 300; easing.type: Easing.OutExpo }
         }
-        
+
         visible: Layout.preferredWidth > 0
         clip: true
         hoverEnabled: true
@@ -582,7 +582,7 @@ ShellRoot {
             anchors.fill: parent
             color: parent.bgColor
             Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 200 } }
-            
+
             SequentialAnimation on opacity {
                 running: modRoot.blink
                 loops: Animation.Infinite
@@ -596,10 +596,10 @@ ShellRoot {
             width: modText.width
             height: modText.height
             scale: parent.containsPress ? 0.85 : (parent.containsMouse ? 1.1 : 1.0)
-            Behavior on scale { 
-                NumberAnimation { duration: root.batteryMode ? 0 : 200; easing.type: Easing.OutBack; easing.overshoot: 2.0 } 
+            Behavior on scale {
+                NumberAnimation { duration: root.batteryMode ? 0 : 200; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
             }
-            
+
             Text {
                 id: modText
                 text: parent.parent.text
@@ -618,7 +618,7 @@ ShellRoot {
     Rectangle {
         id: notchRect
         opacity: (!root.isAnyPopupAnimActive) || root.isBarMode ? 1.0 : 0.0
-        
+
         anchors.top: parent.top
         anchors.topMargin: root.isBarMode ? 0 : 4
         anchors.horizontalCenter: parent.horizontalCenter
@@ -626,13 +626,13 @@ ShellRoot {
         width: root.isBarMode ? parent.width : notchLayout.implicitWidth + 32
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
         radius: root.isBarMode ? 0 : 16
-        
+
         Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
         Behavior on radius { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
         Behavior on anchors.topMargin { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
         border.color: Qt.rgba(1, 1, 1, 0.1)
         border.width: root.isBarMode ? 0 : 1
-        
+
         // ── Left: clock ──────────────────────────────────────────────────
         MouseArea {
             anchors.left: parent.left
@@ -652,30 +652,28 @@ ShellRoot {
         // ── Right: battery ────────────────────────────────────────────────
         MouseArea {
             anchors.right: parent.right
-            anchors.rightMargin: 10
+            anchors.rightMargin: 12
             anchors.verticalCenter: parent.verticalCenter
-            width: 28; height: parent.height
+
+            width: root.batteryCharging ? 75 : 55
+            height: parent.height
             visible: root.isBarMode && !root.showOsd && !controlCenter.show
             onClicked: controlCenter.show = true
+
             Text {
                 anchors.centerIn: parent
                 property int cap: parseInt(root.batteryCap)
-                text: {
-                    if (root.batteryCharging) return ""
-                    if (cap > 80) return ""
-                    if (cap > 60) return ""
-                    if (cap > 40) return ""
-                    if (cap > 20) return ""
-                    return ""
-                }
+                text: root.batteryCharging ? "󱐌 " + root.batteryCap + "%" : root.batteryCap + "%"
                 color: {
                     var cap = parseInt(root.batteryCap)
                     if (cap <= 15 && !root.batteryCharging) return root.colCrit
-                    if (cap <= 30 && !root.batteryCharging) return "#FFA500"
-                    if (root.batteryCharging) return "#76B900"
-                    return root.colFg
+                        if (cap <= 30 && !root.batteryCharging) return "#FFA500"
+                            if (root.batteryCharging) return "#76B900"
+                                return root.colFg
                 }
-                font.family: root.fontFamily; font.pixelSize: root.fontSize + 2
+                font.family: root.fontFamily
+                font.pixelSize: root.fontSize
+                font.bold: true
             }
         }
 
@@ -693,7 +691,7 @@ ShellRoot {
                 Mod {
                     property var ws: Hyprland.workspaces.values.find(w => w.id === modelData)
                     property bool isActive: Hyprland.focusedWorkspace != null && Hyprland.focusedWorkspace.id === modelData
-                    
+
                     text: modelData
                     textColor: isActive ? root.colFg : root.colMuted
                     bgColor: "transparent"
@@ -701,12 +699,12 @@ ShellRoot {
                     onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + modelData + " })")
                 }
             }
-            
-            Mod { 
+
+            Mod {
                 property int cap: parseInt(root.batteryCap)
                 property bool isCrit: cap <= 15 && !root.batteryCharging
                 property bool isWarn: cap <= 30 && cap > 15 && !root.batteryCharging
-                
+
                 text: {
                     if (root.batteryCharging) return "";
                     if (cap > 80) return "";
@@ -735,7 +733,7 @@ ShellRoot {
                 show: isActive && !controlCenter.show && !root.showOsd
                 onClicked: controlCenter.show = true
             }
-            
+
             Mod {
                 property bool isActive: root.timerRunning || (root.timerSeconds > 0 && root.timerSeconds < root.timerTotal)
                 text: "󰔛 " + root.timerText
@@ -744,7 +742,7 @@ ShellRoot {
                 show: isActive && !controlCenter.show && !root.showOsd
                 onClicked: controlCenter.show = true
             }
-            
+
             Mod {
                 text: root.batteryMode ? "  Power Saver" : "  Performance"
                 textColor: root.batteryMode ? "#FFCC00" : "#76B900"
@@ -765,7 +763,7 @@ ShellRoot {
                 bgColor: "transparent"
                 show: root.showOsd
                 customWidth: 140
-                
+
                 Item {
                     anchors.centerIn: parent
                     width: 140
@@ -1076,10 +1074,10 @@ PopupWindow {
         property real level: 1.0
         property bool charging: false
         property color colFg: root.colFg
-        
+
         implicitWidth: 32
         implicitHeight: 14
-        
+
         Rectangle {
             id: outline
             width: 26
@@ -1090,7 +1088,7 @@ PopupWindow {
             border.width: 1.5
             radius: 4
             opacity: 0.7
-            
+
             Rectangle {
                 id: fill
                 x: 2
@@ -1106,7 +1104,7 @@ PopupWindow {
                 Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 300; easing.type: Easing.OutCubic } }
             }
         }
-        
+
         // The nub
         Rectangle {
             width: 3
@@ -1118,7 +1116,7 @@ PopupWindow {
             opacity: 0.7
             radius: 1.5
         }
-        
+
         // Charging bolt
         Text {
             visible: battIcon.charging
@@ -1136,15 +1134,15 @@ PopupWindow {
         property string iconText
         property bool isActive: false
         property color accent: root.colFg
-        
+
         signal mainClicked()
         signal iconClicked()
         signal rightIconClicked()
         signal scrolled(int angle)
-        
+
         Layout.fillWidth: true
         Layout.preferredHeight: 40
-        
+
         Rectangle {
             anchors.fill: parent
             radius: 12
@@ -1152,7 +1150,7 @@ PopupWindow {
             border.color: "transparent"
             Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 150 } }
         }
-        
+
         MouseArea {
             id: mainMouse
             anchors.fill: parent
@@ -1160,20 +1158,20 @@ PopupWindow {
             onClicked: mbtn.mainClicked()
             onWheel: wheel => mbtn.scrolled(wheel.angleDelta.y)
         }
-        
+
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: 6
             anchors.rightMargin: 12
             spacing: 8
-            
+
             // Icon Circle Box
             Rectangle {
                 Layout.preferredWidth: 32
                 Layout.preferredHeight: 32
                 radius: 16
                 color: mbtn.isActive ? mbtn.accent : Qt.rgba(1, 1, 1, 0.15)
-                
+
                 Text {
                     anchors.centerIn: parent
                     text: mbtn.iconText
@@ -1181,20 +1179,20 @@ PopupWindow {
                     font.family: root.fontFamily
                     font.pixelSize: 16
                 }
-                
+
                 MouseArea {
                     id: iconMouse
                     anchors.fill: parent
                     hoverEnabled: true
                     onClicked: mbtn.iconClicked()
                 }
-                
+
                 scale: iconMouse.containsPress ? 0.9 : (iconMouse.containsMouse ? 1.05 : 1.0)
                 Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
                 Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 150 } }
             }
-            
-            Text { 
+
+            Text {
                 text: mbtn.text
                 color: root.colFg
                 font.family: root.fontFamily
@@ -1202,11 +1200,11 @@ PopupWindow {
                 font.bold: true
                 Layout.fillWidth: true
             }
-            
+
             Item {
                 Layout.preferredWidth: 32
                 Layout.preferredHeight: 32
-                
+
                 Text {
                     anchors.centerIn: parent
                     text: ""
@@ -1215,7 +1213,7 @@ PopupWindow {
                     font.pixelSize: 16
                     Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 150 } }
                 }
-                
+
                 MouseArea {
                     id: rightIconMouse
                     anchors.fill: parent
@@ -1224,7 +1222,7 @@ PopupWindow {
                 }
             }
         }
-        
+
         scale: mainMouse.containsPress ? 0.98 : 1.0
         Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 150; easing.type: Easing.OutBack } }
     }
@@ -1235,28 +1233,28 @@ PopupWindow {
         property string iconText
         property bool isActive: false
         property color accent: root.colFg
-        
+
         Layout.fillWidth: true
         Layout.preferredHeight: 40
         hoverEnabled: true
-        
+
         Rectangle {
             anchors.fill: parent
             radius: 12
-            color: mbtn.isActive ? Qt.rgba(mbtn.accent.r, mbtn.accent.g, mbtn.accent.b, 0.15) 
+            color: mbtn.isActive ? Qt.rgba(mbtn.accent.r, mbtn.accent.g, mbtn.accent.b, 0.15)
                                  : (mbtn.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.1))
             border.color: mbtn.isActive ? Qt.rgba(mbtn.accent.r, mbtn.accent.g, mbtn.accent.b, 0.3) : "transparent"
             border.width: 1
             Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 150 } }
         }
-        
+
         RowLayout {
             anchors.centerIn: parent
             spacing: 4
             Text { text: mbtn.iconText; color: mbtn.isActive ? mbtn.accent : root.colFg; font.family: root.fontFamily; font.pixelSize: 14 }
             Text { text: mbtn.text; color: mbtn.isActive ? mbtn.accent : root.colFg; font.family: root.fontFamily; font.pixelSize: 11; font.bold: true }
         }
-        
+
         scale: containsPress ? 0.95 : 1.0
         Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 150; easing.type: Easing.OutBack } }
     }
@@ -1265,7 +1263,7 @@ PopupWindow {
         id: mSlider
         Layout.fillWidth: true
         from: 0; to: 1.0
-        
+
         background: Rectangle {
             x: mSlider.leftPadding
             y: mSlider.topPadding + mSlider.availableHeight / 2 - height / 2
@@ -1282,7 +1280,7 @@ PopupWindow {
                 radius: 4
             }
         }
-        
+
         handle: Rectangle {
             x: mSlider.leftPadding + mSlider.visualPosition * (mSlider.availableWidth - width)
             y: mSlider.topPadding + mSlider.availableHeight / 2 - height / 2
@@ -1292,40 +1290,40 @@ PopupWindow {
             color: mSlider.pressed ? Qt.rgba(0.8, 0.8, 0.8, 1) : "#ffffff"
             scale: mSlider.pressed || mSlider.hovered ? 1.2 : 1.0
             Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 100 } }
-            
+
         }
     }
 
     PanelWindow {
         id: controlCenter
-        
+
         WlrLayershell.keyboardFocus: show ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
-        
+
         anchors {
             top: true
             left: true
             right: true
             bottom: true
         }
-        
+
         exclusionMode: ExclusionMode.Ignore
-        
+
 
 
         property bool show: false
         property real animHeight: animRect.height
-        
 
 
-        
+
+
         // Fluid Animation Visibility Logic: Stay mapped until opacity is 0
         visible: show || animRect.opacity > 0
-        
+
         // Increased size
         implicitWidth: 380
         implicitHeight: mainLayout.implicitHeight + 48 + root.height + 8
         color: "transparent"
-        
+
         onShowChanged: {
             if (show) focusTimerCc.start();
             else {
@@ -1335,7 +1333,7 @@ PopupWindow {
                 root.audioSourceExpanded = false;
             }
         }
-        
+
         Timer {
             id: focusTimerCc
             interval: 50
@@ -1352,7 +1350,7 @@ PopupWindow {
                 gpuPopup.show = false;
                 notesPopup.show = false;
             }
-            
+
             MouseArea {
                 anchors.fill: parent
                 enabled: controlCenter.show
@@ -1363,68 +1361,68 @@ PopupWindow {
                     notesPopup.show = false;
                 }
             }
-            
+
             Rectangle {
                 id: animRect
                 anchors.top: parent.top
                 anchors.topMargin: controlCenter.show ? 16 : (root.isBarMode ? 0 : 4)
                 anchors.horizontalCenter: parent.horizontalCenter
-                
+
                 MouseArea {
                     anchors.fill: parent
                     hoverEnabled: true
                 }
-                
+
                 width: controlCenter.show ? 380 : notchLayout.implicitWidth + 32
                 height: controlCenter.show ? (mainLayout.implicitHeight + 32) : 32
-                
+
                 color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
                 radius: controlCenter.show ? 24 : (root.isBarMode ? 0 : 16)
                 border.color: Qt.rgba(1, 1, 1, 0.1)
                 border.width: (controlCenter.show || !root.isBarMode) ? 1 : 0
-                
+
                 // DYNAMIC ISLAND FLUID ANIMATION
                 opacity: (!controlCenter.show && height <= 36) ? 0.0 : 1.0
-                
-                Behavior on radius { 
-                    NumberAnimation { 
+
+                Behavior on radius {
+                    NumberAnimation {
                         duration: root.batteryMode ? 0 : controlCenter.show ? 450 : 300
                         easing.type: controlCenter.show ? Easing.OutBack : Easing.OutExpo
-                        easing.overshoot: controlCenter.show ? 1.2 : 0 
-                    } 
+                        easing.overshoot: controlCenter.show ? 1.2 : 0
+                    }
                 }
-                
-                Behavior on width { 
-                    NumberAnimation { 
+
+                Behavior on width {
+                    NumberAnimation {
                         duration: root.batteryMode ? 0 : controlCenter.show ? 450 : 300
                         easing.type: controlCenter.show ? Easing.OutBack : Easing.OutExpo
-                        easing.overshoot: controlCenter.show ? 1.2 : 0 
-                    } 
+                        easing.overshoot: controlCenter.show ? 1.2 : 0
+                    }
                 }
-                Behavior on height { 
-                    NumberAnimation { 
+                Behavior on height {
+                    NumberAnimation {
                         duration: root.batteryMode ? 0 : controlCenter.show ? 450 : 300
                         easing.type: controlCenter.show ? Easing.OutBack : Easing.OutExpo
-                        easing.overshoot: controlCenter.show ? 1.2 : 0 
-                    } 
+                        easing.overshoot: controlCenter.show ? 1.2 : 0
+                    }
                 }
-                Behavior on anchors.topMargin { 
-                    NumberAnimation { 
+                Behavior on anchors.topMargin {
+                    NumberAnimation {
                         duration: root.batteryMode ? 0 : controlCenter.show ? 450 : 300
                         easing.type: controlCenter.show ? Easing.OutBack : Easing.OutExpo
-                        easing.overshoot: controlCenter.show ? 1.2 : 0 
-                    } 
+                        easing.overshoot: controlCenter.show ? 1.2 : 0
+                    }
                 }
-                
+
                 Item {
                     anchors.fill: parent
                     anchors.margins: 16
                     opacity: controlCenter.show ? 1.0 : 0.0
-                    Behavior on opacity { 
-                        NumberAnimation { 
+                    Behavior on opacity {
+                        NumberAnimation {
                             duration: root.batteryMode ? 0 : controlCenter.show ? 300 : 100
-                            easing.type: Easing.InOutQuad 
-                        } 
+                            easing.type: Easing.InOutQuad
+                        }
                     }
                     clip: true
 
@@ -1433,13 +1431,13 @@ PopupWindow {
                         anchors.top: parent.top
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        
+
                     spacing: 8
-                    
+
                     // Header: Clock & Date & Battery
                     RowLayout {
                         Layout.fillWidth: true
-                        
+
                         ColumnLayout {
                             spacing: 4
                             Text {
@@ -1461,32 +1459,32 @@ PopupWindow {
                                 text: Qt.formatDateTime(new Date(), "dddd, MMMM d")
                             }
                         }
-                        
+
                         Item { Layout.fillWidth: true }
-                        
+
                         // Battery Close Button
                         MouseArea {
                             property int cap: parseInt(root.batteryCap)
                             property bool isCrit: cap <= 15 && !root.batteryCharging
                             property bool isWarn: cap <= 30 && cap > 15 && !root.batteryCharging
-                            
+
                             Layout.preferredHeight: 40
                             Layout.preferredWidth: battLayout.implicitWidth + 24
                             hoverEnabled: true
                             onClicked: { controlCenter.show = false }
-                            
+
                             Rectangle {
                                 anchors.fill: parent
                                 radius: 12
                                 color: parent.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.1)
                                 Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 150 } }
                             }
-                            
+
                             RowLayout {
                                 id: battLayout
                                 anchors.centerIn: parent
                                 spacing: 10
-                                Text { 
+                                Text {
                                     text: {
                                         let cap = parseInt(root.batteryCap);
                                         if (root.batteryCharging) return "";
@@ -1503,22 +1501,22 @@ PopupWindow {
                                         return isCrit ? root.colCrit : (isWarn ? "#FFA500" : (root.batteryCharging ? "#76B900" : root.colFg));
                                     }
                                     font.family: root.fontFamily
-                                    font.pixelSize: 18 
+                                    font.pixelSize: 18
                                 }
-                                Text { 
+                                Text {
                                     text: root.batteryCap + "%"
                                     color: root.colFg
                                     font.family: root.fontFamily
                                     font.pixelSize: 14
-                                    font.bold: true 
+                                    font.bold: true
                                 }
                             }
-                            
+
                             scale: containsPress ? 0.95 : 1.0
                             Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 150; easing.type: Easing.OutBack } }
                         }
                     }
-                    
+
                     // System Stats (Moved under clock)
                     RowLayout {
                         Layout.fillWidth: true
@@ -1535,7 +1533,7 @@ PopupWindow {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 8
-                        
+
                         // Volume
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -1723,7 +1721,7 @@ PopupWindow {
                                     pBrightSet.running = true
                                 }
                             }
-                            
+
                         }
 
                         // Keyboard Brightness
@@ -1757,7 +1755,7 @@ PopupWindow {
                                     pWattSet.running = true
                                 }
                             }
-                            Text { 
+                            Text {
                                 text: root.cpuWattage + "W"
                                 color: root.colFg
                                 font.family: root.fontFamily
@@ -1792,12 +1790,12 @@ PopupWindow {
 
 
                     }
-                    
+
                     // Toggles Row 1
                     RowLayout {
                         spacing: 8
                         Layout.fillWidth: true
-                        
+
                         ModernSplitButton {
                             text: "Bluetooth"
                             iconText: root.bluetoothStatus === "on" ? "" : "󰂲"
@@ -1805,12 +1803,12 @@ PopupWindow {
                             accent: "#007AFF"
                             onMainClicked: { bluetoothMenuPopup.show = true; controlCenter.show = false }
                             onRightIconClicked: { bluetoothMenuPopup.show = true; controlCenter.show = false }
-                            onIconClicked: { 
+                            onIconClicked: {
                                 root.bluetoothStatus = (root.bluetoothStatus === "on") ? "off" : "on"
-                                pBtToggle.running = true 
+                                pBtToggle.running = true
                             }
                         }
-                        
+
                         ModernSplitButton {
                             text: root.wifiText === "Disconnected" ? "Wi-Fi" : root.wifiText
                             iconText: root.wifiIcon
@@ -1818,14 +1816,14 @@ PopupWindow {
                             accent: "#007AFF"
                             onMainClicked: { wifiMenuPopup.show = true; controlCenter.show = false }
                             onRightIconClicked: { wifiMenuPopup.show = true; controlCenter.show = false }
-                            onIconClicked: { 
+                            onIconClicked: {
                                 root.wifiText = (root.wifiText === "Disconnected") ? "Connecting..." : "Disconnected"
                                 root.wifiIcon = (root.wifiText === "Connecting...") ? "󰤨" : "󰤮"
-                                pWifiToggle.running = true 
+                                pWifiToggle.running = true
                             }
                         }
                     }
-                    
+
                     // VPN Row (dynamic)
                     Repeater {
                         model: vpnModel
@@ -2076,7 +2074,7 @@ PopupWindow {
                     RowLayout {
                         spacing: 8
                         Layout.fillWidth: true
-                        
+
                         ModernSplitButton {
                             text: root.stopwatchText
                             iconText: "󱎫"
@@ -2096,13 +2094,13 @@ PopupWindow {
                                     root.stopwatchRunning = true;
                                 }
                             }
-                            onIconClicked: { 
+                            onIconClicked: {
                                 root.stopwatchRunning = false;
                                 root.stopwatchSeconds = 0;
                                 root.stopwatchText = "00:00";
                             }
                         }
-                        
+
                         ModernSplitButton {
                             id: btnTimer
                             text: root.timerText
@@ -2121,7 +2119,7 @@ PopupWindow {
                                     root.timerRunning = true;
                                 }
                             }
-                            onIconClicked: { 
+                            onIconClicked: {
                                 root.pomodoroState = 0;
                                 root.timerRunning = false;
                                 root.timerSeconds = 0;
@@ -2156,7 +2154,7 @@ PopupWindow {
                     RowLayout {
                         spacing: 8
                         Layout.fillWidth: true
-                        
+
                         ModernButton {
                             id: btnGpu
                             text: root.gpuMode.charAt(0)
@@ -2304,32 +2302,32 @@ PopupWindow {
         }
         property real animHeight: animRectTimer.height
         visible: show || animRectTimer.opacity > 0
-        
+
         implicitWidth: 200
         implicitHeight: layoutTimer.implicitHeight + 32
         color: "transparent"
-        
+
         Item {
             anchors.fill: parent
-            
+
             Rectangle {
                 id: animRectTimer
                 anchors.fill: parent
-                
+
                 anchors.rightMargin: 12
-                
+
                 color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
                 radius: 16
                 border.color: Qt.rgba(1, 1, 1, 0.1)
                 border.width: 1
-                
+
                 opacity: timerPopup.show ? 1.0 : 0.0
                 scale: timerPopup.show ? 1.0 : 0.95
                 x: timerPopup.show ? 0 : 20
                 Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 200 } }
                 Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack } }
                 Behavior on x { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack } }
-                
+
                 ColumnLayout {
                     id: layoutTimer
                     anchors.top: parent.top
@@ -2338,7 +2336,7 @@ PopupWindow {
                     anchors.margins: 16
                     spacing: 8
                     Text { text: "Timer Minutes"; color: Qt.rgba(root.colFg.r, root.colFg.g, root.colFg.b, 0.5); font.family: root.fontFamily; font.pixelSize: 12 }
-                    
+
                     TextField {
                         id: timerInput
                         Layout.fillWidth: true
@@ -2381,32 +2379,32 @@ PopupWindow {
         property bool show: false
         property real animHeight: animRect.height
         visible: show || animRectGpu.opacity > 0
-        
+
         implicitWidth: 200
         implicitHeight: layoutGpu.implicitHeight + 32
         color: "transparent"
-        
+
         Item {
             anchors.fill: parent
-            
+
             Rectangle {
                 id: animRectGpu
                 anchors.fill: parent
-                
+
                 anchors.rightMargin: 12
-                
+
                 color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
                 radius: 16
                 border.color: Qt.rgba(1, 1, 1, 0.1)
                 border.width: 1
-                
+
                 opacity: gpuPopup.show ? 1.0 : 0.0
                 scale: gpuPopup.show ? 1.0 : 0.95
                 x: gpuPopup.show ? 0 : 20
                 Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 200 } }
                 Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack } }
                 Behavior on x { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack } }
-                
+
                 ColumnLayout {
                     id: layoutGpu
                     anchors.top: parent.top
@@ -2414,8 +2412,8 @@ PopupWindow {
                     anchors.right: parent.right
                     anchors.margins: 16
                     spacing: 8
-                    
-                    
+
+
                     ModernButton { text: "Integrated"; iconText: "󰍛"; onClicked: { pGpuInt.running = true; gpuPopup.show = false; controlCenter.show = false } }
                     ModernButton { text: "Hybrid"; iconText: "󰢮"; onClicked: { pGpuHyb.running = true; gpuPopup.show = false; controlCenter.show = false } }
                 }
@@ -2436,32 +2434,32 @@ PopupWindow {
         property bool show: false
         property real animHeight: animRect.height
         visible: show || animRectNotes.opacity > 0
-        
+
         implicitWidth: 340
         implicitHeight: layoutNotes.implicitHeight + 32
         color: "transparent"
-        
+
         Item {
             anchors.fill: parent
-            
+
             Rectangle {
                 id: animRectNotes
                 anchors.fill: parent
-                
+
                 anchors.rightMargin: 12
-                
+
                 color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
                 radius: 16
                 border.color: Qt.rgba(1, 1, 1, 0.1)
                 border.width: 1
-                
+
                 opacity: notesPopup.show ? 1.0 : 0.0
                 scale: notesPopup.show ? 1.0 : 0.95
                 x: notesPopup.show ? 0 : 20
                 Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 200 } }
                 Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack } }
                 Behavior on x { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack } }
-                
+
                 ColumnLayout {
                     id: layoutNotes
                     anchors.top: parent.top
@@ -2469,15 +2467,15 @@ PopupWindow {
                     anchors.right: parent.right
                     anchors.margins: 16
                     spacing: 8
-                    
-                    
-                    
+
+
+
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 2
                         rowSpacing: 8
                         columnSpacing: 8
-                        
+
                         ModernButton { Layout.preferredHeight: 40; text: "Hyprland"; onClicked: { pNoteHyprland.running = true; notesPopup.show = false; controlCenter.show = false } }
                         ModernButton { Layout.preferredHeight: 40; text: "Waybar"; onClicked: { pNoteWaybar.running = true; notesPopup.show = false; controlCenter.show = false } }
                         ModernButton { Layout.preferredHeight: 40; text: "Tofi"; onClicked: { pNoteTofi.running = true; notesPopup.show = false; controlCenter.show = false } }

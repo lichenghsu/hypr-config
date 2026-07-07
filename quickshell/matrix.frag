@@ -11,6 +11,9 @@ layout(std140, binding = 0) uniform buf {
     float gridH;
     float numChars;
     float trailLen;
+    float tintR;
+    float tintG;
+    float tintB;
 };
 
 layout(binding = 1) uniform sampler2D atlasSource;
@@ -66,5 +69,7 @@ void main() {
         (float(tier) + cellUV.y) / 4.0
     );
 
-    fragColor = texture(atlasSource, atlasUV);
+    vec4 texel = texture(atlasSource, atlasUV);
+    float lum = max(texel.r, max(texel.g, texel.b));
+    fragColor = vec4(vec3(tintR, tintG, tintB) * lum, texel.a);
 }
