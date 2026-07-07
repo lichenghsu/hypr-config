@@ -215,7 +215,7 @@ PanelWindow {
                     color: rootWindow.show ? (shellRoot ? shellRoot.colAccent : "#007AFF") : Qt.rgba(1, 1, 1, 0.3)
                 }
                 Text {
-                    text: rootWindow.show ? "按鍵顯示 開啟" : "按鍵顯示 關閉"
+                    text: rootWindow.show ? "Key Overlay On" : "Key Overlay Off"
                     color: shellRoot ? shellRoot.colFg : "#fff"
                     font.family: shellRoot ? shellRoot.fontFamily : "monospace"
                     font.pixelSize: 14
