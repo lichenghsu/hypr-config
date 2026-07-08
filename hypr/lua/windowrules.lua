@@ -127,7 +127,7 @@ hl.window_rule({
 	name = "spotify",
 	match = { class = "^(Spotify|spotify)$" },
 	float = true,
-	size = "800 600",
+	size = "1200 800",
 	center = true,
 	workspace = "special:magic silent",
 })
@@ -135,10 +135,7 @@ hl.window_rule({
 hl.window_rule({
 	name = "obsidian",
 	match = { class = "^obsidian$" },
-	float = true,
-	size = "1200 800",
-	center = true,
-	workspace = "special:note silent",
+	float = false,
 })
 
 hl.window_rule({
@@ -154,6 +151,14 @@ hl.window_rule({
 	match = { class = "^kitty$" },
 	float = true,
 	size = "850 650",
+	center = true,
+})
+
+hl.window_rule({
+	name = "remmina",
+	match = { class = "^org%.remmina%.Remmina$" },
+	float = true,
+	size = "1000 700",
 	center = true,
 })
 
