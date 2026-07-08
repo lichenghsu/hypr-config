@@ -10,60 +10,73 @@ PanelWindow {
 
     property bool show: false
     property var shellRoot
-    property int currentWs: 1
-    property int specialWsId: 0
-    property string searchText: ""
-    property int selectedIndex: 0
+    property bool showSpecial: false
+    property int selCell: 0
 
-    property var filteredList: {
+    // hide LINE's stray "explorer.exe" helper window — shouldn't show up in the overview
+    function isHiddenWindow(w) {
+        var appId = (w.wayland && w.wayland.appId ? w.wayland.appId : "").toLowerCase()
+        var title = (w.title || "").toLowerCase()
+        return appId.indexOf("explorer.exe") !== -1 || title.indexOf("explorer.exe") !== -1
+    }
+
+    // windows for a single normal workspace (1-10)
+    function windowsForWorkspace(wsId) {
         if (!Hyprland.toplevels || !Hyprland.toplevels.values) return []
         var list = Hyprland.toplevels.values
         var result = []
         for (var i = 0; i < list.length; i++) {
             var w = list[i]
             if (!w.wayland || w.wayland.minimized) continue
-            if (searchText.length > 0) {
-                if (matchesSearch(w)) result.push(w)
-            } else if (currentWs === rootWindow.specialWsId) {
-                if (w.workspace && w.workspace.id < 0) result.push(w)
-            } else if (w.workspace && w.workspace.id === currentWs) {
-                result.push(w)
-            }
+            if (!w.workspace || w.workspace.id !== wsId) continue
+            if (rootWindow.isHiddenWindow(w)) continue
+            result.push(w)
         }
         return result
     }
-    property var selectedWindow: filteredList.length > 0
-                                  ? filteredList[Math.min(selectedIndex, filteredList.length - 1)]
-                                  : null
-    property int gridColumns: Math.max(1, Math.floor((width - 120 + 24) / (400 + 24)))
 
-    onCurrentWsChanged: selectedIndex = 0
-
-    WlrLayershell.keyboardFocus: show ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
-    WlrLayershell.layer: WlrLayer.Overlay
-    anchors.top: true
-    anchors.bottom: true
-    anchors.left: true
-    anchors.right: true
-    color: "transparent"
-    exclusionMode: ExclusionMode.Ignore
-    visible: show
-
-    onShowChanged: {
-        if (show) {
-            currentWs = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1
-            searchText = ""
-            selectedIndex = 0
-            focusTimer.start()
-        } else {
-            contextMenu.close()
+    // 10 fixed cells, workspace 1-10, laid out 5 across / 2 down
+    property var wsGroups: {
+        var result = []
+        for (var wsId = 1; wsId <= 10; wsId++) {
+            result.push({ wsId: wsId, windows: rootWindow.windowsForWorkspace(wsId) })
         }
+        return result
     }
 
-    Timer {
-        id: focusTimer
-        interval: 50
-        onTriggered: searchInput.forceActiveFocus()
+    property var specialWindows: {
+        if (!Hyprland.toplevels || !Hyprland.toplevels.values) return []
+        var list = Hyprland.toplevels.values
+        var result = []
+        for (var i = 0; i < list.length; i++) {
+            var w = list[i]
+            if (!w.wayland || w.wayland.minimized) continue
+            if (!w.workspace || w.workspace.id >= 0) continue
+            if (rootWindow.isHiddenWindow(w)) continue
+            result.push(w)
+        }
+        return result
+    }
+
+    // split `windows` into rows that each stretch to fill the full cell width — every
+    // row is completely used (no partial-row gap), and row height is capped so lone
+    // windows don't blow up to fill the whole cell vertically
+    function buildThumbRows(windows, cellW, cellH, maxItemH) {
+        var n = windows.length
+        if (n === 0 || cellW <= 0 || cellH <= 0) return []
+        var targetRows = Math.min(n, Math.max(1, Math.ceil(cellH / maxItemH)))
+        var itemH = Math.min(maxItemH, cellH / targetRows)
+        var rows = []
+        var remaining = n
+        var idx = 0
+        for (var r = 0; r < targetRows; r++) {
+            var rowsLeft = targetRows - r
+            var countInRow = Math.ceil(remaining / rowsLeft)
+            rows.push({ items: windows.slice(idx, idx + countInRow), itemW: cellW / countInRow, itemH: itemH })
+            idx += countInRow
+            remaining -= countInRow
+        }
+        return rows
     }
 
     Process { id: pMoveWs }
@@ -73,36 +86,47 @@ PanelWindow {
         pMoveWs.running = true
     }
 
-    function matchesSearch(win) {
-        if (searchText.length === 0) return true
-        var q = searchText.toLowerCase()
-        var t = (win.title || "").toLowerCase()
-        var a = (win.wayland && win.wayland.appId ? win.wayland.appId : "").toLowerCase()
-        return t.indexOf(q) !== -1 || a.indexOf(q) !== -1
+    Process { id: pFocusWs }
+    function focusWorkspace(wsId) {
+        pFocusWs.command = ["hyprctl", "dispatch", "workspace", String(wsId)]
+        pFocusWs.running = true
     }
 
-    function moveSelection(dx, dy) {
-        if (filteredList.length === 0) return
-        var idx = Math.min(selectedIndex, filteredList.length - 1)
-        idx += dy !== 0 ? dy * gridColumns : dx
-        selectedIndex = Math.max(0, Math.min(idx, filteredList.length - 1))
-    }
-
-    // dot order: workspaces 1-10, then the special-workspace tab
-    property var dotOrder: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, specialWsId]
-    function cycleWorkspace(dir) {
-        var idx = dotOrder.indexOf(currentWs)
-        if (idx === -1) idx = 0
-        idx = (idx + dir + dotOrder.length) % dotOrder.length
-        currentWs = dotOrder[idx]
-    }
-
-    function activateSelected() {
-        if (selectedWindow && selectedWindow.wayland) {
-            rootWindow.show = false
-            selectedWindow.wayland.activate()
+    onShowChanged: {
+        if (show) {
+            showSpecial = false
+            var fw = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1
+            selCell = Math.max(0, Math.min(9, fw - 1))
+        } else {
+            contextMenu.close()
         }
     }
+
+    function moveSelCell(delta) {
+        selCell = Math.max(0, Math.min(9, selCell + delta))
+    }
+
+    function activateSelectedCell() {
+        var cell = rootWindow.wsGroups[selCell]
+        if (!cell) return
+        rootWindow.show = false
+        if (cell.windows.length > 0 && cell.windows[0].wayland) {
+            cell.windows[0].wayland.activate()
+        } else {
+            rootWindow.focusWorkspace(cell.wsId)
+        }
+    }
+
+    WlrLayershell.keyboardFocus: show ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "qs-overview"
+    anchors.top: true
+    anchors.bottom: true
+    anchors.left: true
+    anchors.right: true
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
+    visible: show
 
     Item {
         id: overviewRoot
@@ -113,390 +137,279 @@ PanelWindow {
             if (contextMenu.visible) contextMenu.close()
             else rootWindow.show = false
         }
+        Keys.onLeftPressed: rootWindow.moveSelCell(-1)
+        Keys.onRightPressed: rootWindow.moveSelCell(1)
+        Keys.onUpPressed: rootWindow.moveSelCell(-5)
+        Keys.onDownPressed: rootWindow.moveSelCell(5)
+        Keys.onReturnPressed: rootWindow.activateSelectedCell()
+        Keys.onTabPressed: rootWindow.showSpecial = !rootWindow.showSpecial
+        Keys.onBacktabPressed: rootWindow.showSpecial = !rootWindow.showSpecial
 
+        // full-screen backdrop — blurred via the qs-overview layerrule (see hypr/modules/windowrules.conf);
+        // alpha kept low so it reads as a blur, not a dim
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0, 0, 0, 0.80)
-            MouseArea {
-                anchors.fill: parent
-                onClicked: rootWindow.show = false
-            }
+            color: Qt.rgba(0, 0, 0, 0.05)
         }
 
-        // workspace dot bar
-        Row {
-            id: dotBar
-            z: 5
-            anchors.top: parent.top
-            anchors.topMargin: 24
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 10
+        // click-away backdrop
+        MouseArea {
+            anchors.fill: parent
+            onClicked: rootWindow.show = false
+        }
 
-            Repeater {
-                model: 10
+        Rectangle {
+            id: gridPanel
+            anchors.centerIn: parent
+            width: 1320
+            height: 380
+            radius: 36
+                color: Qt.rgba(0.07, 0.07, 0.07, 0.55)
+                border.color: Qt.rgba(1, 1, 1, 0.10)
+                border.width: 1
 
-                delegate: Rectangle {
-                    id: dot
-                    property int wsId: index + 1
-                    property var wsData: Hyprland.workspaces.values.find(w => w.id === wsId)
+                // swallow clicks so the backdrop doesn't close the overview
+                MouseArea { anchors.fill: parent }
 
-                    width: 34
-                    height: 34
-                    radius: 17
-                    color: rootWindow.currentWs === wsId
+                // pinned/special-workspace toggle (magic, note, keepass, line, kontact...)
+                Rectangle {
+                    id: pinBtn
+                    z: 5
+                    width: 42
+                    height: 42
+                    radius: 21
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.margins: 16
+                    color: rootWindow.showSpecial
                            ? (shellRoot ? shellRoot.colAccent : "#007AFF")
-                           : dropArea.containsDrag
-                             ? Qt.rgba(1, 1, 1, 0.30)
-                             : dotMa.containsMouse
-                               ? Qt.rgba(1, 1, 1, 0.18)
-                               : Qt.rgba(1, 1, 1, wsData ? 0.10 : 0.05)
-                    border.width: dropArea.containsDrag ? 2 : 0
-                    border.color: shellRoot ? shellRoot.colAccent : "#007AFF"
-                    scale: dropArea.containsDrag ? 1.15 : 1.0
-
-                    Behavior on scale { NumberAnimation { duration: shellRoot && shellRoot.batteryMode ? 0 : 120 } }
-                    Behavior on color { ColorAnimation { duration: shellRoot && shellRoot.batteryMode ? 0 : 120 } }
+                           : pinMa.containsMouse
+                             ? Qt.rgba(1, 1, 1, 0.18)
+                             : Qt.rgba(1, 1, 1, 0.08)
 
                     Text {
                         anchors.centerIn: parent
-                        text: dot.wsId
-                        font.bold: true
-                        font.pixelSize: 13
+                        text: "󰐃"
+                        font.pixelSize: 19
                         font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                        color: rootWindow.currentWs === dot.wsId ? "#000" : (shellRoot ? shellRoot.colFg : "#fff")
+                        color: rootWindow.showSpecial ? "#000" : (shellRoot ? shellRoot.colFg : "#fff")
                     }
 
                     MouseArea {
-                        id: dotMa
+                        id: pinMa
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: rootWindow.currentWs = dot.wsId
-                    }
-
-                    DropArea {
-                        id: dropArea
-                        anchors.fill: parent
-                        keys: ["window"]
-                        onDropped: (drop) => {
-                            if (drop.source && drop.source.winRef) {
-                                rootWindow.moveWindowToWorkspace(drop.source.winRef, dot.wsId)
-                            }
-                        }
+                        onClicked: rootWindow.showSpecial = !rootWindow.showSpecial
                     }
                 }
-            }
 
-            // dedicated tab for pinned/special workspaces (magic, note, keepass, line, kontact...)
-            Rectangle {
-                id: specialDot
-                width: 34
-                height: 34
-                radius: 17
-                color: rootWindow.currentWs === rootWindow.specialWsId
-                       ? (shellRoot ? shellRoot.colAccent : "#007AFF")
-                       : specialMa.containsMouse
-                         ? Qt.rgba(1, 1, 1, 0.18)
-                         : Qt.rgba(1, 1, 1, 0.05)
-
-                Behavior on color { ColorAnimation { duration: shellRoot && shellRoot.batteryMode ? 0 : 120 } }
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰐃"
-                    font.pixelSize: 15
-                    font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                    color: rootWindow.currentWs === rootWindow.specialWsId ? "#000" : (shellRoot ? shellRoot.colFg : "#fff")
-                }
-
-                MouseArea {
-                    id: specialMa
+                GridLayout {
+                    visible: !rootWindow.showSpecial
                     anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: rootWindow.currentWs = rootWindow.specialWsId
-                }
-            }
-        }
+                    anchors.margins: 32
+                    columns: 5
+                    rows: 2
+                    columnSpacing: 20
+                    rowSpacing: 20
 
-        // search bar — filters windows by title/appId across all workspaces
-        Rectangle {
-            id: searchBar
-            z: 5
-            anchors.top: dotBar.bottom
-            anchors.topMargin: 16
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: 360
-            height: 44
-            radius: 22
-            color: Qt.rgba(0.08, 0.08, 0.08, 0.92)
-            border.color: searchInput.activeFocus ? (shellRoot ? shellRoot.colAccent : "#007AFF") : Qt.rgba(1, 1, 1, 0.12)
-            border.width: 1
+                    Repeater {
+                        model: rootWindow.wsGroups
 
-            MouseArea {
-                anchors.fill: parent
-                onClicked: searchInput.forceActiveFocus()
-            }
+                        delegate: Rectangle {
+                            id: wsCell
+                            required property var modelData
+                            required property int index
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            radius: 10
+                            color: wsCell.modelData.windows.length > 0 ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(1, 1, 1, 0.03)
+                            border.color: rootWindow.selCell === index ? "#ffffff" : Qt.rgba(1, 1, 1, 0.10)
+                            border.width: rootWindow.selCell === index ? 2 : 1
 
-            Text {
-                anchors.left: parent.left
-                anchors.leftMargin: 16
-                anchors.verticalCenter: parent.verticalCenter
-                text: "󰍉"
-                color: shellRoot ? shellRoot.colMuted : "#888"
-                font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                font.pixelSize: 15
-            }
+                            // empty workspace — just the number, click to switch
+                            Item {
+                                anchors.fill: parent
+                                visible: wsCell.modelData.windows.length === 0
 
-            Text {
-                visible: searchInput.text.length === 0
-                anchors.left: parent.left
-                anchors.leftMargin: 42
-                anchors.verticalCenter: parent.verticalCenter
-                text: "Search..."
-                color: shellRoot ? shellRoot.colMuted : "#888"
-                font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                font.pixelSize: 13
-            }
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: wsCell.modelData.wsId
+                                    color: shellRoot ? shellRoot.colMuted : "#888"
+                                    font.family: shellRoot ? shellRoot.fontFamily : "monospace"
+                                    font.pixelSize: 30
+                                }
 
-            TextInput {
-                id: searchInput
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.leftMargin: 42
-                anchors.rightMargin: 16
-                anchors.verticalCenter: parent.verticalCenter
-                color: shellRoot ? shellRoot.colFg : "#fff"
-                font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                font.pixelSize: 13
-                focus: rootWindow.show
-                text: rootWindow.searchText
-                onTextChanged: {
-                    rootWindow.searchText = text
-                    rootWindow.selectedIndex = 0
-                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        rootWindow.show = false
+                                        rootWindow.focusWorkspace(wsCell.modelData.wsId)
+                                    }
+                                }
+                            }
 
-                Keys.onEscapePressed: {
-                    if (contextMenu.visible) contextMenu.close()
-                    else if (text.length > 0) text = ""
-                    else rootWindow.show = false
-                }
-                Keys.onReturnPressed: rootWindow.activateSelected()
-                Keys.onLeftPressed: rootWindow.moveSelection(-1, 0)
-                Keys.onRightPressed: rootWindow.moveSelection(1, 0)
-                Keys.onUpPressed: rootWindow.moveSelection(0, -1)
-                Keys.onDownPressed: rootWindow.moveSelection(0, 1)
-                Keys.onTabPressed: rootWindow.cycleWorkspace(1)
-                Keys.onBacktabPressed: rootWindow.cycleWorkspace(-1)
-            }
-        }
+                            // occupied workspace — live thumbnail(s)
+                            Item {
+                                id: thumbArea
+                                visible: wsCell.modelData.windows.length > 0
+                                anchors.fill: parent
+                                anchors.margins: 3
 
-        Flow {
-            anchors {
-                top: parent.top
-                left: parent.left
-                right: parent.right
-                bottom: parent.bottom
-                topMargin: 134
-                leftMargin: 60
-                rightMargin: 60
-                bottomMargin: 60
-            }
-            spacing: 24
+                                property var rows: rootWindow.buildThumbRows(wsCell.modelData.windows, width, height, height)
 
-            Repeater {
-                model: Hyprland.toplevels
+                                Column {
+                                    anchors.top: parent.top
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    spacing: 3
 
-                delegate: Rectangle {
-                    id: card
-                    required property var modelData
-                    property bool isSelected: rootWindow.selectedWindow === modelData
+                                    Repeater {
+                                        model: thumbArea.rows
 
-                    // when searching, match across all workspaces; otherwise show only the selected workspace
-                    visible: modelData.wayland && !modelData.wayland.minimized
-                             && (rootWindow.searchText.length > 0
-                                 ? rootWindow.matchesSearch(modelData)
-                                 : rootWindow.currentWs === rootWindow.specialWsId
-                                   ? (modelData.workspace && modelData.workspace.id < 0)
-                                   : modelData.workspace && modelData.workspace.id === rootWindow.currentWs)
-                    width: 400
-                    height: visible ? 280 : 0
-                    radius: 12
-                    clip: true
-                    opacity: ghost.visible && ghost.winRef === modelData ? 0.3 : 1.0
-                    color: cardMa.containsMouse
-                           ? Qt.rgba(1, 1, 1, 0.12)
-                           : Qt.rgba(0.05, 0.05, 0.05, 0.92)
-                    border.color: isSelected
-                                  ? "#ffffff"
-                                  : modelData.activated
-                                    ? (shellRoot ? shellRoot.colAccent : "#007AFF")
-                                    : Qt.rgba(1, 1, 1, 0.12)
-                    border.width: isSelected ? 3 : (modelData.activated ? 2 : 1)
+                                        delegate: Row {
+                                            id: rowItem
+                                            required property var modelData
+                                            width: thumbArea.width
+                                            height: rowItem.modelData.itemH
+                                            spacing: 3
 
-                    Behavior on color {
-                        ColorAnimation { duration: shellRoot && shellRoot.batteryMode ? 0 : 150 }
+                                            Repeater {
+                                                model: rowItem.modelData.items
+
+                                                delegate: Rectangle {
+                                                    id: thumb
+                                                    required property var modelData
+                                                    width: rowItem.modelData.itemW - 3
+                                                    height: rowItem.modelData.itemH
+                                                    radius: 6
+                                                    clip: true
+                                                    color: Qt.rgba(0.02, 0.02, 0.02, 0.9)
+                                                    border.color: modelData.activated
+                                                                  ? (shellRoot ? shellRoot.colAccent : "#007AFF")
+                                                                  : Qt.rgba(1, 1, 1, 0.10)
+                                                    border.width: 1
+
+                                                    ScreencopyView {
+                                                        id: scv
+                                                        captureSource: modelData.wayland
+                                                        live: false
+                                                        enabled: false
+
+                                                        readonly property real srcAspect: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : (thumb.width / thumb.height)
+                                                        readonly property real dstAspect: thumb.width / thumb.height
+
+                                                        anchors.centerIn: parent
+                                                        width: srcAspect > dstAspect ? thumb.height * srcAspect : thumb.width
+                                                        height: srcAspect > dstAspect ? thumb.height : thumb.width / srcAspect
+                                                    }
+
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                                        onClicked: (mouse) => {
+                                                            if (mouse.button === Qt.RightButton) {
+                                                                var pos = thumb.mapToItem(overviewRoot, mouse.x, mouse.y)
+                                                                contextMenu.openFor(modelData, pos)
+                                                            } else {
+                                                                rootWindow.show = false
+                                                                if (modelData.wayland) modelData.wayland.activate()
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // small dot marking the currently active workspace's focused window
+                                Rectangle {
+                                    visible: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === wsCell.modelData.wsId
+                                    width: 5
+                                    height: 5
+                                    radius: 2.5
+                                    anchors.bottom: parent.bottom
+                                    anchors.left: parent.left
+                                    anchors.bottomMargin: -2
+                                    color: shellRoot ? shellRoot.colAccent : "#007AFF"
+                                }
+                            }
+                        }
                     }
-                    scale: cardMa.containsPress ? 0.95 : 1.0
-                    Behavior on scale {
-                        NumberAnimation { duration: shellRoot && shellRoot.batteryMode ? 0 : 100 }
+                }
+
+                // pinned/special workspace content — fixed-size cards, wraps instead of resizing per count
+                Item {
+                    id: specialArea
+                    visible: rootWindow.showSpecial
+                    anchors.fill: parent
+                    anchors.margins: 32
+
+                    Flow {
+                        anchors.centerIn: parent
+                        width: specialArea.width
+                        spacing: 12
+
+                        Repeater {
+                            model: rootWindow.specialWindows
+
+                            delegate: Rectangle {
+                                id: specThumb
+                                required property var modelData
+                                width: 240
+                                height: 166
+                                radius: 10
+                                clip: true
+                                color: Qt.rgba(0.02, 0.02, 0.02, 0.9)
+                                border.color: modelData.activated
+                                              ? (shellRoot ? shellRoot.colAccent : "#007AFF")
+                                              : Qt.rgba(1, 1, 1, 0.12)
+                                border.width: 1
+
+                                ScreencopyView {
+                                    id: specScv
+                                    captureSource: modelData.wayland
+                                    live: false
+                                    enabled: false
+
+                                    readonly property real srcAspect: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : (specThumb.width / specThumb.height)
+                                    readonly property real dstAspect: specThumb.width / specThumb.height
+
+                                    anchors.centerIn: parent
+                                    width: srcAspect > dstAspect ? specThumb.height * srcAspect : specThumb.width
+                                    height: srcAspect > dstAspect ? specThumb.height : specThumb.width / srcAspect
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                    onClicked: (mouse) => {
+                                        if (mouse.button === Qt.RightButton) {
+                                            var pos = specThumb.mapToItem(overviewRoot, mouse.x, mouse.y)
+                                            contextMenu.openFor(modelData, pos)
+                                        } else {
+                                            rootWindow.show = false
+                                            if (modelData.wayland) modelData.wayland.activate()
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
 
-                    ScreencopyView {
-                        id: scv
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        height: parent.height - 56
-                        captureSource: modelData.wayland
-                        live: false
-                        // prevent ScreencopyView from swallowing pointer events
-                        enabled: false
-                    }
-
-                    // fallback icon when screencopy has no content
                     Text {
-                        visible: !scv.hasContent
-                        anchors.centerIn: scv
-                        text: "󰕹"
-                        color: Qt.rgba(1, 1, 1, 0.2)
+                        visible: rootWindow.specialWindows.length === 0
+                        anchors.centerIn: parent
+                        text: "No pinned windows"
+                        color: shellRoot ? shellRoot.colMuted : "#888"
                         font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                        font.pixelSize: 56
-                    }
-
-                    // workspace badge, shown while searching across all workspaces
-                    Rectangle {
-                        visible: (rootWindow.searchText.length > 0 || rootWindow.currentWs === rootWindow.specialWsId) && modelData.workspace
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        anchors.margins: 8
-                        width: modelData.workspace && modelData.workspace.id < 0 ? implicitBadgeWidth : 24
-                        height: 24
-                        radius: 12
-                        color: Qt.rgba(0, 0, 0, 0.7)
-                        border.color: shellRoot ? shellRoot.colAccent : "#007AFF"
-                        border.width: 1
-
-                        property int implicitBadgeWidth: badgeText.implicitWidth + 16
-
-                        Text {
-                            id: badgeText
-                            anchors.centerIn: parent
-                            text: modelData.workspace
-                                  ? (modelData.workspace.id < 0
-                                     ? modelData.workspace.name.replace("special:", "")
-                                     : modelData.workspace.id)
-                                  : ""
-                            color: shellRoot ? shellRoot.colFg : "#fff"
-                            font.bold: true
-                            font.pixelSize: 11
-                            font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.bottom: parent.bottom
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        height: 56
-                        color: Qt.rgba(0, 0, 0, 0.65)
-
-                        ColumnLayout {
-                            anchors {
-                                left: parent.left
-                                right: parent.right
-                                verticalCenter: parent.verticalCenter
-                                margins: 10
-                            }
-                            spacing: 2
-
-                            Text {
-                                text: modelData.title
-                                color: shellRoot ? shellRoot.colFg : "#fff"
-                                font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                                font.pixelSize: 14
-                                font.bold: true
-                                elide: Text.ElideRight
-                                Layout.fillWidth: true
-                            }
-                            Text {
-                                text: modelData.wayland ? modelData.wayland.appId : ""
-                                color: shellRoot ? shellRoot.colMuted : "#888"
-                                font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                                font.pixelSize: 11
-                                elide: Text.ElideRight
-                                Layout.fillWidth: true
-                            }
-                        }
-                    }
-
-                    MouseArea {
-                        id: cardMa
-                        anchors.fill: parent
-                        z: 10
-                        hoverEnabled: true
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        drag.target: ghost
-                        drag.threshold: 8
-
-                        onPressed: (mouse) => {
-                            if (mouse.button !== Qt.LeftButton) return
-                            var g = card.mapToItem(overviewRoot, 0, 0)
-                            ghost.x = g.x
-                            ghost.y = g.y
-                            ghost.width = card.width
-                            ghost.height = card.height
-                            ghost.title = modelData.title
-                            ghost.winRef = modelData
-                            ghost.visible = true
-                        }
-                        onReleased: ghost.visible = false
-
-                        onClicked: (mouse) => {
-                            if (mouse.button === Qt.RightButton) {
-                                var pos = card.mapToItem(overviewRoot, mouse.x, mouse.y)
-                                contextMenu.openFor(modelData, pos)
-                            } else {
-                                rootWindow.show = false
-                                if (modelData.wayland) modelData.wayland.activate()
-                            }
-                        }
+                        font.pixelSize: 16
                     }
                 }
             }
-        }
-
-        // drag ghost proxy, lives outside the Flow so it can move freely
-        Rectangle {
-            id: ghost
-            z: 50
-            visible: false
-            radius: 12
-            color: Qt.rgba(0.05, 0.05, 0.05, 0.92)
-            border.color: shellRoot ? shellRoot.colAccent : "#007AFF"
-            border.width: 2
-
-            property var winRef: null
-            property string title: ""
-
-            Drag.active: visible
-            Drag.keys: ["window"]
-            Drag.hotSpot: Qt.point(width / 2, height / 2)
-
-            Text {
-                anchors.centerIn: parent
-                anchors.margins: 8
-                width: parent.width - 16
-                text: ghost.title
-                color: shellRoot ? shellRoot.colFg : "#fff"
-                font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                font.pixelSize: 11
-                font.bold: true
-                elide: Text.ElideRight
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-            }
-        }
 
         // right-click context menu
+
         Rectangle {
             id: contextMenu
             z: 100
