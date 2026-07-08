@@ -12,6 +12,7 @@ PanelWindow {
     property var shellRoot
     property bool showSpecial: false
     property int selCell: 0
+    property string prevFocusAddr: ""
 
     // hide LINE's stray "explorer.exe" helper window — shouldn't show up in the overview
     function isHiddenWindow(w) {
@@ -92,13 +93,33 @@ PanelWindow {
         pFocusWs.running = true
     }
 
+    // the qs-overview layer takes keyboard focus (WlrKeyboardFocus.OnDemand) while shown;
+    // Hyprland doesn't always hand it back cleanly on close (e.g. Firefox stops receiving
+    // keystrokes), so track and explicitly restore focus when the user backs out without
+    // picking anything
+    Process { id: pRestoreFocus }
+    function restoreFocus() {
+        if (!prevFocusAddr) return
+        pRestoreFocus.command = ["hyprctl", "dispatch", "focuswindow", "address:" + prevFocusAddr]
+        pRestoreFocus.running = true
+        prevFocusAddr = ""
+    }
+
     onShowChanged: {
         if (show) {
             showSpecial = false
             var fw = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1
             selCell = Math.max(0, Math.min(9, fw - 1))
+            prevFocusAddr = ""
+            if (Hyprland.toplevels && Hyprland.toplevels.values) {
+                var list = Hyprland.toplevels.values
+                for (var i = 0; i < list.length; i++) {
+                    if (list[i].activated) { prevFocusAddr = list[i].address; break }
+                }
+            }
         } else {
             contextMenu.close()
+            rootWindow.restoreFocus()
         }
     }
 
@@ -109,6 +130,7 @@ PanelWindow {
     function activateSelectedCell() {
         var cell = rootWindow.wsGroups[selCell]
         if (!cell) return
+        prevFocusAddr = "" // we're about to focus something specific, don't let onShowChanged undo it
         rootWindow.show = false
         if (cell.windows.length > 0 && cell.windows[0].wayland) {
             cell.windows[0].wayland.activate()
@@ -145,7 +167,7 @@ PanelWindow {
         Keys.onTabPressed: rootWindow.showSpecial = !rootWindow.showSpecial
         Keys.onBacktabPressed: rootWindow.showSpecial = !rootWindow.showSpecial
 
-        // full-screen backdrop — blurred via the qs-overview layerrule (see hypr/modules/windowrules.conf);
+        // full-screen backdrop — blurred via the qs-overview layer_rule (see hypr/lua/windowrules.lua);
         // alpha kept low so it reads as a blur, not a dim
         Rectangle {
             anchors.fill: parent
@@ -242,6 +264,7 @@ PanelWindow {
                                 MouseArea {
                                     anchors.fill: parent
                                     onClicked: {
+                                        rootWindow.prevFocusAddr = ""
                                         rootWindow.show = false
                                         rootWindow.focusWorkspace(wsCell.modelData.wsId)
                                     }
@@ -311,6 +334,7 @@ PanelWindow {
                                                                 var pos = thumb.mapToItem(overviewRoot, mouse.x, mouse.y)
                                                                 contextMenu.openFor(modelData, pos)
                                                             } else {
+                                                                rootWindow.prevFocusAddr = ""
                                                                 rootWindow.show = false
                                                                 if (modelData.wayland) modelData.wayland.activate()
                                                             }
@@ -388,6 +412,7 @@ PanelWindow {
                                             var pos = specThumb.mapToItem(overviewRoot, mouse.x, mouse.y)
                                             contextMenu.openFor(modelData, pos)
                                         } else {
+                                            rootWindow.prevFocusAddr = ""
                                             rootWindow.show = false
                                             if (modelData.wayland) modelData.wayland.activate()
                                         }
