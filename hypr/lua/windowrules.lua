@@ -138,6 +138,36 @@ hl.window_rule({
 	float = false,
 })
 
+-- Dolphin: tile everything except its main window (title always ends in "... — Dolphin"),
+-- so Properties/Copy/Preferences dialogs etc. tile like normal windows
+hl.window_rule({
+	name = "dolphin-tile",
+	match = { class = "^org.kde.dolphin$" },
+	float = false,
+})
+
+hl.window_rule({
+	name = "dolphin-main-float",
+	match = { class = "^org.kde.dolphin$", title = "Dolphin$" },
+	float = true,
+})
+
+-- Remmina: same idea — only the main "Remmina Remote Desktop Client" window floats,
+-- session/connection windows and dialogs tile
+hl.window_rule({
+	name = "remmina-tile",
+	match = { class = "^org.remmina.Remmina$" },
+	float = false,
+})
+
+hl.window_rule({
+	name = "remmina-main-float",
+	match = { class = "^org.remmina.Remmina$", title = "^Remmina Remote Desktop Client$" },
+	float = true,
+	size = "1000 700",
+	center = true,
+})
+
 hl.window_rule({
 	name = "foot",
 	match = { class = "^(foot|footclient)$" },
@@ -151,14 +181,6 @@ hl.window_rule({
 	match = { class = "^kitty$" },
 	float = true,
 	size = "850 650",
-	center = true,
-})
-
-hl.window_rule({
-	name = "remmina",
-	match = { class = "^org%.remmina%.Remmina$" },
-	float = true,
-	size = "1000 700",
 	center = true,
 })
 
