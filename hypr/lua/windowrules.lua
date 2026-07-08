@@ -4,6 +4,14 @@ hl.window_rule({
 	suppress_event = "maximize",
 })
 
+-- blur behind the WindowOverview panel (quickshell layer namespace "qs-overview")
+hl.layer_rule({
+	name = "overview-blur",
+	match = { namespace = "qs-overview" },
+	blur = true,
+	ignore_alpha = 0.0,
+})
+
 hl.window_rule({
 	name = "default-float",
 	match = { class = ".*" },
@@ -81,9 +89,11 @@ hl.window_rule({
 	name = "line-tray",
 	match = { class = "explorer.exe", title = "^$" },
 	float = true,
-	size = "44 571",
-	move = "(monitor_w - 506) (monitor_h - 886)",
+	size = "48 48",
+	move = "(monitor_w - 60) (monitor_h - 60)",
 	workspace = "special:line silent",
+	border_size = 0,
+	rounding = 0,
 })
 
 hl.window_rule({

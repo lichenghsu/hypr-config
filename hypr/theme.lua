@@ -1,6 +1,6 @@
 return {
     gaps_in = 5,
-    gaps_out = 5,
+    gaps_out = 8,
     border_size = 1,
     active_border = { colors = { "rgba(3a8fbfff)","rgba(ff4b30ff)" }, angle = 45 },
     inactive_border = "rgba(0a151caa)",
@@ -12,7 +12,7 @@ return {
     shadow_range = 4,
     shadow_render_power = 3,
     shadow_color = "rgba(1a1a1aee)",
-    blur_enabled = false,
+    blur_enabled = true,
     blur_size = 3,
     blur_passes = 1,
     blur_vibrancy = 0.1696,
