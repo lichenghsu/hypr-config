@@ -128,13 +128,13 @@ PanelWindow {
     // selected cell automatically — no Enter/click needed
     Timer {
         id: commitTimer
-        interval: 350
+        interval: 1000
         repeat: false
         onTriggered: rootWindow.activateSelectedCell()
     }
 
     function moveSelCell(delta) {
-        selCell = Math.max(0, Math.min(9, selCell + delta))
+        selCell = ((selCell + delta) % 10 + 10) % 10
         commitTimer.restart()
     }
 
