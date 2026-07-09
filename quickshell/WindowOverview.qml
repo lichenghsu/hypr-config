@@ -118,13 +118,24 @@ PanelWindow {
                 }
             }
         } else {
+            commitTimer.stop()
             contextMenu.close()
             rootWindow.restoreFocus()
         }
     }
 
+    // pause-to-commit: after arrow-key navigation settles for a moment, switch to the
+    // selected cell automatically — no Enter/click needed
+    Timer {
+        id: commitTimer
+        interval: 350
+        repeat: false
+        onTriggered: rootWindow.activateSelectedCell()
+    }
+
     function moveSelCell(delta) {
         selCell = Math.max(0, Math.min(9, selCell + delta))
+        commitTimer.restart()
     }
 
     function activateSelectedCell() {

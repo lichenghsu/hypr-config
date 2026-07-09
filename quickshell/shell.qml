@@ -2582,6 +2582,10 @@ PopupWindow {
         function toggleWindowOverview() {
             windowOverviewPopup.show = !windowOverviewPopup.show;
         }
+        function stepWindowOverview(delta: string) {
+            if (!windowOverviewPopup.show) windowOverviewPopup.show = true;
+            windowOverviewPopup.moveSelCell(parseInt(delta));
+        }
         function toggleKeyOverlay() {
             keyOverlayPopup.show = !keyOverlayPopup.show;
         }
