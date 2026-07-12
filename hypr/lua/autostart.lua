@@ -33,6 +33,7 @@ hl.on("hyprland.start", function ()
   hl.timer(function()
       hl.exec_cmd("keepassxc")
       hl.exec_cmd("kontact")
+      hl.exec_cmd("flatpak run md.obsidian.Obsidian")
   end, { timeout = 3000, type = "oneshot" })
 
   hl.timer(function()

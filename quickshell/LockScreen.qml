@@ -76,7 +76,7 @@ Scope {
 
     Timer {
         id: successUnlockTimer
-        interval: 2600
+        interval: 2000
         running: false
         repeat: false
         onTriggered: {
@@ -126,9 +126,9 @@ Scope {
             lockRoot.intrusionActive = true
             lockRoot.intrusionPhase = 0
             intrusionPhaseTimer.start()
-            interval = Math.floor(Math.random() * 30000 + 22000)
+            interval = Math.floor(Math.random() * 300000 + 300000)
         }
-        Component.onCompleted: interval = Math.floor(Math.random() * 30000 + 22000)
+        Component.onCompleted: interval = Math.floor(Math.random() * 300000 + 300000)
     }
 
     Timer {
@@ -179,14 +179,20 @@ Scope {
                 visible: false
                 width: lockRoot.matrixChars.length * lockRoot.atlasCharW
                 height: lockRoot.atlasCharH * 4
+
                 onPaint: {
                     var ctx = getContext("2d")
                     ctx.clearRect(0, 0, width, height)
                     ctx.font = "bold " + lockRoot.atlasCharH + "px 'MS Gothic', 'IPAGothic', 'IPA Gothic', monospace"
                     ctx.textBaseline = "top"
+
                     var chars = lockRoot.matrixChars
                     var cW = lockRoot.atlasCharW, cH = lockRoot.atlasCharH
+
+                    // tier 0 (head) stays pure white — matrix.frag reads it straight
+                    // from the atlas without multiplying by tint.
                     var colors = ["#ffffff", "#00cc44", "#007722", "#003311"]
+
                     for (var tier = 0; tier < 4; tier++) {
                         ctx.fillStyle = colors[tier]
                         for (var i = 0; i < chars.length; i++)
@@ -217,6 +223,7 @@ Scope {
                 }
 
                 ShaderEffect {
+                    id: matrixShaderEffect
                     anchors.fill: parent
                     property var atlasSource: atlasCanvas
                     property real time: 0.0
@@ -572,7 +579,7 @@ Scope {
                                 if (clockText.glitchActive) {
                                     glitchTimer.interval = Math.random() * 100 + 150;
                                 } else {
-                                    glitchTimer.interval = Math.random() * 1200 + 300;
+                                    glitchTimer.interval = Math.random() * 20000 + 10000;
                                 }
                             }
                         }

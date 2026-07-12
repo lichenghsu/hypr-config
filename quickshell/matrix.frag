@@ -70,6 +70,15 @@ void main() {
     );
 
     vec4 texel = texture(atlasSource, atlasUV);
-    float lum = max(texel.r, max(texel.g, texel.b));
-    fragColor = vec4(vec3(tintR, tintG, tintB) * lum, texel.a);
+
+    vec3 baseColor;
+    if (tier == 0) {
+
+        baseColor = texel.rgb;
+    } else {
+        float lum = max(texel.r, max(texel.g, texel.b));
+        baseColor = vec3(tintR, tintG, tintB) * lum;
+    }
+
+    fragColor = vec4(baseColor, texel.a);
 }

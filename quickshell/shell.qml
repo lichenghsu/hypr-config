@@ -1434,28 +1434,43 @@ PopupWindow {
 
                     spacing: 8
 
-                    // Header: Clock & Date & Battery
+                    /// Header: Clock & Date & Battery
                     RowLayout {
                         Layout.fillWidth: true
 
                         ColumnLayout {
                             spacing: 4
+
+                            // 1. time text
                             Text {
                                 id: clockText
                                 color: root.colFg
                                 font.family: root.fontFamily
                                 font.pixelSize: 24
                                 font.bold: true
-                                text: Qt.formatDateTime(new Date(), "HH:mm")
+                                // 初始化顯示
+                                text: Qt.formatDateTime(new Date(), "HH:mm:ss tt")
+
+                                // timer
                                 Timer {
-                                    interval: 1000; running: true; repeat: true
-                                    onTriggered: clockText.text = Qt.formatDateTime(new Date(), "HH:mm:ss tt")
+                                    interval: 1000
+                                    running: true
+                                    repeat: true
+                                    onTriggered: {
+                                        var currentDate = new Date();
+                                        clockText.text = Qt.formatDateTime(currentDate, "HH:mm:ss tt");
+                                        dateText.text = Qt.formatDateTime(currentDate, "dddd, MMMM d");
+                                    }
                                 }
                             }
+
+                            // 2. date text
                             Text {
+                                id: dateText
                                 color: root.colMuted
                                 font.family: root.fontFamily
                                 font.pixelSize: 13
+                                // init
                                 text: Qt.formatDateTime(new Date(), "dddd, MMMM d")
                             }
                         }

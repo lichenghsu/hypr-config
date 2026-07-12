@@ -100,7 +100,7 @@ hl.window_rule({
 	name = "kontact",
 	match = { class = "org.kde.kontact" },
 	float = true,
-	size = "1200 800",
+	size = "1200 1080",
 	center = true,
 	workspace = "special:kontact silent",
 })
@@ -136,20 +136,19 @@ hl.window_rule({
 	name = "obsidian",
 	match = { class = "^obsidian$" },
 	float = false,
+	center = true,
+	workspace = "special:note silent",
 })
 
 -- Dolphin: tile everything except its main window (title always ends in "... — Dolphin"),
 -- so Properties/Copy/Preferences dialogs etc. tile like normal windows
-hl.window_rule({
-	name = "dolphin-tile",
-	match = { class = "^org.kde.dolphin$" },
-	float = false,
-})
 
 hl.window_rule({
 	name = "dolphin-main-float",
-	match = { class = "^org.kde.dolphin$", title = "Dolphin$" },
+	match = { class = "^org.kde.dolphin$" },
 	float = true,
+	size = "850 650",
+	center = true,
 })
 
 -- Remmina: same idea — only the main "Remmina Remote Desktop Client" window floats,
@@ -182,6 +181,24 @@ hl.window_rule({
 	float = true,
 	size = "850 650",
 	center = true,
+})
+
+hl.window_rule({
+	name = "firefox",
+	match = { class = "^org.mozilla.firefox$" },
+	float = false,
+})
+
+hl.window_rule({
+	name = "brave",
+	match = { class = "^brave-browser$" },
+	float = false,
+})
+
+hl.window_rule({
+	name = "chromium-browser",
+	match = { class = "^chromium-browser$" },
+	float = false,
 })
 
 hl.window_rule({
