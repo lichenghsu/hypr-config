@@ -167,6 +167,15 @@ hl.window_rule({
 	center = true,
 })
 
+-- DBeaver CE: only the main window (title always "DBeaver <version> - ...") tiles,
+-- dialogs (Preferences, New Connection Wizard, Progress Information, etc.) stay
+-- floating via the catch-all "default-float" rule above.
+hl.window_rule({
+	name = "dbeaver-main-tile",
+	match = { class = "^DBeaver$", title = "^DBeaver [0-9]" },
+	float = false,
+})
+
 hl.window_rule({
 	name = "foot",
 	match = { class = "^(foot|footclient)$" },
