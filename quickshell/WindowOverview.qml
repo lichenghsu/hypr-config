@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Widgets
 import Quickshell.Wayland
 import Quickshell.Io
 import Quickshell.Hyprland
@@ -219,9 +220,9 @@ PanelWindow {
         Rectangle {
             id: gridPanel
             anchors.centerIn: parent
-            width: 1320
-            height: 380
-            radius: 36
+            width: 1680
+            height: 560
+            radius: 40
             color: Qt.rgba(0.07, 0.07, 0.07, 0.55)
             border.color: Qt.rgba(1, 1, 1, 0.10)
             border.width: 1
@@ -331,7 +332,7 @@ PanelWindow {
                             id: thumbArea
                             visible: wsCell.modelData.windows.length > 0
                             anchors.fill: parent
-                            anchors.margins: 3
+                            anchors.margins: 8
 
                             property var rows: rootWindow.buildThumbRows(wsCell.modelData.windows, width, height, height)
 
@@ -339,7 +340,7 @@ PanelWindow {
                                 anchors.top: parent.top
                                 anchors.left: parent.left
                                 anchors.right: parent.right
-                                spacing: 3
+                                spacing: 6
 
                                 Repeater {
                                     model: thumbArea.rows
@@ -349,7 +350,7 @@ PanelWindow {
                                         required property var modelData
                                         width: thumbArea.width
                                         height: rowItem.modelData.itemH
-                                        spacing: 3
+                                        spacing: 6
 
                                         Repeater {
                                             model: rowItem.modelData.items
@@ -357,15 +358,15 @@ PanelWindow {
                                             delegate: Rectangle {
                                                 id: thumb
                                                 required property var modelData
-                                                width: rowItem.modelData.itemW - 3
+                                                width: rowItem.modelData.itemW - 6
                                                 height: rowItem.modelData.itemH
-                                                radius: 6
+                                                radius: 8
                                                 clip: true
                                                 color: Qt.rgba(0.02, 0.02, 0.02, 0.9)
                                                 border.color: modelData.activated
                                                 ? (shellRoot ? shellRoot.colAccent : "#007AFF")
-                                                : Qt.rgba(1, 1, 1, 0.10)
-                                                border.width: 1
+                                                : Qt.rgba(1, 1, 1, 0.16)
+                                                border.width: modelData.activated ? 2 : 1
 
                                                 // Wayland Screencopy view for live window thumbnails
                                                 ScreencopyView {
@@ -380,6 +381,30 @@ PanelWindow {
                                                     anchors.centerIn: parent
                                                     width: srcAspect > dstAspect ? thumb.height * srcAspect : thumb.width
                                                     height: srcAspect > dstAspect ? thumb.height : thumb.width / srcAspect
+                                                }
+
+                                                // App icon badge (bottom-left), gives each thumbnail a
+                                                // clear identity beyond the raw screencopy content.
+                                                Rectangle {
+                                                    z: 5
+                                                    visible: thumb.width > 60 && thumb.height > 44
+                                                    width: iconImg.implicitSize + 8
+                                                    height: iconImg.implicitSize + 8
+                                                    radius: 6
+                                                    anchors.left: parent.left
+                                                    anchors.bottom: parent.bottom
+                                                    anchors.margins: 5
+                                                    color: Qt.rgba(0, 0, 0, 0.55)
+
+                                                    IconImage {
+                                                        id: iconImg
+                                                        anchors.centerIn: parent
+                                                        implicitSize: 20
+                                                        source: Quickshell.iconPath(
+                                                            modelData.wayland ? modelData.wayland.appId : "",
+                                                            "application-x-executable"
+                                                        )
+                                                    }
                                                 }
 
                                                 MouseArea {
@@ -435,16 +460,21 @@ PanelWindow {
                                 }
                             }
 
-                            // Small dot visual feedback to mark the currently focused workspace
+                            // Dot visual feedback to mark the currently focused workspace.
+                            // Placed top-right (icon badges occupy bottom-left) with a white ring
+                            // so it stays visible against any thumbnail content.
                             Rectangle {
+                                z: 6
                                 visible: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === wsCell.modelData.wsId
-                                width: 5
-                                height: 5
-                                radius: 2.5
-                                anchors.bottom: parent.bottom
-                                anchors.left: parent.left
-                                anchors.bottomMargin: -2
+                                width: 14
+                                height: 14
+                                radius: 7
+                                anchors.top: parent.top
+                                anchors.right: parent.right
+                                anchors.margins: 6
                                 color: shellRoot ? shellRoot.colAccent : "#007AFF"
+                                border.color: "#ffffff"
+                                border.width: 2
                             }
                         }
                     }
