@@ -123,6 +123,11 @@ for i = 1, 10 do
     hl.bind(mainMod .. " + " .. key,             hl.dsp.focus({ workspace = i}))
     hl.bind(mainMod .. " + SHIFT + " .. key,     hl.dsp.window.move({ workspace = i }))
 end
+
+-- pyprland workspaces_follow_focus: relative-cycle non-pinned/overflow workspaces
+-- without stealing them from the monitor they're currently visible on
+hl.bind(mainMod .. " + comma",  hl.dsp.exec_cmd("/home/miles/.local/bin/pypr change_workspace -1"))
+hl.bind(mainMod .. " + period", hl.dsp.exec_cmd("/home/miles/.local/bin/pypr change_workspace +1"))
 hl.bind(mainMod .. " + S",         hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + K",         hl.dsp.workspace.toggle_special("keepass"))
 hl.bind(mainMod .. " + L",         hl.dsp.workspace.toggle_special("line"))

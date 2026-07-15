@@ -4,3 +4,8 @@ hl.env("XCURSOR_SIZE", "48")
 hl.env("HYPRCURSOR_SIZE", "48")
 hl.env("GDK_SCALE", "2")
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
+
+hl.env("MOZ_ENABLE_WAYLAND", "1")
+hl.env("GTK_IM_MODULE", "fcitx")
+hl.env("QT_IM_MODULE", "fcitx")
+hl.env("XMODIFIERS", "@im=fcitx")

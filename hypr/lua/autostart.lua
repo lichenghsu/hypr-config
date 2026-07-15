@@ -16,6 +16,7 @@ hl.on("hyprland.start", function ()
       end, { timeout = 5000, type = "oneshot" })
   end, { timeout = 2000, type = "oneshot" })
 
+  hl.exec_cmd("/home/miles/.local/bin/pypr")
   hl.exec_cmd("hyprpaper")
   hl.exec_cmd(programs.bar)
   hl.exec_cmd(programs.rog)

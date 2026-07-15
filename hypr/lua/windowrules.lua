@@ -172,7 +172,10 @@ hl.window_rule({
 -- floating via the catch-all "default-float" rule above.
 hl.window_rule({
 	name = "dbeaver-main-tile",
-	match = { class = "^DBeaver$", title = "^DBeaver [0-9]" },
+	match = {
+		class = "^DBeaver$",
+		title = "^DBeaver [0-9].*"
+	},
 	float = false,
 })
 
