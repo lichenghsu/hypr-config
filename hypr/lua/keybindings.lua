@@ -30,12 +30,16 @@ hl.bind("XF86Launch1", hl.dsp.exec_cmd(p.rog))
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_theme.sh"))
 hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_wallpaper.sh"))
 -- Move focused window to the other monitor's active workspace
-hl.bind(mainMod .. " + CTRL + left", function()
-    hl.dispatch(hl.dsp.window.move({ workspace = hl.get_active_workspace("eDP-1") }))
-end)
-hl.bind(mainMod .. " + CTRL + right", function()
-    hl.dispatch(hl.dsp.window.move({ workspace = hl.get_active_workspace("HDMI-A-1") }))
-end)
+local function moveWindowToMonitor(monitor)
+    return function()
+        hl.dispatch(hl.dsp.window.move({ workspace = hl.get_active_workspace(monitor) }))
+    end
+end
+hl.bind(mainMod .. " + CTRL + left",  moveWindowToMonitor("HDMI-A-1"))
+hl.bind(mainMod .. " + CTRL + right", moveWindowToMonitor("eDP-1"))
+-- M4/M5 side buttons mirror the same action (adjust codes below if these aren't your M4/M5)
+hl.bind("mouse:275", moveWindowToMonitor("HDMI-A-1"))
+hl.bind("mouse:276", moveWindowToMonitor("eDP-1"))
 hl.bind(mainMod .. " + CTRL + R",     hl.dsp.exec_cmd("/home/miles/.local/bin/wallpaper.sh --random"))
 hl.bind("mouse:277", hl.dsp.window.close())
 local battery_mode = false
