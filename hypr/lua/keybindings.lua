@@ -29,8 +29,13 @@ hl.bind(mainMod .. " + SHIFT + F12", hl.dsp.exec_cmd("brightnessctl s 0"))
 hl.bind("XF86Launch1", hl.dsp.exec_cmd(p.rog))
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_theme.sh"))
 hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_wallpaper.sh"))
-hl.bind(mainMod .. " + CTRL + right", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_overview_step.sh -1"))
-hl.bind(mainMod .. " + CTRL + left",  hl.dsp.exec_cmd("/home/miles/.local/bin/smart_overview_step.sh +1"))
+-- Move focused window to the other monitor's active workspace
+hl.bind(mainMod .. " + CTRL + left", function()
+    hl.dispatch(hl.dsp.window.move({ workspace = hl.get_active_workspace("eDP-1") }))
+end)
+hl.bind(mainMod .. " + CTRL + right", function()
+    hl.dispatch(hl.dsp.window.move({ workspace = hl.get_active_workspace("HDMI-A-1") }))
+end)
 hl.bind(mainMod .. " + CTRL + R",     hl.dsp.exec_cmd("/home/miles/.local/bin/wallpaper.sh --random"))
 hl.bind("mouse:277", hl.dsp.window.close())
 local battery_mode = false
@@ -106,10 +111,6 @@ hl.bind("ALT + right", hl.dsp.window.resize({ x = 30,  y = 0,  relative = true }
 hl.bind("ALT + left",  hl.dsp.window.resize({ x = -30, y = 0,  relative = true }), { repeating = true })
 hl.bind("ALT + up",    hl.dsp.window.resize({ x = 0,   y = -30, relative = true }), { repeating = true })
 hl.bind("ALT + down",  hl.dsp.window.resize({ x = 0,   y = 30,  relative = true }), { repeating = true })
-
--- Move current workspace to left/right monitor
-hl.bind(mainMod .. " + SHIFT + comma",  hl.dsp.workspace.move({ monitor = "eDP-1" }))
-hl.bind(mainMod .. " + SHIFT + period", hl.dsp.workspace.move({ monitor = "HDMI-A-1" }))
 
 -- Close/dismiss current workspace (jumps to previous non-empty ws, auto-removes empty)
 hl.bind(mainMod .. " + SHIFT + w", function()

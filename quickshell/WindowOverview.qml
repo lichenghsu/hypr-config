@@ -14,6 +14,13 @@ PanelWindow {
     property int selCell: 0
     property string prevFocusAddr: ""
 
+    // Drag-to-move-workspace state: dragging a thumbnail from one grid cell
+    // onto another moves that window to the dropped-on workspace.
+    property bool dragging: false
+    property var dragWin: null
+    property real dragGhostX: 0
+    property real dragGhostY: 0
+
     // 1. Helper to filter out helper/stray windows (like LINE's "explorer.exe")
     // these shouldn't be rendered as thumbnails in our workspace overview.
     function isHiddenWindow(w) {
@@ -271,12 +278,30 @@ PanelWindow {
                         id: wsCell
                         required property var modelData
                         required property int index
+                        property bool dropHighlight: false
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: 10
-                        color: wsCell.modelData.windows.length > 0 ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(1, 1, 1, 0.03)
-                        border.color: rootWindow.selCell === index ? "#ffffff" : Qt.rgba(1, 1, 1, 0.10)
-                        border.width: rootWindow.selCell === index ? 2 : 1
+                        color: wsCell.dropHighlight
+                        ? Qt.rgba(1, 1, 1, 0.14)
+                        : wsCell.modelData.windows.length > 0 ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(1, 1, 1, 0.03)
+                        border.color: wsCell.dropHighlight
+                        ? (shellRoot ? shellRoot.colAccent : "#007AFF")
+                        : rootWindow.selCell === index ? "#ffffff" : Qt.rgba(1, 1, 1, 0.10)
+                        border.width: wsCell.dropHighlight || rootWindow.selCell === index ? 2 : 1
+
+                        // Accepts a dropped thumbnail (rootWindow.dragWin) and moves that window here.
+                        DropArea {
+                            anchors.fill: parent
+                            onEntered: wsCell.dropHighlight = true
+                            onExited: wsCell.dropHighlight = false
+                            onDropped: {
+                                wsCell.dropHighlight = false
+                                if (rootWindow.dragWin) {
+                                    rootWindow.moveWindowToWorkspace(rootWindow.dragWin, wsCell.modelData.wsId)
+                                }
+                            }
+                        }
 
                         // Render empty workspace state (just display the workspace number)
                         Item {
@@ -358,17 +383,50 @@ PanelWindow {
                                                 }
 
                                                 MouseArea {
+                                                    id: thumbMa
                                                     anchors.fill: parent
                                                     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                                    onClicked: (mouse) => {
-                                                        if (mouse.button === Qt.RightButton) {
-                                                            var pos = thumb.mapToItem(overviewRoot, mouse.x, mouse.y)
-                                                            contextMenu.openFor(modelData, pos)
-                                                        } else {
-                                                            rootWindow.prevFocusAddr = ""
-                                                            rootWindow.show = false
-                                                            rootWindow.activateWindow(modelData)
+                                                    property real pressX: 0
+                                                    property real pressY: 0
+                                                    property bool didDrag: false
+
+                                                    onPressed: (mouse) => {
+                                                        pressX = mouse.x
+                                                        pressY = mouse.y
+                                                        didDrag = false
+                                                    }
+                                                    onPositionChanged: (mouse) => {
+                                                        if (mouse.buttons !== Qt.LeftButton) return
+                                                            var dx = mouse.x - pressX
+                                                            var dy = mouse.y - pressY
+                                                            if (!didDrag && Math.sqrt(dx * dx + dy * dy) > 8) {
+                                                                didDrag = true
+                                                                rootWindow.dragging = true
+                                                                rootWindow.dragWin = modelData
+                                                            }
+                                                            if (rootWindow.dragging) {
+                                                                var gp = thumbMa.mapToItem(overviewRoot, mouse.x, mouse.y)
+                                                                rootWindow.dragGhostX = gp.x
+                                                                rootWindow.dragGhostY = gp.y
+                                                            }
+                                                    }
+                                                    onReleased: (mouse) => {
+                                                        if (rootWindow.dragging) {
+                                                            dragGhost.Drag.drop()
+                                                            rootWindow.dragging = false
+                                                            rootWindow.dragWin = null
                                                         }
+                                                    }
+                                                    onClicked: (mouse) => {
+                                                        if (didDrag) { didDrag = false; return }
+                                                            if (mouse.button === Qt.RightButton) {
+                                                                var pos = thumb.mapToItem(overviewRoot, mouse.x, mouse.y)
+                                                                contextMenu.openFor(modelData, pos)
+                                                            } else {
+                                                                rootWindow.prevFocusAddr = ""
+                                                                rootWindow.show = false
+                                                                rootWindow.activateWindow(modelData)
+                                                            }
                                                     }
                                                 }
                                             }
@@ -463,6 +521,26 @@ PanelWindow {
                     font.pixelSize: 16
                 }
             }
+        }
+
+        // Floating ghost thumbnail shown while dragging a window onto another workspace cell
+        Rectangle {
+            id: dragGhost
+            z: 200
+            visible: rootWindow.dragging
+            width: 160
+            height: 100
+            x: rootWindow.dragGhostX - width / 2
+            y: rootWindow.dragGhostY - height / 2
+            radius: 8
+            color: Qt.rgba(0.05, 0.05, 0.05, 0.85)
+            border.width: 2
+            border.color: shellRoot ? shellRoot.colAccent : "#007AFF"
+            opacity: 0.85
+
+            Drag.active: rootWindow.dragging
+            Drag.hotSpot.x: width / 2
+            Drag.hotSpot.y: height / 2
         }
 
         // Right-Click Context Menu (For closing and moving windows)
