@@ -1696,17 +1696,19 @@ PopupWindow {
 
             // Icon Circle Box
             Rectangle {
-                Layout.preferredWidth: 32
+                Layout.preferredWidth: Math.max(32, iconLabel.implicitWidth + 12)
                 Layout.preferredHeight: 32
                 radius: 0
                 color: mbtn.isActive ? mbtn.accent : Qt.rgba(1, 1, 1, 0.15)
 
                 Text {
+                    id: iconLabel
                     anchors.centerIn: parent
                     text: mbtn.iconText
                     color: mbtn.isActive ? "#ffffff" : root.colFg
                     font.family: root.fontFamily
-                    font.pixelSize: 16
+                    font.bold: true
+                    font.pixelSize: 10
                 }
 
                 MouseArea {
