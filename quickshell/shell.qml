@@ -705,7 +705,9 @@ ShellRoot {
         anchors.topMargin: root.isBarMode ? 0 : 4
         anchors.horizontalCenter: parent.horizontalCenter
         height: 32
-        width: root.isBarMode ? parent.width : notchLayout.implicitWidth + 32
+        width: root.isBarMode
+            ? parent.width
+            : (root.islandActive ? (notchLayout.implicitWidth + notchLayoutRight.implicitWidth + 224) : notchLayout.implicitWidth + 32)
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
         radius: root.isBarMode ? 0 : 16
 
@@ -764,7 +766,10 @@ ShellRoot {
             opacity: root.isAnyPopupOpen ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
             anchors.verticalCenter: parent.verticalCenter
-            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: root.isBarMode
+                ? (root.islandActive ? 90 : (notchRect.width - notchLayout.width) / 2)
+                : 16
             height: parent.height
             spacing: 8
 
@@ -777,7 +782,7 @@ ShellRoot {
                     text: modelData
                     textColor: isActive ? root.colFg : root.colMuted
                     bgColor: "transparent"
-                    show: (ws !== undefined || isActive) && !root.showOsd
+                    show: (ws !== undefined || isActive) && !root.showOsd && (!root.islandActive || modelData <= 5)
                     onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + modelData + " })")
                 }
             }
@@ -839,51 +844,6 @@ ShellRoot {
                 show: root.showMicIndicator && !controlCenter.show && !root.showOsd && !root.islandActive
             }
 
-            // 融合進動態島本體的音樂播放狀態（取代原本浮在上方的獨立 islandPill）
-            Mod {
-                text: ""
-                textColor: root.colFg
-                bgColor: "transparent"
-                show: root.islandActive && !root.showOsd
-                customWidth: 160
-                onClicked: musicPopup.show = !musicPopup.show
-
-                Item {
-                    anchors.centerIn: parent
-                    width: 160
-                    height: 20
-
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 3
-                        opacity: musicPopup.show ? 0 : 1
-                        Behavior on opacity { NumberAnimation { duration: 150 } }
-                        visible: opacity > 0
-                        Repeater {
-                            model: root.cavaBars
-                            Item {
-                                width: 4; height: 20
-                                Rectangle {
-                                    width: parent.width
-                                    height: Math.max(2, Math.round(modelData * 20 / 20))
-                                    anchors.bottom: parent.bottom; radius: 0
-                                    color: root.mprisPlayer === "spotify" ? "#FF6A00" : root.colFg
-                                    Behavior on height { NumberAnimation { duration: 80 } }
-                                }
-                            }
-                        }
-                    }
-                    Text {
-                        anchors.centerIn: parent; width: parent.width - 8
-                        text: root.mprisTitle; color: root.colFg
-                        font.family: root.fontFamily; font.pixelSize: 11; font.bold: true
-                        elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
-                        opacity: musicPopup.show ? 1 : 0
-                        Behavior on opacity { NumberAnimation { duration: 150 } }
-                    }
-                }
-            }
-
             Mod {
                 text: ""
                 textColor: root.colFg
@@ -922,6 +882,76 @@ ShellRoot {
                         }
                     }
                 }
+            }
+        }
+
+        // 播放音樂時，工作區 6-10 移到右側跟左側 1-5 對稱，讓 cava 保持置中
+        RowLayout {
+            id: notchLayoutRight
+            visible: root.islandActive
+            opacity: root.isAnyPopupOpen ? 0 : 1
+            Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.right: parent.right
+            anchors.rightMargin: root.isBarMode ? 90 : 16
+            height: parent.height
+            spacing: 8
+
+            Repeater {
+                model: [6, 7, 8, 9, 10]
+                Mod {
+                    property var ws: Hyprland.workspaces.values.find(w => w.id === modelData)
+                    property bool isActive: Hyprland.focusedWorkspace != null && Hyprland.focusedWorkspace.id === modelData
+
+                    text: modelData
+                    textColor: isActive ? root.colFg : root.colMuted
+                    bgColor: "transparent"
+                    show: (ws !== undefined || isActive) && !root.showOsd
+                    onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + modelData + " })")
+                }
+            }
+        }
+
+        // 播放中的 cava 視覺化永遠置中於整個動態島，不隨左側工作區/狀態列擠壓
+        Item {
+            id: cavaCenter
+            anchors.centerIn: parent
+            width: 160
+            height: 20
+            visible: root.islandActive && !root.showOsd
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: musicPopup.show = !musicPopup.show
+            }
+
+            Row {
+                anchors.centerIn: parent
+                spacing: 3
+                opacity: musicPopup.show ? 0 : 1
+                Behavior on opacity { NumberAnimation { duration: 150 } }
+                visible: opacity > 0
+                Repeater {
+                    model: root.cavaBars
+                    Item {
+                        width: 4; height: 20
+                        Rectangle {
+                            width: parent.width
+                            height: Math.max(2, Math.round(modelData * 20 / 20))
+                            anchors.bottom: parent.bottom; radius: 0
+                            color: root.mprisPlayer === "spotify" ? "#FF6A00" : root.colFg
+                            Behavior on height { NumberAnimation { duration: 80 } }
+                        }
+                    }
+                }
+            }
+            Text {
+                anchors.centerIn: parent; width: parent.width - 8
+                text: root.mprisTitle; color: root.colFg
+                font.family: root.fontFamily; font.pixelSize: 11; font.bold: true
+                elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
+                opacity: musicPopup.show ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 150 } }
             }
         }
     }
