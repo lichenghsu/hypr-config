@@ -5,6 +5,7 @@ import Quickshell.Hyprland
 import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell.Io
+import Quickshell.Services.Notifications
 
 ShellRoot {
     PanelWindow {
@@ -13,7 +14,7 @@ ShellRoot {
 
     property color colBg: "#000000"
     property color colFg: "#ffffff"
-    property color colAccent: "#ffffff"
+    property color colAccent: "#FF6A00"
     property color colMuted: Qt.rgba(1, 1, 1, 0.4)
     property color colHover: Qt.rgba(1, 1, 1, 0.1)
     property color colCrit: "#ff0000"
@@ -23,8 +24,65 @@ ShellRoot {
     property bool isBarMode: windowCount === 1
     property real notchWidth: notchLayout.implicitWidth
 
+    property string sysCpu: "0%"
+    property string sysRam: "0%"
+    property string sysSwap: "0%"
+    property string webdavSync: "OK"
+    property bool webdavSyncing: false
+
+    property var notificationHistory: []
+    property int unreadCount: 0
+
     property bool isAnyPopupOpen: controlCenter.show || appLauncherPopup.show || clipboardManagerPopup.show || themeSwitcherPopup.show || wifiMenuPopup.show || powerMenuPopup.show || bluetoothMenuPopup.show || wallpaperPickerPopup.show
     property bool isAnyPopupAnimActive: isAnyPopupOpen || controlCenter.animHeight > 36 || appLauncherPopup.animHeight > 36 || clipboardManagerPopup.animHeight > 36 || themeSwitcherPopup.animHeight > 36 || wifiMenuPopup.animHeight > 36 || powerMenuPopup.animHeight > 36 || bluetoothMenuPopup.animHeight > 36 || wallpaperPickerPopup.animHeight > 36
+
+    // 1. monitor of CPU、RAM and SWAP
+    Process {
+        command: ["sh", "-c", "while true; do \
+            cpu=$(top -bn1 | grep \"Cpu(s)\" | awk '{print 100 - $8\"%\"}'); \
+            ram=$(free | grep Mem | awk '{print int($3/$2 * 100)\"%\"}'); \
+            swap=$(free | grep Swap | awk '{if ($2 > 0) print int($3/$2 * 100)\"%\"; else print \"0%\"}'); \
+            echo \"$cpu|$ram|$swap\"; \
+            sleep 3; \
+        done"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                var p = data.trim().split("|");
+                if (p.length === 3) {
+                    root.sysCpu = p[0];
+                    root.sysRam = p[1];
+                    root.sysSwap = p[2];
+                }
+            }
+        }
+    }
+
+    // 2. monitor of Obsidian vault backup (obsidian-git 外掛每 5 分鐘 auto-commit/push 到 Gitea)
+    Process {
+        command: ["sh", "-c", "cd /home/miles/Lab/obsidian-sync || exit 1; \
+            while true; do \
+                dirty=$(git status --porcelain 2>/dev/null | wc -l); \
+                ahead=$(git rev-list --count '@{u}..HEAD' 2>/dev/null); \
+                ahead=${ahead:-0}; \
+                if [ \"$dirty\" -gt 0 ] || [ \"$ahead\" -gt 0 ]; then \
+                    echo \"syncing|PENDING\"; \
+                else \
+                    echo \"idle|OK\"; \
+                fi; \
+                sleep 5; \
+            done"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                var p = data.trim().split("|");
+                if (p.length === 2) {
+                    root.webdavSyncing = (p[0] === "syncing");
+                    root.webdavSync = p[1];
+                }
+            }
+        }
+    }
 
     Process {
         command: ["/home/miles/.config/quickshell/count_tiled.sh"]
@@ -34,6 +92,30 @@ ShellRoot {
                 var c = parseInt(data.trim())
                 if (!isNaN(c)) root.windowCount = c
             }
+        }
+    }
+
+    // 3. Desktop notification daemon (取代 mako/dunst，直接用 quickshell 內建實作並用自家風格顯示)
+    NotificationServer {
+        id: notificationServer
+        keepOnReload: false
+        bodySupported: true
+        bodyMarkupSupported: true
+        imageSupported: true
+        actionsSupported: true
+        onNotification: notif => {
+            notif.tracked = true;
+
+            var arr = root.notificationHistory.slice();
+            arr.unshift({
+                appName: notif.appName || "System",
+                summary: notif.summary,
+                body: notif.body,
+                time: new Date().toLocaleTimeString()
+            });
+            root.notificationHistory = arr.slice(0, 50);
+
+            if (!notifHistoryPopup.show) root.unreadCount++;
         }
     }
 
@@ -126,12 +208,12 @@ ShellRoot {
     property int    mprisPosition: 0
     property real   mprisProgress: 0.0
 
-    property string wifiIcon: "󰤯"
+    property string wifiIcon: "WIFI"
     property string wifiText: "Disconnected"
 
     property bool showOsd: false
     property string osdText: "0%"
-    property string osdIcon: "󰕾"
+    property string osdIcon: "VOL"
     property real osdValue: 0
     property bool showPowerMenu: false
     property bool showAppLauncher: false
@@ -467,15 +549,15 @@ ShellRoot {
         running: true; stdout: SplitParser {
             onRead: data => {
                 var d = data.trim();
-                if (d === 'disc') { root.wifiIcon = "󰤮"; root.wifiText = "Disconnected"; }
+                if (d === 'disc') { root.wifiIcon = "WIFI"; root.wifiText = "Disconnected"; }
                 else {
                     var s = parseInt(d);
                     root.wifiText = s + "%";
-                    if (s > 80) root.wifiIcon = "󰤨";
-                    else if (s > 60) root.wifiIcon = "󰤥";
-                    else if (s > 40) root.wifiIcon = "󰤢";
-                    else if (s > 20) root.wifiIcon = "󰤟";
-                    else root.wifiIcon = "󰤯";
+                    if (s > 80) root.wifiIcon = "WIFI";
+                    else if (s > 60) root.wifiIcon = "WIFI";
+                    else if (s > 40) root.wifiIcon = "WIFI";
+                    else if (s > 20) root.wifiIcon = "WIFI";
+                    else root.wifiIcon = "WIFI";
                 }
             }
         }
@@ -630,7 +712,7 @@ ShellRoot {
         Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
         Behavior on radius { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
         Behavior on anchors.topMargin { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
-        border.color: Qt.rgba(1, 1, 1, 0.1)
+        border.color: Qt.rgba(1, 0.42, 0, 0.5)
         border.width: root.isBarMode ? 0 : 1
 
         // ── Left: clock ──────────────────────────────────────────────────
@@ -663,7 +745,7 @@ ShellRoot {
             Text {
                 anchors.centerIn: parent
                 property int cap: parseInt(root.batteryCap)
-                text: root.batteryCharging ? "󱐌 " + root.batteryCap + "%" : root.batteryCap + "%"
+                text: root.batteryCharging ? "+" + root.batteryCap + "%" : root.batteryCap + "%"
                 color: {
                     var cap = parseInt(root.batteryCap)
                     if (cap <= 15 && !root.batteryCharging) return root.colCrit
@@ -706,12 +788,12 @@ ShellRoot {
                 property bool isWarn: cap <= 30 && cap > 15 && !root.batteryCharging
 
                 text: {
-                    if (root.batteryCharging) return "";
-                    if (cap > 80) return "";
-                    if (cap > 60) return "";
-                    if (cap > 40) return "";
-                    if (cap > 20) return "";
-                    return "";
+                    if (root.batteryCharging) return "BATT";
+                    if (cap > 80) return "BATT";
+                    if (cap > 60) return "BATT";
+                    if (cap > 40) return "BATT";
+                    if (cap > 20) return "BATT";
+                    return "BATT";
                 }
                 textColor: {
                     if (isCrit) return root.colCrit;
@@ -727,7 +809,7 @@ ShellRoot {
 
             Mod {
                 property bool isActive: root.stopwatchRunning || root.stopwatchSeconds > 0
-                text: "󱎫 " + root.stopwatchText
+                text: "SW " + root.stopwatchText
                 textColor: root.stopwatchRunning ? "#FFA500" : root.colFg
                 bgColor: "transparent"
                 show: isActive && !controlCenter.show && !root.showOsd
@@ -736,7 +818,7 @@ ShellRoot {
 
             Mod {
                 property bool isActive: root.timerRunning || (root.timerSeconds > 0 && root.timerSeconds < root.timerTotal)
-                text: "󰔛 " + root.timerText
+                text: "TMR " + root.timerText
                 textColor: root.timerRunning ? "#FFA500" : root.colFg
                 bgColor: "transparent"
                 show: isActive && !controlCenter.show && !root.showOsd
@@ -744,14 +826,14 @@ ShellRoot {
             }
 
             Mod {
-                text: root.batteryMode ? "  Power Saver" : "  Performance"
+                text: root.batteryMode ? "POWER SAVER" : "PERFORMANCE"
                 textColor: root.batteryMode ? "#FFCC00" : "#76B900"
                 bgColor: "transparent"
                 show: root.showBatteryModeIndicator && !controlCenter.show && !root.showOsd
             }
 
             Mod {
-                text: ""
+                text: "MIC"
                 textColor: root.micMuted ? root.colMuted : "#FFA500"
                 bgColor: "transparent"
                 show: root.showMicIndicator && !controlCenter.show && !root.showOsd
@@ -783,13 +865,13 @@ ShellRoot {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width
                                 height: 4
-                                radius: 2
+                                radius: 0
                                 color: root.colMuted
                                 Rectangle {
                                     height: parent.height
                                     width: parent.width * (root.osdValue / 100)
-                                    radius: 2
-                                    color: root.colFg
+                                    radius: 0
+                                    color: "#FF6A00"
                                 }
                             }
                         }
@@ -815,6 +897,8 @@ ShellRoot {
         height: 32
         radius: root.isBarMode ? 0 : 16
         color: Qt.rgba(0.02, 0.02, 0.02, 0.98); clip: true
+        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.width: root.isBarMode ? 0 : 1
         Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutExpo } }
         Behavior on anchors.topMargin { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
         Behavior on radius { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
@@ -833,8 +917,8 @@ ShellRoot {
                     Rectangle {
                         width: parent.width
                         height: Math.max(2, Math.round(modelData * 20 / 20))
-                        anchors.bottom: parent.bottom; radius: 1
-                        color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colFg
+                        anchors.bottom: parent.bottom; radius: 0
+                        color: root.mprisPlayer === "spotify" ? "#FF6A00" : root.colFg
                         Behavior on height { NumberAnimation { duration: 80 } }
                     }
                 }
@@ -847,6 +931,422 @@ ShellRoot {
             elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
             opacity: musicPopup.show ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 150 } }
+        }
+    }
+
+    // ── EVA 風格分段式 progress bar：固定寬度、依數值分段上色 ──
+    component EvaBar: Item {
+        id: evaBar
+        property real value: 0 // 0.0 ~ 1.0
+        property int segments: 8
+        implicitWidth: 50
+        implicitHeight: 10
+
+        readonly property color activeColor: {
+            if (evaBar.value >= 0.85) return "#FF3B30" // 危險：紅
+            if (evaBar.value >= 0.6) return "#FFA500"  // 警戒：橙
+            return "#3DDC84"                            // 正常：綠
+        }
+
+        Row {
+            anchors.fill: parent
+            spacing: 2
+            Repeater {
+                model: evaBar.segments
+                Rectangle {
+                    width: (evaBar.width - (evaBar.segments - 1) * 2) / evaBar.segments
+                    height: evaBar.height
+                    color: index < Math.round(evaBar.value * evaBar.segments) ? evaBar.activeColor : Qt.rgba(1, 1, 1, 0.08)
+                    border.width: 1
+                    border.color: Qt.rgba(1, 1, 1, 0.25)
+                }
+            }
+        }
+    }
+
+    // ── 右上角系統動態島 (固定顯示) ──
+    Rectangle {
+        id: sysIsland
+        anchors.right: parent.right
+        anchors.rightMargin: root.isBarMode ? 100 : 16
+        anchors.top: parent.top
+        anchors.topMargin: root.isBarMode ? 0 : 4
+        z: 2 // 確保顯示在最上層
+
+        // 寬度依內容自動撐開，避免文字被裁切或溢出動態島
+        width: sysRow.implicitWidth + 24
+        height: 32
+        radius: root.isBarMode ? 0 : 16
+        color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
+        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.width: root.isBarMode ? 0 : 1
+
+        // 寬度平滑動態過渡動畫
+        Behavior on width {
+            NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutExpo }
+        }
+
+        // 滑鼠懸停（Hover）或點擊時，可以觸發展開顯示
+        MouseArea {
+            id: sysIslandClick
+            anchors.fill: parent
+            hoverEnabled: true
+
+            RowLayout {
+                id: sysRow
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 8
+
+                // CPU
+                RowLayout {
+                    spacing: 6
+                    Text {
+                        text: "CPU"
+                        color: root.colMuted
+                        font { family: root.fontFamily; pixelSize: root.fontSize }
+                    }
+                    EvaBar { value: parseFloat(root.sysCpu) / 100 }
+                    Text {
+                        text: root.sysCpu
+                        color: root.colFg
+                        font { family: root.fontFamily; pixelSize: root.fontSize }
+                    }
+                }
+
+                // RAM
+                RowLayout {
+                    spacing: 6
+                    Text {
+                        text: "RAM"
+                        color: root.colMuted
+                        font { family: root.fontFamily; pixelSize: root.fontSize }
+                    }
+                    EvaBar { value: parseFloat(root.sysRam) / 100 }
+                    Text {
+                        text: root.sysRam
+                        color: root.colFg
+                        font { family: root.fontFamily; pixelSize: root.fontSize }
+                    }
+                }
+
+                // SWAP
+                RowLayout {
+                    spacing: 6
+                    Text {
+                        text: "SWAP"
+                        color: root.colMuted
+                        font { family: root.fontFamily; pixelSize: root.fontSize }
+                    }
+                    EvaBar { value: parseFloat(root.sysSwap) / 100 }
+                    Text {
+                        text: root.sysSwap
+                        color: root.colFg
+                        font { family: root.fontFamily; pixelSize: root.fontSize }
+                    }
+                }
+
+                // 分隔線
+                Rectangle {
+                    Layout.fillHeight: true
+                    Layout.topMargin: 8
+                    Layout.bottomMargin: 8
+                    width: 1
+                    color: Qt.rgba(1, 1, 1, 0.15)
+                }
+
+                // Vault 備份狀態（obsidian-git 是否已 commit/push 乾淨）
+                Text {
+                    text: "SYNC | " + root.webdavSync
+                    color: root.webdavSyncing ? "#FFCC00" : "#76B900"
+                    font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+                }
+
+                // 分隔線
+                Rectangle {
+                    Layout.fillHeight: true
+                    Layout.topMargin: 8
+                    Layout.bottomMargin: 8
+                    width: 1
+                    color: Qt.rgba(1, 1, 1, 0.15)
+                }
+
+                // 通知歷史（NERV 終端機風格：純文字標籤 + 方角警示紅點）
+                Item {
+                    id: bellButton
+                    implicitWidth: bellLabel.implicitWidth + 10
+                    implicitHeight: 20
+
+                    Text {
+                        id: bellLabel
+                        anchors.centerIn: parent
+                        text: "ALERT"
+                        color: root.unreadCount > 0 ? "#FF6A00" : root.colMuted
+                        font { family: root.fontFamily; pixelSize: root.fontSize; bold: true; letterSpacing: 1 }
+                    }
+
+                    Rectangle {
+                        visible: root.unreadCount > 0
+                        width: 14; height: 14; radius: 2
+                        color: "#FF3B30"
+                        border.color: Qt.rgba(0, 0, 0, 0.6)
+                        border.width: 1
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.topMargin: -6
+                        anchors.rightMargin: -6
+                        Text {
+                            anchors.centerIn: parent
+                            text: root.unreadCount > 9 ? "9+" : String(root.unreadCount)
+                            color: "white"
+                            font.family: root.fontFamily
+                            font.pixelSize: 8
+                            font.bold: true
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            notifHistoryPopup.show = !notifHistoryPopup.show;
+                            if (notifHistoryPopup.show) root.unreadCount = 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── 通知堆疊：取代 mako/dunst，顯示在右上角，跟 sysIsland 同一套視覺風格 ──
+PopupWindow {
+    id: notificationPopup
+    anchor {
+        window: root
+        rect: Qt.rect(0, root.isBarMode ? 32 : 40, root.width, 1)
+        edges: Edges.Top | Edges.Right
+        gravity: Edges.Bottom | Edges.Left
+    }
+    color: "transparent"
+    implicitWidth: 340
+    implicitHeight: notifColumn.implicitHeight + 16
+    visible: notificationServer.trackedNotifications.values.length > 0
+
+    ColumnLayout {
+        id: notifColumn
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.rightMargin: 16
+        anchors.topMargin: 8
+        spacing: 8
+
+        Repeater {
+            model: notificationServer.trackedNotifications
+
+            delegate: Rectangle {
+                id: notifCard
+                required property var modelData
+
+                Layout.preferredWidth: 320
+                Layout.preferredHeight: notifContent.implicitHeight + 24
+                radius: 0
+                color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
+                border.color: Qt.rgba(1, 0.42, 0, 0.5)
+                border.width: 1
+
+                // NERV 終端機風格左側警示條
+                Rectangle {
+                    width: 3
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    color: "#FF6A00"
+                }
+
+                // 依通知標示的 expire timeout 自動關閉，沒指定則預設 5 秒
+                Timer {
+                    running: true
+                    interval: notifCard.modelData.expireTimeout > 0 ? notifCard.modelData.expireTimeout : 5000
+                    onTriggered: notifCard.modelData.expire()
+                }
+
+                ColumnLayout {
+                    id: notifContent
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    anchors.leftMargin: 16
+                    spacing: 4
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        Text {
+                            text: notifCard.modelData.appName.toUpperCase()
+                            color: "#FF6A00"
+                            font { family: root.fontFamily; pixelSize: root.fontSize + 2; bold: true; letterSpacing: 1 }
+                        }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: "[X]"
+                            color: root.colMuted
+                            font { family: root.fontFamily; pixelSize: root.fontSize + 2; bold: true }
+                            MouseArea { anchors.fill: parent; onClicked: notifCard.modelData.dismiss() }
+                        }
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: Qt.rgba(1, 0.42, 0, 0.25)
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: notifCard.modelData.summary
+                        color: root.colFg
+                        wrapMode: Text.Wrap
+                        font { family: root.fontFamily; pixelSize: root.fontSize + 3; bold: true }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        visible: notifCard.modelData.body.length > 0
+                        text: notifCard.modelData.body
+                        color: root.colMuted
+                        wrapMode: Text.Wrap
+                        font { family: root.fontFamily; pixelSize: root.fontSize + 2 }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── 通知歷史清單：點右上角小鈴鐺開關 ──
+PopupWindow {
+    id: notifHistoryPopup
+    property bool show: false
+    grabFocus: show
+    visible: show
+    anchor {
+        window: root
+        rect: Qt.rect(0, root.isBarMode ? 32 : 40, root.width, 1)
+        edges: Edges.Top | Edges.Right
+        gravity: Edges.Bottom | Edges.Left
+    }
+    color: "transparent"
+    implicitWidth: 340
+    implicitHeight: Math.min(historyCard.implicitHeight, 480)
+
+    Rectangle {
+        id: historyCard
+        width: 340
+        implicitHeight: historyColumn.implicitHeight + 24
+        radius: 0
+        color: Qt.rgba(0.02, 0.02, 0.02, 0.97)
+        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.width: 1
+
+        ColumnLayout {
+            id: historyColumn
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 12
+            spacing: 8
+
+            RowLayout {
+                Layout.fillWidth: true
+                Text {
+                    text: "NOTIFICATIONS"
+                    color: "#FF6A00"
+                    font { family: root.fontFamily; pixelSize: root.fontSize + 3; bold: true; letterSpacing: 1 }
+                }
+                Item { Layout.fillWidth: true }
+                Text {
+                    visible: root.notificationHistory.length > 0
+                    text: "[CLEAR]"
+                    color: root.colMuted
+                    font { family: root.fontFamily; pixelSize: root.fontSize + 2; bold: true }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.notificationHistory = []
+                    }
+                }
+            }
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: Qt.rgba(1, 0.42, 0, 0.25)
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: root.notificationHistory.length === 0
+                text: "NO SIGNAL"
+                color: root.colMuted
+                font { family: root.fontFamily; pixelSize: root.fontSize + 2; letterSpacing: 1 }
+            }
+
+            Repeater {
+                model: root.notificationHistory
+
+                delegate: Rectangle {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: entryCol.implicitHeight + 16
+                    radius: 0
+                    color: Qt.rgba(1, 1, 1, 0.05)
+                    border.color: Qt.rgba(1, 0.42, 0, 0.2)
+                    border.width: 1
+
+                    Rectangle {
+                        width: 3
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        color: "#FF6A00"
+                    }
+
+                    ColumnLayout {
+                        id: entryCol
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        anchors.leftMargin: 12
+                        spacing: 2
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text {
+                                text: modelData.appName.toUpperCase()
+                                color: "#FF6A00"
+                                font { family: root.fontFamily; pixelSize: root.fontSize + 1; bold: true; letterSpacing: 1 }
+                            }
+                            Item { Layout.fillWidth: true }
+                            Text {
+                                text: modelData.time
+                                color: "#3DDC84"
+                                font { family: root.fontFamily; pixelSize: root.fontSize }
+                            }
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: modelData.summary
+                            color: root.colFg
+                            wrapMode: Text.Wrap
+                            font { family: root.fontFamily; pixelSize: root.fontSize + 2; bold: true }
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: modelData.body.length > 0
+                            text: modelData.body
+                            color: root.colMuted
+                            wrapMode: Text.Wrap
+                            font { family: root.fontFamily; pixelSize: root.fontSize + 1 }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -873,11 +1373,11 @@ PopupWindow {
         focus: musicPopup.show
         Keys.onEscapePressed: musicPopup.show = false
 
-        // 現代深色調（仿玻璃基底）
+        // NERV 終端機風格
         color: Qt.rgba(0.05, 0.05, 0.05, 0.88)
-        radius: 24 // 更圓潤的現代倒角
+        radius: 0
         opacity: musicPopup.show ? 1 : 0
-        border.color: Qt.rgba(1, 1, 1, 0.08) // 極細微光邊框
+        border.color: Qt.rgba(1, 0.42, 0, 0.5)
         border.width: 1
 
         Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
@@ -891,7 +1391,9 @@ PopupWindow {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.preferredWidth: 160
                 Layout.preferredHeight: 160
-                radius: 20
+                radius: 0
+                border.color: Qt.rgba(1, 0.42, 0, 0.3)
+                border.width: 1
                 color: "#161616"
                 clip: true
 
@@ -911,10 +1413,12 @@ PopupWindow {
                 // 封面未載入時的現代替代圖標
                 Text {
                     anchors.centerIn: parent
-                    text: "󰝚"
-                    color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colMuted
+                    text: "NOTE"
+                    color: root.mprisPlayer === "spotify" ? "#FF6A00" : root.colMuted
                     font.family: root.fontFamily
-                    font.pixelSize: 36
+                    font.pixelSize: 16
+                    font.bold: true
+                    font.letterSpacing: 1
                     visible: musicArt.source === "" || musicArt.status !== Image.Ready
                 }
             }
@@ -935,7 +1439,7 @@ PopupWindow {
                 }
                 Text {
                     text: root.mprisArtist !== "" ? root.mprisArtist : "未知藝術家"
-                    color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colMuted
+                    color: root.mprisPlayer === "spotify" ? "#FF6A00" : root.colMuted
                     font.family: root.fontFamily
                     font.pixelSize: 12
                     horizontalAlignment: Text.AlignHCenter
@@ -958,15 +1462,15 @@ PopupWindow {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width
                         height: 4 // 超纖細軌道
-                        radius: 2
+                        radius: 0
                         color: Qt.rgba(1, 1, 1, 0.1)
 
                         Rectangle {
                             id: seekFill
                             width: parent.width * root.mprisProgress
                             height: parent.height
-                            radius: 2
-                            color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colAccent
+                            radius: 0
+                            color: "#FF6A00"
                         }
                     }
 
@@ -976,7 +1480,7 @@ PopupWindow {
                         anchors.verticalCenter: parent.verticalCenter
                         width: progressMouseArea.containsMouse ? 12 : 0
                         height: width
-                        radius: width / 2
+                        radius: 0
                         color: "#FFFFFF"
                         Behavior on width { NumberAnimation { duration: 120 } }
                     }
@@ -1028,8 +1532,8 @@ PopupWindow {
                     Layout.preferredWidth: 40; Layout.preferredHeight: 40
                     hoverEnabled: true
                     onClicked: pSpotPrev.running = true
-                    Rectangle { anchors.fill: parent; radius: 20; color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent" }
-                    Text { anchors.centerIn: parent; text: "󰒮"; color: "#FFF"; font.family: root.fontFamily; font.pixelSize: 18 }
+                    Rectangle { anchors.fill: parent; radius: 0; border.color: Qt.rgba(1, 0.42, 0, 0.3); border.width: 1; color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent" }
+                    Text { anchors.centerIn: parent; text: "[<<]"; color: "#FFF"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
                 }
 
                 // 播放 / 暫停（主按鈕放大、圓環焦點）
@@ -1040,16 +1544,17 @@ PopupWindow {
                     onClicked: pSpotPlay.running = true
                     Rectangle {
                         anchors.fill: parent
-                        radius: 27
-                        color: root.mprisStatus === "Playing" ? (root.mprisPlayer === "spotify" ? "#1DB954" : root.colFg) : Qt.rgba(1, 1, 1, 0.1)
+                        radius: 0
+                        color: root.mprisStatus === "Playing" ? (root.mprisPlayer === "spotify" ? "#FF6A00" : root.colFg) : Qt.rgba(1, 1, 1, 0.1)
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
                     Text {
                         anchors.centerIn: parent
-                        text: root.mprisStatus === "Playing" ? "󰏤" : "󰐊"
+                        text: root.mprisStatus === "Playing" ? "[||]" : "[>]"
                         color: root.mprisStatus === "Playing" ? "#000000" : "#FFFFFF" // 播放時反白
                         font.family: root.fontFamily
-                        font.pixelSize: 22
+                        font.pixelSize: 14
+                        font.bold: true
                     }
                 }
 
@@ -1059,8 +1564,8 @@ PopupWindow {
                     Layout.preferredWidth: 40; Layout.preferredHeight: 40
                     hoverEnabled: true
                     onClicked: pSpotNext.running = true
-                    Rectangle { anchors.fill: parent; radius: 20; color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent" }
-                    Text { anchors.centerIn: parent; text: "󰒭"; color: "#FFF"; font.family: root.fontFamily; font.pixelSize: 18 }
+                    Rectangle { anchors.fill: parent; radius: 0; border.color: Qt.rgba(1, 0.42, 0, 0.3); border.width: 1; color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent" }
+                    Text { anchors.centerIn: parent; text: "[>>]"; color: "#FFF"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
                 }
 
                 Item { Layout.fillWidth: true }
@@ -1086,7 +1591,7 @@ PopupWindow {
             color: "transparent"
             border.color: battIcon.colFg
             border.width: 1.5
-            radius: 4
+            radius: 0
             opacity: 0.7
 
             Rectangle {
@@ -1095,7 +1600,7 @@ PopupWindow {
                 y: 2
                 width: Math.max(0, (parent.width - 4) * battIcon.level)
                 height: parent.height - 4
-                radius: 2
+                radius: 0
                 color: {
                     if (battIcon.charging) return "#76B900";
                     if (battIcon.level <= 0.2) return "#FF3B30";
@@ -1114,14 +1619,15 @@ PopupWindow {
             anchors.verticalCenter: parent.verticalCenter
             color: battIcon.colFg
             opacity: 0.7
-            radius: 1.5
+            radius: 0
         }
 
         // Charging bolt
         Text {
             visible: battIcon.charging
-            text: ""
-            font.pixelSize: 9
+            text: "+"
+            font.pixelSize: 10
+            font.bold: true
             color: "#ffffff"
             anchors.centerIn: outline
         }
@@ -1145,9 +1651,10 @@ PopupWindow {
 
         Rectangle {
             anchors.fill: parent
-            radius: 12
+            radius: 0
             color: mainMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.1)
-            border.color: "transparent"
+            border.color: Qt.rgba(1, 0.42, 0, 0.3)
+            border.width: 1
             Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 150 } }
         }
 
@@ -1169,7 +1676,7 @@ PopupWindow {
             Rectangle {
                 Layout.preferredWidth: 32
                 Layout.preferredHeight: 32
-                radius: 16
+                radius: 0
                 color: mbtn.isActive ? mbtn.accent : Qt.rgba(1, 1, 1, 0.15)
 
                 Text {
@@ -1207,7 +1714,7 @@ PopupWindow {
 
                 Text {
                     anchors.centerIn: parent
-                    text: ""
+                    text: ">"
                     color: rightIconMouse.containsMouse ? root.colFg : Qt.rgba(root.colFg.r, root.colFg.g, root.colFg.b, 0.3)
                     font.family: root.fontFamily
                     font.pixelSize: 16
@@ -1240,10 +1747,10 @@ PopupWindow {
 
         Rectangle {
             anchors.fill: parent
-            radius: 12
+            radius: 0
             color: mbtn.isActive ? Qt.rgba(mbtn.accent.r, mbtn.accent.g, mbtn.accent.b, 0.15)
                                  : (mbtn.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.1))
-            border.color: mbtn.isActive ? Qt.rgba(mbtn.accent.r, mbtn.accent.g, mbtn.accent.b, 0.3) : "transparent"
+            border.color: mbtn.isActive ? Qt.rgba(mbtn.accent.r, mbtn.accent.g, mbtn.accent.b, 0.3) : Qt.rgba(1, 0.42, 0, 0.25)
             border.width: 1
             Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 150 } }
         }
@@ -1271,13 +1778,15 @@ PopupWindow {
             implicitHeight: 8
             width: mSlider.availableWidth
             height: implicitHeight
-            radius: 4
+            radius: 0
             color: Qt.rgba(1, 1, 1, 0.1)
+            border.color: Qt.rgba(1, 0.42, 0, 0.25)
+            border.width: 1
             Rectangle {
                 width: mSlider.visualPosition * parent.width
                 height: parent.height
-                color: root.colFg
-                radius: 4
+                color: "#FF6A00"
+                radius: 0
             }
         }
 
@@ -1286,7 +1795,7 @@ PopupWindow {
             y: mSlider.topPadding + mSlider.availableHeight / 2 - height / 2
             implicitWidth: 16
             implicitHeight: 16
-            radius: 8
+            radius: 0
             color: mSlider.pressed ? Qt.rgba(0.8, 0.8, 0.8, 1) : "#ffffff"
             scale: mSlider.pressed || mSlider.hovered ? 1.2 : 1.0
             Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 100 } }
@@ -1378,7 +1887,7 @@ PopupWindow {
 
                 color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
                 radius: controlCenter.show ? 24 : (root.isBarMode ? 0 : 16)
-                border.color: Qt.rgba(1, 1, 1, 0.1)
+                border.color: Qt.rgba(1, 0.42, 0, 0.5)
                 border.width: (controlCenter.show || !root.isBarMode) ? 1 : 0
 
                 // DYNAMIC ISLAND FLUID ANIMATION
@@ -1502,12 +2011,12 @@ PopupWindow {
                                 Text {
                                     text: {
                                         let cap = parseInt(root.batteryCap);
-                                        if (root.batteryCharging) return "";
-                                        if (cap > 80) return "";
-                                        if (cap > 60) return "";
-                                        if (cap > 40) return "";
-                                        if (cap > 20) return "";
-                                        return "";
+                                        if (root.batteryCharging) return "BATT";
+                                        if (cap > 80) return "BATT";
+                                        if (cap > 60) return "BATT";
+                                        if (cap > 40) return "BATT";
+                                        if (cap > 20) return "BATT";
+                                        return "BATT";
                                     }
                                     color: {
                                         let cap = parseInt(root.batteryCap);
@@ -1537,12 +2046,12 @@ PopupWindow {
                         Layout.fillWidth: true
                         spacing: 8
 
-                        Text { text: "󱐋 " + root.powerDraw + (root.powerDraw === "AC" ? "" : "W"); color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
-                        Text { text: " " + root.temperature + "°"; color: parseInt(root.temperature) >= 80 ? root.colCrit : root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
-                        Text { text: "󰠯 " + root.updates; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; visible: parseInt(root.updates) > 0 }
+                        Text { text: "PWR " + root.powerDraw + (root.powerDraw === "AC" ? "" : "W"); color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
+                        Text { text: "TEMP " + root.temperature + "°"; color: parseInt(root.temperature) >= 80 ? root.colCrit : root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
+                        Text { text: "UPD " + root.updates; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; visible: parseInt(root.updates) > 0 }
                     }
 
-                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,1,1,0.1); visible: root.mprisStatus !== "offline" }
+                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,0.42,0,0.25); visible: root.mprisStatus !== "offline" }
 
                     // Sliders
                     ColumnLayout {
@@ -1565,10 +2074,11 @@ PopupWindow {
                                     Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
                                     Text {
                                         anchors.centerIn: parent
-                                        text: root.volumeMuted ? "󰝟" : ""
+                                        text: root.volumeMuted ? "MUTE" : "VOL"
                                         color: root.volumeMuted ? root.colMuted : root.colFg
                                         font.family: root.fontFamily
-                                        font.pixelSize: 18
+                                        font.pixelSize: 8
+                                        font.bold: true
                                     }
                                 }
                                 ModernSlider {
@@ -1589,7 +2099,7 @@ PopupWindow {
                                     }
                                     Text {
                                         anchors.centerIn: parent
-                                        text: root.audioSinkExpanded ? "󰅃" : "󰅀"
+                                        text: root.audioSinkExpanded ? "v" : ">"
                                         color: root.audioSinkExpanded ? root.colFg : root.colMuted
                                         font.family: root.fontFamily
                                         font.pixelSize: 11
@@ -1609,7 +2119,7 @@ PopupWindow {
                                     }
                                     Rectangle {
                                         anchors.fill: parent
-                                        radius: 8
+                                        radius: 0
                                         color: parent.containsMouse ? Qt.rgba(1,1,1,0.1) : "transparent"
                                     }
                                     RowLayout {
@@ -1618,8 +2128,8 @@ PopupWindow {
                                         anchors.rightMargin: 8
                                         spacing: 6
                                         Text {
-                                            text: model.name === root.defaultSink ? "󰄪" : ""
-                                            color: model.name === root.defaultSink ? "#007AFF" : root.colMuted
+                                            text: model.name === root.defaultSink ? "*" : ""
+                                            color: model.name === root.defaultSink ? "#FF6A00" : root.colMuted
                                             font.family: root.fontFamily
                                             font.pixelSize: 10
                                         }
@@ -1635,6 +2145,8 @@ PopupWindow {
                                     }
                                 }
                             }
+
+
                         }
 
                         // Mic
@@ -1653,10 +2165,11 @@ PopupWindow {
                                     Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
                                     Text {
                                         anchors.centerIn: parent
-                                        text: root.micMuted ? "" : ""
+                                        text: root.micMuted ? "MUTE" : "MIC"
                                         color: root.micMuted ? root.colMuted : root.colFg
                                         font.family: root.fontFamily
-                                        font.pixelSize: 18
+                                        font.bold: true
+                                        font.pixelSize: 8
                                     }
                                 }
                                 ModernSlider {
@@ -1677,7 +2190,7 @@ PopupWindow {
                                     }
                                     Text {
                                         anchors.centerIn: parent
-                                        text: root.audioSourceExpanded ? "󰅃" : "󰅀"
+                                        text: root.audioSourceExpanded ? "v" : ">"
                                         color: root.audioSourceExpanded ? root.colFg : root.colMuted
                                         font.family: root.fontFamily
                                         font.pixelSize: 11
@@ -1697,7 +2210,7 @@ PopupWindow {
                                     }
                                     Rectangle {
                                         anchors.fill: parent
-                                        radius: 8
+                                        radius: 0
                                         color: parent.containsMouse ? Qt.rgba(1,1,1,0.1) : "transparent"
                                     }
                                     RowLayout {
@@ -1706,8 +2219,8 @@ PopupWindow {
                                         anchors.rightMargin: 8
                                         spacing: 6
                                         Text {
-                                            text: model.name === root.defaultSource ? "󰄪" : ""
-                                            color: model.name === root.defaultSource ? "#007AFF" : root.colMuted
+                                            text: model.name === root.defaultSource ? "*" : ""
+                                            color: model.name === root.defaultSource ? "#FF6A00" : root.colMuted
                                             font.family: root.fontFamily
                                             font.pixelSize: 10
                                         }
@@ -1813,7 +2326,7 @@ PopupWindow {
 
                         ModernSplitButton {
                             text: "Bluetooth"
-                            iconText: root.bluetoothStatus === "on" ? "" : "󰂲"
+                            iconText: "BT"
                             isActive: root.bluetoothStatus === "on"
                             accent: "#007AFF"
                             onMainClicked: { bluetoothMenuPopup.show = true; controlCenter.show = false }
@@ -1826,14 +2339,14 @@ PopupWindow {
 
                         ModernSplitButton {
                             text: root.wifiText === "Disconnected" ? "Wi-Fi" : root.wifiText
-                            iconText: root.wifiIcon
+                            iconText: "WIFI"
                             isActive: root.wifiText !== "Disconnected"
                             accent: "#007AFF"
                             onMainClicked: { wifiMenuPopup.show = true; controlCenter.show = false }
                             onRightIconClicked: { wifiMenuPopup.show = true; controlCenter.show = false }
                             onIconClicked: {
                                 root.wifiText = (root.wifiText === "Disconnected") ? "Connecting..." : "Disconnected"
-                                root.wifiIcon = (root.wifiText === "Connecting...") ? "󰤨" : "󰤮"
+                                root.wifiIcon = (root.wifiText === "Connecting...") ? "WIFI" : "WIFI"
                                 pWifiToggle.running = true
                             }
                         }
@@ -1847,7 +2360,7 @@ PopupWindow {
                             ModernSplitButton {
                                 Layout.fillWidth: true
                                 text: model.connecting ? "Connecting..." : model.name
-                                iconText: "󰖂"
+                                iconText: "VPN"
                                 isActive: model.active
                                 accent: "#FF9500"
                                 onIconClicked: {
@@ -1871,7 +2384,7 @@ PopupWindow {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 48
                         visible: root.vpnDisconnectTarget !== ""
-                        radius: 12
+                        radius: 0
                         color: Qt.rgba(1, 0.35, 0.2, 0.15)
                         border.color: Qt.rgba(1, 0.35, 0.2, 0.3)
                         border.width: 1
@@ -1898,7 +2411,7 @@ PopupWindow {
                                 onClicked: root.vpnDisconnectTarget = ""
                                 Rectangle {
                                     anchors.fill: parent
-                                    radius: 8
+                                    radius: 0
                                     color: parent.containsMouse ? Qt.rgba(1,1,1,0.15) : Qt.rgba(1,1,1,0.08)
                                 }
                                 Text {
@@ -1921,7 +2434,7 @@ PopupWindow {
                                 }
                                 Rectangle {
                                     anchors.fill: parent
-                                    radius: 8
+                                    radius: 0
                                     color: parent.containsMouse ? Qt.rgba(1, 0.35, 0.2, 0.5) : Qt.rgba(1, 0.35, 0.2, 0.3)
                                 }
                                 Text {
@@ -1940,7 +2453,7 @@ PopupWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 1
-                        color: Qt.rgba(1, 1, 1, 0.08)
+                        color: Qt.rgba(1, 0.42, 0, 0.2)
                     }
 
                     MouseArea {
@@ -1951,7 +2464,7 @@ PopupWindow {
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: 10
+                            radius: 0
                             color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent"
                         }
 
@@ -1962,17 +2475,19 @@ PopupWindow {
                             spacing: 6
 
                             Text {
-                                text: "󰢹"
+                                text: "RM"
                                 color: "#4A90D9"
                                 font.family: root.fontFamily
-                                font.pixelSize: 15
+                                font.pixelSize: 12
+                                font.bold: true
                             }
                             Text {
-                                text: "Remmina"
+                                text: "REMMINA"
                                 color: root.colFg
                                 font.family: root.fontFamily
                                 font.pixelSize: 13
                                 font.bold: true
+                                font.letterSpacing: 1
                                 Layout.fillWidth: true
                             }
                             Text {
@@ -1982,10 +2497,11 @@ PopupWindow {
                                 font.pixelSize: 11
                             }
                             Text {
-                                text: root.remminaExpanded ? "󰅃" : "󰅀"
+                                text: root.remminaExpanded ? "v" : ">"
                                 color: root.colMuted
                                 font.family: root.fontFamily
                                 font.pixelSize: 13
+                                font.bold: true
                             }
                         }
                     }
@@ -2040,7 +2556,7 @@ PopupWindow {
 
                                         Rectangle {
                                             anchors.fill: parent
-                                            radius: 8
+                                            radius: 0
                                             color: parent.containsMouse ? Qt.rgba(0.29, 0.56, 0.85, 0.2) : Qt.rgba(1,1,1,0.04)
                                         }
 
@@ -2050,12 +2566,6 @@ PopupWindow {
                                             anchors.rightMargin: 10
                                             spacing: 8
 
-                                            Text {
-                                                text: model.proto === "RDP" ? "󰢹" : "󰣀"
-                                                color: model.proto === "RDP" ? "#4A90D9" : "#5CB85C"
-                                                font.family: root.fontFamily
-                                                font.pixelSize: 13
-                                            }
                                             Text {
                                                 text: model.name
                                                 color: root.colFg
@@ -2081,7 +2591,7 @@ PopupWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 1
-                        color: Qt.rgba(1, 1, 1, 0.08)
+                        color: Qt.rgba(1, 0.42, 0, 0.2)
                         visible: root.remminaExpanded
                     }
 
@@ -2092,7 +2602,7 @@ PopupWindow {
 
                         ModernSplitButton {
                             text: root.stopwatchText
-                            iconText: "󱎫"
+                            iconText: "SW"
                             isActive: root.stopwatchRunning || root.stopwatchSeconds > 0
                             accent: "#FFA500"
                             onMainClicked: {
@@ -2119,7 +2629,7 @@ PopupWindow {
                         ModernSplitButton {
                             id: btnTimer
                             text: root.timerText
-                            iconText: "󰔛"
+                            iconText: "TMR"
                             isActive: root.timerRunning || (root.timerSeconds > 0 && root.timerSeconds < root.timerTotal)
                             accent: "#FFA500"
                             onMainClicked: {
@@ -2173,7 +2683,7 @@ PopupWindow {
                         ModernButton {
                             id: btnGpu
                             text: root.gpuMode.charAt(0)
-                            iconText: "󰢮"
+                            iconText: "GPU"
                             isActive: root.gpuMode === "Hybrid" || root.gpuMode === "Nvidia"
                             accent: "#76B900"
                             onClicked: {
@@ -2189,7 +2699,7 @@ PopupWindow {
                         ModernButton {
                             id: btnNotes
                             text: ""
-                            iconText: ""
+                            iconText: "NOTE"
                             onClicked: {
                                 if (!notesPopup.show) {
                                     var pos = mapToItem(null, 0, 0);
@@ -2203,7 +2713,7 @@ PopupWindow {
                         ModernButton {
                             id: btnBatteryMode
                             text: ""
-                            iconText: root.batteryMode ? "" : ""
+                            iconText: root.batteryMode ? "ECO" : "PERF"
                             isActive: root.batteryMode
                             accent: "#FFCC00"
                             onClicked: pToggleBatteryMode.running = true
@@ -2211,7 +2721,7 @@ PopupWindow {
                         ModernButton {
                             id: btnPomodoro
                             text: ""
-                            iconText: "󰄉"
+                            iconText: "POMO"
                             isActive: root.pomodoroState > 0
                             accent: root.pomodoroState === 1 ? "#FF4500" : "#00FA9A"
                             onClicked: {
@@ -2232,7 +2742,7 @@ PopupWindow {
                         }
                         ModernButton {
                             id: btnOverview
-                            iconText: "󱢈"
+                            iconText: "OVW"
                             isActive: windowOverviewPopup.show
                             accent: "#007AFF"
                             onClicked: {
@@ -2246,7 +2756,7 @@ PopupWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 1
-                        color: Qt.rgba(1, 1, 1, 0.08)
+                        color: Qt.rgba(1, 0.42, 0, 0.2)
                     }
 
                     RowLayout {
@@ -2254,14 +2764,14 @@ PopupWindow {
                         spacing: 6
 
                         ModernButton {
-                            iconText: "󰌾"
+                            iconText: "LOCK"
                             accent: "#cc9900"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
                             onClicked: pPowerLock.running = true
                         }
                         ModernButton {
-                            iconText: "󰒲"
+                            iconText: "ZZZ"
                             accent: "#5B9BD5"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
@@ -2269,21 +2779,21 @@ PopupWindow {
                         }
 
                         ModernButton {
-                            iconText: "󰍃"
+                            iconText: "EXIT"
                             accent: "#FF9500"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
                             onClicked: pPowerLogout.running = true
                         }
                         ModernButton {
-                            iconText: "󰜉"
+                            iconText: "RST"
                             accent: "#5CB85C"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
                             onClicked: pPowerReboot.running = true
                         }
                         ModernButton {
-                            iconText: "󰐥"
+                            iconText: "PWR"
                             accent: "#FF3B30"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
@@ -2332,8 +2842,8 @@ PopupWindow {
                 anchors.rightMargin: 12
 
                 color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
-                radius: 16
-                border.color: Qt.rgba(1, 1, 1, 0.1)
+                radius: 0
+                border.color: Qt.rgba(1, 0.42, 0, 0.5)
                 border.width: 1
 
                 opacity: timerPopup.show ? 1.0 : 0.0
@@ -2350,7 +2860,7 @@ PopupWindow {
                     anchors.right: parent.right
                     anchors.margins: 16
                     spacing: 8
-                    Text { text: "Timer Minutes"; color: Qt.rgba(root.colFg.r, root.colFg.g, root.colFg.b, 0.5); font.family: root.fontFamily; font.pixelSize: 12 }
+                    Text { text: "TIMER MINUTES"; color: "#FF6A00"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true; font.letterSpacing: 1 }
 
                     TextField {
                         id: timerInput
@@ -2359,8 +2869,9 @@ PopupWindow {
                         color: root.colFg
                         background: Rectangle {
                             color: Qt.rgba(1, 1, 1, 0.1)
-                            radius: 8
-                            border.color: timerInput.activeFocus ? Qt.rgba(1, 1, 1, 0.3) : "transparent"
+                            radius: 0
+                            border.color: timerInput.activeFocus ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                            border.width: 1
                         }
                         font.family: root.fontFamily
                         font.pixelSize: 14
@@ -2409,8 +2920,8 @@ PopupWindow {
                 anchors.rightMargin: 12
 
                 color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
-                radius: 16
-                border.color: Qt.rgba(1, 1, 1, 0.1)
+                radius: 0
+                border.color: Qt.rgba(1, 0.42, 0, 0.5)
                 border.width: 1
 
                 opacity: gpuPopup.show ? 1.0 : 0.0
@@ -2429,8 +2940,8 @@ PopupWindow {
                     spacing: 8
 
 
-                    ModernButton { text: "Integrated"; iconText: "󰍛"; onClicked: { pGpuInt.running = true; gpuPopup.show = false; controlCenter.show = false } }
-                    ModernButton { text: "Hybrid"; iconText: "󰢮"; onClicked: { pGpuHyb.running = true; gpuPopup.show = false; controlCenter.show = false } }
+                    ModernButton { text: "Integrated"; iconText: ""; onClicked: { pGpuInt.running = true; gpuPopup.show = false; controlCenter.show = false } }
+                    ModernButton { text: "Hybrid"; iconText: ""; onClicked: { pGpuHyb.running = true; gpuPopup.show = false; controlCenter.show = false } }
                 }
             }
         }
@@ -2464,8 +2975,8 @@ PopupWindow {
                 anchors.rightMargin: 12
 
                 color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
-                radius: 16
-                border.color: Qt.rgba(1, 1, 1, 0.1)
+                radius: 0
+                border.color: Qt.rgba(1, 0.42, 0, 0.5)
                 border.width: 1
 
                 opacity: notesPopup.show ? 1.0 : 0.0
@@ -2557,10 +3068,10 @@ PopupWindow {
         function showOsd(type: string, val: string) {
             val = parseFloat(val);
             if (type === "V") {
-                root.osdIcon = val === 0 ? "󰝟" : (val > 50 ? "󰕾" : "󰖀");
+                root.osdIcon = val === 0 ? "MUTE" : "VOL";
                 root.osdText = Math.round(val) + "%";
             } else if (type === "B") {
-                root.osdIcon = "󰃠";
+                root.osdIcon = "BRT";
                 root.osdText = Math.round(val) + "%";
             }
             root.osdValue = val;

@@ -107,11 +107,21 @@ PanelWindow {
             height: show ? 280 : 32
             
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
-            radius: show ? 24 : (shellRoot && shellRoot.isBarMode ? 0 : 16)
-            border.color: Qt.rgba(1, 1, 1, 0.1)
+            radius: 0
+            border.color: Qt.rgba(1, 0.42, 0, 0.5)
             border.width: show ? 1 : 0
-            
+
             opacity: (!show && height <= 36) ? 0.0 : 1.0
+
+            // NERV 終端機風格左側警示條
+            Rectangle {
+                visible: show
+                width: 3
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                color: "#FF6A00"
+            }
             
             Behavior on radius { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
             Behavior on width { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -130,11 +140,12 @@ PanelWindow {
                     spacing: 12
                     
                     Text {
-                        text: "Bluetooth Devices"
-                        color: shellRoot ? shellRoot.colFg : "white"
+                        text: "BLUETOOTH DEVICES"
+                        color: "#FF6A00"
                         font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                         font.pixelSize: 14
                         font.bold: true
+                        font.letterSpacing: 1
                         Layout.alignment: Qt.AlignHCenter
                     }
 
@@ -149,25 +160,38 @@ PanelWindow {
                         delegate: Rectangle {
                             width: ListView.view.width
                             height: 48
-                            radius: 12
-                            color: listView.currentIndex === index || ma.containsMouse ? Qt.rgba(1,1,1,0.1) : "transparent"
+                            radius: 0
+                            color: listView.currentIndex === index || ma.containsMouse ? Qt.rgba(1, 0.42, 0, 0.15) : "transparent"
+                            border.color: model.connected ? Qt.rgba(0.11, 0.7, 0.33, 0.5) : "transparent"
+                            border.width: 1
+
+                            Rectangle {
+                                visible: model.connected
+                                width: 3
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                anchors.left: parent.left
+                                color: "#1DB954"
+                            }
                             
                             RowLayout {
                                 anchors.fill: parent
                                 anchors.margins: 12
                                 spacing: 12
                                 Text {
-                                    text: ""
-                                    color: model.connected ? "#1DB954" : (shellRoot ? shellRoot.colFg : "white")
+                                    text: "BT"
+                                    color: model.connected ? "#1DB954" : "#FF6A00"
                                     font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
-                                    font.pixelSize: 12
+                                    font.pixelSize: 11
+                                    font.bold: true
                                 }
                                 Text {
-                                    text: model.name + (model.connected ? " (Connected)" : "")
+                                    text: model.name.toUpperCase() + (model.connected ? " [CONNECTED]" : "")
                                     color: model.connected ? "#1DB954" : (shellRoot ? shellRoot.colFg : "white")
                                     font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                                     font.pixelSize: 12
                                     font.bold: model.connected
+                                    font.letterSpacing: 1
                                     Layout.fillWidth: true
                                 }
                             }

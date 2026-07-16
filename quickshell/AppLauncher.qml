@@ -152,11 +152,21 @@ PanelWindow {
             height: show ? 420 : 32
 
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
-            radius: show ? 24 : (shellRoot && shellRoot.isBarMode ? 0 : 16)
-            border.color: Qt.rgba(1, 1, 1, 0.1)
+            radius: 0
+            border.color: Qt.rgba(1, 0.42, 0, 0.5)
             border.width: show ? 1 : 0
 
             opacity: (!show && height <= 36) ? 0.0 : 1.0
+
+            // NERV 終端機風格左側警示條
+            Rectangle {
+                visible: show
+                width: 3
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                color: "#FF6A00"
+            }
 
             Behavior on radius { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
             Behavior on width { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -178,9 +188,10 @@ PanelWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 42
-                        radius: 12
+                        radius: 0
                         color: Qt.rgba(1, 1, 1, 0.05)
-                        border.color: searchInput.activeFocus ? Qt.rgba(1, 1, 1, 0.2) : "transparent"
+                        border.color: searchInput.activeFocus ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                        border.width: 1
 
                         RowLayout {
                             anchors.fill: parent
@@ -189,10 +200,12 @@ PanelWindow {
                             spacing: 8
 
                             Text {
-                                text: "󰍉"
+                                text: "SEARCH"
                                 color: shellRoot ? shellRoot.colMuted : "#888"
                                 font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                                font.pixelSize: 15
+                                font.pixelSize: 10
+                                font.bold: true
+                                font.letterSpacing: 1
                             }
 
                             TextInput {
@@ -230,23 +243,21 @@ PanelWindow {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 32
-                            radius: 10
-                            color: rootWindow.activeTab === "apps" ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+                            radius: 0
+                            color: rootWindow.activeTab === "apps" ? Qt.rgba(1, 0.42, 0, 0.15) : "transparent"
+                            border.color: rootWindow.activeTab === "apps" ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                            border.width: 1
 
                             RowLayout {
                                 anchors.centerIn: parent
                                 spacing: 6
                                 Text {
-                                    text: "󰀻"
-                                    color: shellRoot ? shellRoot.colFg : "white"
-                                    font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                                    font.pixelSize: 13
-                                }
-                                Text {
-                                    text: "Applications"
-                                    color: shellRoot ? shellRoot.colFg : "white"
+                                    text: "APPS"
+                                    color: rootWindow.activeTab === "apps" ? "#FF6A00" : (shellRoot ? shellRoot.colFg : "white")
                                     font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                                     font.pixelSize: 12
+                                    font.bold: true
+                                    font.letterSpacing: 1
                                 }
                             }
 
@@ -259,23 +270,21 @@ PanelWindow {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 32
-                            radius: 10
-                            color: rootWindow.activeTab === "files" ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+                            radius: 0
+                            color: rootWindow.activeTab === "files" ? Qt.rgba(1, 0.42, 0, 0.15) : "transparent"
+                            border.color: rootWindow.activeTab === "files" ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                            border.width: 1
 
                             RowLayout {
                                 anchors.centerIn: parent
                                 spacing: 6
                                 Text {
-                                    text: "󰉋"
-                                    color: shellRoot ? shellRoot.colFg : "white"
-                                    font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                                    font.pixelSize: 13
-                                }
-                                Text {
-                                    text: "Files"
-                                    color: shellRoot ? shellRoot.colFg : "white"
+                                    text: "FILES"
+                                    color: rootWindow.activeTab === "files" ? "#FF6A00" : (shellRoot ? shellRoot.colFg : "white")
                                     font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                                     font.pixelSize: 12
+                                    font.bold: true
+                                    font.letterSpacing: 1
                                 }
                             }
 
@@ -300,8 +309,10 @@ PanelWindow {
                         delegate: Rectangle {
                             width: ListView.view.width
                             height: 48
-                            radius: 12
-                            color: listView.currentIndex === index || ma.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+                            radius: 0
+                            color: listView.currentIndex === index || ma.containsMouse ? Qt.rgba(1, 0.42, 0, 0.15) : "transparent"
+                            border.color: listView.currentIndex === index ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                            border.width: 1
 
                             RowLayout {
                                 anchors.fill: parent

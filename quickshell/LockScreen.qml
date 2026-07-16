@@ -240,8 +240,8 @@ Scope {
                             return "#00ff41"
                         }
                         if (lockRoot.authFailed) return "#ff3333"
-                        if (lockRoot.authSuccess) return "#00ff41"
-                        return "#00ff41"
+                        if (lockRoot.authSuccess) return "#FF6A00"
+                        return "#FF6A00"
                     }
                     property real tintR: matrixTint.r
                     property real tintG: matrixTint.g
@@ -295,7 +295,7 @@ Scope {
                         if (t < 9)  return (t % 2 === 0) ? "#ff1133" : "#ff4455"
                         if (t < 22) return (t % 3 === 0) ? "#ffaa00" : "#ff6600"
                         if (t < 33) return (t % 2 === 0) ? "#00aaff" : "#00d4ff"
-                        return "#00ff41"
+                        return "#FF6A00"
                     }
 
                     readonly property var statusLines: [
@@ -344,7 +344,7 @@ Scope {
                             text: preLockOverlay.statusLines[
                                 Math.min(Math.floor(preLockOverlay.tick / 4), preLockOverlay.statusLines.length - 1)
                             ]
-                            color: preLockOverlay.tick < 22 ? "#ff6666" : preLockOverlay.tick < 33 ? "#88ccff" : "#00cc44"
+                            color: preLockOverlay.tick < 22 ? "#ff6666" : preLockOverlay.tick < 33 ? "#88ccff" : "#CC5500"
                             opacity: 0.85
                         }
                     }
@@ -383,7 +383,7 @@ Scope {
                                 passwordField.text = ""
                                 clockText.now = new Date()
                                 clockText.unlockTick = 0
-                                clockText.unlockColor = "#00ff41"
+                                clockText.unlockColor = "#FF6A00"
                                 clockText.glitchStreamText = ""
 
                                 dateText.isCyberpunkGlitch = false
@@ -412,7 +412,7 @@ Scope {
                         property bool glitchActive: false
                         property string glitchStreamText: ""
                         property int unlockTick: 0
-                        property string unlockColor: "#00ff41"
+                        property string unlockColor: "#FF6A00"
                         property int intrusionTick: 0
 
                         text: lockRoot.authSuccess ? glitchStreamText
@@ -421,7 +421,7 @@ Scope {
 
                         color: lockRoot.authSuccess ? unlockColor
                             : lockRoot.intrusionActive ? intrusionClockColor(intrusionTick)
-                            : (lockRoot.authFailed ? "#ff3333" : (glowTrigger ? "#ffffff" : "#00ff41"))
+                            : (lockRoot.authFailed ? "#ff3333" : (glowTrigger ? "#ffffff" : "#FF6A00"))
 
                         function getIntrusionClock(tick) {
                             var p = lockRoot.intrusionPhase
@@ -510,11 +510,11 @@ Scope {
                                         "NEO_ONE_", "01010101", "FREE_MND", "ACCESS__",
                                         "INIT....", "LOAD_SYS", "DAT4_RUN", "EXEC_CTL"]
                                     clockText.glitchStreamText = matrixPool[Math.floor(r * matrixPool.length)]
-                                    clockText.unlockColor = "#00ff41"
+                                    clockText.unlockColor = "#FF6A00"
                                 } else if (t <= 22) {
                                     if (r < 0.18) {
                                         clockText.glitchStreamText = clockText.getUnlockMatrixStream()
-                                        clockText.unlockColor = "#00ff41"
+                                        clockText.unlockColor = "#FF6A00"
                                     } else {
                                         var cp = ["BREACH..", "PROTOCOL", "ICE_MELT", "JACK_IN.",
                                             "NETRUN__", "SYNC:400", "ICE:BRKE", "NET.DIVE",
@@ -525,7 +525,7 @@ Scope {
                                 } else if (t <= 36) {
                                     if (r < 0.10) {
                                         clockText.glitchStreamText = clockText.getUnlockMatrixStream()
-                                        clockText.unlockColor = "#00ff41"
+                                        clockText.unlockColor = "#FF6A00"
                                     } else if (r < 0.20) {
                                         var cp2 = ["NETRUN__", "DAEMON__", "JACK_IN.", "SHARD_OK"]
                                         clockText.glitchStreamText = cp2[Math.floor(Math.random() * cp2.length)]
@@ -540,7 +540,7 @@ Scope {
                                 } else {
                                     if (r < 0.07) {
                                         clockText.glitchStreamText = clockText.getUnlockMatrixStream()
-                                        clockText.unlockColor = "#00ff41"
+                                        clockText.unlockColor = "#FF6A00"
                                     } else {
                                         var fin = ["WELCOME.", "PILOT_OK", "INIT:100", "SYNC_100", "UNIT_ONL", "FREE____"]
                                         clockText.glitchStreamText = fin[Math.floor(Math.random() * fin.length)]
@@ -638,7 +638,7 @@ Scope {
                             ? (lockRoot.intrusionPhase === 0 ? "#ff1133"
                                : lockRoot.intrusionPhase === 1 ? "#ff6600"
                                : lockRoot.intrusionPhase === 2 ? "#ffcc00" : "#00ff41")
-                            : (lockRoot.authFailed ? "#ff3333" : (isCyberpunkGlitch ? "#fcee0a" : (clockText.glowTrigger ? "#ffffff" : "#009920")))
+                            : (lockRoot.authFailed ? "#ff3333" : (isCyberpunkGlitch ? "#fcee0a" : (clockText.glowTrigger ? "#ffffff" : "#994000")))
 
                         Timer {
                             id: cyberpunkFreezeTimer
@@ -722,7 +722,7 @@ Scope {
                         opacity: lockRoot.authSuccess ? 0.0 : 1.0
                         color: "#22000000"
 
-                        border.color: lockRoot.authSuccess ? "#ffffff" : (dotsContainer.shaking ? "#ff1133" : "#00ff41")
+                        border.color: lockRoot.authSuccess ? "#ffffff" : (dotsContainer.shaking ? "#ff1133" : "#FF6A00")
                         border.width: lockRoot.authSuccess ? 3 : 1
                         radius: 2
 
@@ -753,7 +753,7 @@ Scope {
                                 anchors.centerIn: parent
                                 visible: pAuth.running || lockRoot.authSuccess
                                 text: lockRoot.authSuccess ? "ACCESS GRANTED [SYSTEM UNLOCKED]" : "AUTHENTICATING..."
-                                color: lockRoot.authSuccess ? "#ffffff" : "#00cc44"
+                                color: lockRoot.authSuccess ? "#ffffff" : "#CC5500"
                                 font.bold: true
                                 opacity: pAuth.running && !lockRoot.authSuccess ? (Math.random() * 0.3 + 0.7) : 1.0
                                 font.pixelSize: 13
@@ -785,7 +785,7 @@ Scope {
                                             ? lockRoot.matrixChars[Math.floor((Math.sin(index * 45.67 + dotsContainer.glitchSeed) + 1) / 2 * lockRoot.matrixChars.length)]
                                             : "■"
 
-                                            color: dotsContainer.shaking ? "#ff1133" : "#00ff41"
+                                            color: dotsContainer.shaking ? "#ff1133" : "#FF6A00"
                                             Behavior on color { ColorAnimation { duration: 60 } }
                                         }
                                     }

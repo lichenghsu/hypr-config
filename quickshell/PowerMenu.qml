@@ -66,11 +66,21 @@ PanelWindow {
             height: show ? (layout.implicitHeight + 48) : 32
             
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
-            radius: show ? 24 : (shellRoot && shellRoot.isBarMode ? 0 : 16)
-            border.color: Qt.rgba(1, 1, 1, 0.1)
+            radius: 0
+            border.color: Qt.rgba(1, 0.42, 0, 0.5)
             border.width: show ? 1 : 0
-            
+
             opacity: (!show && height <= 36) ? 0.0 : 1.0
+
+            // NERV 終端機風格左側警示條
+            Rectangle {
+                visible: show
+                width: 3
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                color: "#FF6A00"
+            }
             
             Behavior on radius { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
             Behavior on width { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -90,47 +100,52 @@ PanelWindow {
                 
                 // Shutdown
                 Rectangle {
-                    width: 64; height: 64; radius: 32
+                    width: 92; height: 48; radius: 0
+                    border.color: Qt.rgba(1, 0.42, 0, 0.5); border.width: 1
                     color: (sdMouse.containsMouse || selectedIndex === 0) ? Qt.rgba(1, 0.2, 0.2, 0.8) : Qt.rgba(1, 1, 1, 0.1)
                     scale: (sdMouse.containsMouse || selectedIndex === 0) ? 1.1 : 1.0
                     Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150 } }
-                    Text { anchors.centerIn: parent; text: "⏻"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 24 }
+                    Text { anchors.centerIn: parent; text: "SHUTDOWN"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 10; font.bold: true; font.letterSpacing: 1 }
                     MouseArea { id: sdMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pShutdown.running = true } }
                 }
                 // Reboot
                 Rectangle {
-                    width: 64; height: 64; radius: 32
+                    width: 92; height: 48; radius: 0
+                    border.color: Qt.rgba(1, 0.42, 0, 0.5); border.width: 1
                     color: (rbMouse.containsMouse || selectedIndex === 1) ? Qt.rgba(0.2, 0.8, 0.2, 0.8) : Qt.rgba(1, 1, 1, 0.1)
                     scale: (rbMouse.containsMouse || selectedIndex === 1) ? 1.1 : 1.0
                     Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150 } }
-                    Text { anchors.centerIn: parent; text: ""; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 24 }
+                    Text { anchors.centerIn: parent; text: "REBOOT"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 10; font.bold: true; font.letterSpacing: 1 }
                     MouseArea { id: rbMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pReboot.running = true } }
                 }
                 // Lock
                 Rectangle {
-                    width: 64; height: 64; radius: 32
+                    width: 92; height: 48; radius: 0
+                    border.color: Qt.rgba(1, 0.42, 0, 0.5); border.width: 1
                     color: (lkMouse.containsMouse || selectedIndex === 2) ? Qt.rgba(0.8, 0.2, 0.8, 0.8) : Qt.rgba(1, 1, 1, 0.1)
                     scale: (lkMouse.containsMouse || selectedIndex === 2) ? 1.1 : 1.0
                     Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150 } }
-                    Text { anchors.centerIn: parent; text: ""; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 24 }
+                    Text { anchors.centerIn: parent; text: "LOCK"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 10; font.bold: true; font.letterSpacing: 1 }
                     MouseArea { id: lkMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pLock.running = true } }
                 }
                 // Suspend
                 Rectangle {
-                    width: 64; height: 64; radius: 32
+                    width: 92; height: 48; radius: 0
+                    border.color: Qt.rgba(1, 0.42, 0, 0.5); border.width: 1
                     color: (spMouse.containsMouse || selectedIndex === 3) ? Qt.rgba(0.35, 0.61, 0.84, 0.8) : Qt.rgba(1, 1, 1, 0.1)
                     scale: (spMouse.containsMouse || selectedIndex === 3) ? 1.1 : 1.0
                     Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150 } }
-                    Text { anchors.centerIn: parent; text: "󰒲"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 24 }
+                    Text { anchors.centerIn: parent; text: "SUSPEND"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 10; font.bold: true; font.letterSpacing: 1 }
                     MouseArea { id: spMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pSuspend.running = true } }
                 }
                 // Logout
                 Rectangle {
-                    width: 64; height: 64; radius: 32
+                    width: 92; height: 48; radius: 0
+                    border.color: Qt.rgba(1, 0.42, 0, 0.5); border.width: 1
                     color: (loMouse.containsMouse || selectedIndex === 4) ? Qt.rgba(0.8, 0.8, 0.2, 0.8) : Qt.rgba(1, 1, 1, 0.1)
                     scale: (loMouse.containsMouse || selectedIndex === 4) ? 1.1 : 1.0
                     Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150 } }
-                    Text { anchors.centerIn: parent; text: "󰍃"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 24 }
+                    Text { anchors.centerIn: parent; text: "LOGOUT"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 10; font.bold: true; font.letterSpacing: 1 }
                     MouseArea { id: loMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pLogout.running = true } }
                 }
                 }

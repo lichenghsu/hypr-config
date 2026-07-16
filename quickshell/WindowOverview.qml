@@ -222,9 +222,9 @@ PanelWindow {
             anchors.centerIn: parent
             width: 1680
             height: 560
-            radius: 40
+            radius: 2
             color: Qt.rgba(0.07, 0.07, 0.07, 0.55)
-            border.color: Qt.rgba(1, 1, 1, 0.10)
+            border.color: Qt.rgba(1, 0.42, 0, 0.5)
             border.width: 1
 
             // Prevent backdrop mouse area from stealing clicks on the panel
@@ -234,22 +234,23 @@ PanelWindow {
             Rectangle {
                 id: pinBtn
                 z: 5
-                width: 42
-                height: 42
-                radius: 21
+                width: 50
+                height: 28
+                radius: 0
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.margins: 16
                 color: rootWindow.showSpecial
-                ? (shellRoot ? shellRoot.colAccent : "#007AFF")
+                ? (shellRoot ? shellRoot.colAccent : "#FF6A00")
                 : pinMa.containsMouse
                 ? Qt.rgba(1, 1, 1, 0.18)
                 : Qt.rgba(1, 1, 1, 0.08)
 
                 Text {
                     anchors.centerIn: parent
-                    text: "󰐃"
-                    font.pixelSize: 19
+                    text: "PIN"
+                    font.pixelSize: 10
+                    font.bold: true
                     font.family: shellRoot ? shellRoot.fontFamily : "monospace"
                     color: rootWindow.showSpecial ? "#000" : (shellRoot ? shellRoot.colFg : "#fff")
                 }
@@ -282,12 +283,12 @@ PanelWindow {
                         property bool dropHighlight: false
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        radius: 10
+                        radius: 0
                         color: wsCell.dropHighlight
                         ? Qt.rgba(1, 1, 1, 0.14)
                         : wsCell.modelData.windows.length > 0 ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(1, 1, 1, 0.03)
                         border.color: wsCell.dropHighlight
-                        ? (shellRoot ? shellRoot.colAccent : "#007AFF")
+                        ? (shellRoot ? shellRoot.colAccent : "#FF6A00")
                         : rootWindow.selCell === index ? "#ffffff" : Qt.rgba(1, 1, 1, 0.10)
                         border.width: wsCell.dropHighlight || rootWindow.selCell === index ? 2 : 1
 
@@ -360,11 +361,11 @@ PanelWindow {
                                                 required property var modelData
                                                 width: rowItem.modelData.itemW - 6
                                                 height: rowItem.modelData.itemH
-                                                radius: 8
+                                                radius: 0
                                                 clip: true
                                                 color: Qt.rgba(0.02, 0.02, 0.02, 0.9)
                                                 border.color: modelData.activated
-                                                ? (shellRoot ? shellRoot.colAccent : "#007AFF")
+                                                ? (shellRoot ? shellRoot.colAccent : "#FF6A00")
                                                 : Qt.rgba(1, 1, 1, 0.16)
                                                 border.width: modelData.activated ? 2 : 1
 
@@ -390,7 +391,7 @@ PanelWindow {
                                                     visible: thumb.width > 60 && thumb.height > 44
                                                     width: iconImg.implicitSize + 8
                                                     height: iconImg.implicitSize + 8
-                                                    radius: 6
+                                                    radius: 0
                                                     anchors.left: parent.left
                                                     anchors.bottom: parent.bottom
                                                     anchors.margins: 5
@@ -468,11 +469,11 @@ PanelWindow {
                                 visible: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === wsCell.modelData.wsId
                                 width: 14
                                 height: 14
-                                radius: 7
+                                radius: 2
                                 anchors.top: parent.top
                                 anchors.right: parent.right
                                 anchors.margins: 6
-                                color: shellRoot ? shellRoot.colAccent : "#007AFF"
+                                color: shellRoot ? shellRoot.colAccent : "#FF6A00"
                                 border.color: "#ffffff"
                                 border.width: 2
                             }
@@ -501,11 +502,11 @@ PanelWindow {
                             required property var modelData
                             width: 240
                             height: 166
-                            radius: 10
+                            radius: 0
                             clip: true
                             color: Qt.rgba(0.02, 0.02, 0.02, 0.9)
                             border.color: modelData.activated
-                            ? (shellRoot ? shellRoot.colAccent : "#007AFF")
+                            ? (shellRoot ? shellRoot.colAccent : "#FF6A00")
                             : Qt.rgba(1, 1, 1, 0.12)
                             border.width: 1
 
@@ -562,10 +563,10 @@ PanelWindow {
             height: 100
             x: rootWindow.dragGhostX - width / 2
             y: rootWindow.dragGhostY - height / 2
-            radius: 8
+            radius: 0
             color: Qt.rgba(0.05, 0.05, 0.05, 0.85)
             border.width: 2
-            border.color: shellRoot ? shellRoot.colAccent : "#007AFF"
+            border.color: shellRoot ? shellRoot.colAccent : "#FF6A00"
             opacity: 0.85
 
             Drag.active: rootWindow.dragging
@@ -580,9 +581,9 @@ PanelWindow {
             visible: false
             width: 200
             height: menuCol.implicitHeight + 16
-            radius: 12
+            radius: 0
             color: Qt.rgba(0.08, 0.08, 0.08, 0.97)
-            border.color: Qt.rgba(1, 1, 1, 0.12)
+            border.color: Qt.rgba(1, 0.42, 0, 0.5)
             border.width: 1
 
             property var targetWindow: null
@@ -610,7 +611,7 @@ PanelWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 32
-                    radius: 8
+                    radius: 0
                     color: closeMa.containsMouse ? Qt.rgba(1, 0.2, 0.2, 0.25) : "transparent"
 
                     Text {
@@ -657,9 +658,9 @@ PanelWindow {
                             property int wsId: index + 1
                             width: 28
                             height: 28
-                            radius: 14
+                            radius: 0
                             color: wsMa.containsMouse
-                            ? (shellRoot ? shellRoot.colAccent : "#007AFF")
+                            ? (shellRoot ? shellRoot.colAccent : "#FF6A00")
                             : Qt.rgba(1, 1, 1, 0.08)
 
                             Text {

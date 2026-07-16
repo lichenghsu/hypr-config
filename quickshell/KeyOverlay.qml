@@ -227,11 +227,11 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
             anchors.topMargin: 48
-            radius: 14
+            radius: 0
             height: 48
             width: toastRow.implicitWidth + 32
             color: Qt.rgba(0.12, 0.12, 0.16, 0.55)
-            border.color: Qt.rgba(1, 1, 1, 0.16)
+            border.color: Qt.rgba(1, 0.42, 0, 0.5)
             border.width: 1
             opacity: toast.visible ? 1 : 0
             scale: toast.visible ? 1 : 0.85
@@ -248,13 +248,13 @@ PanelWindow {
             }
 
             Rectangle {
+                anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: parent.width * 0.5
-                height: 2
-                radius: 1
-                color: shellRoot ? shellRoot.colAccent : "#007AFF"
-                opacity: 0.7
+                anchors.left: parent.left
+                width: 3
+                radius: 0
+                color: shellRoot ? shellRoot.colAccent : "#FF6A00"
+                opacity: 0.9
             }
 
             Row {
@@ -264,7 +264,7 @@ PanelWindow {
                 Rectangle {
                     width: 10; height: 10; radius: 5
                     anchors.verticalCenter: parent.verticalCenter
-                    color: rootWindow.show ? (shellRoot ? shellRoot.colAccent : "#007AFF") : Qt.rgba(1, 1, 1, 0.3)
+                    color: rootWindow.show ? (shellRoot ? shellRoot.colAccent : "#FF6A00") : Qt.rgba(1, 1, 1, 0.3)
                 }
                 Text {
                     text: rootWindow.show ? "Key Overlay On" : "Key Overlay Off"
@@ -317,7 +317,7 @@ PanelWindow {
                         id: chip
                         required property var modelData
 
-                        radius: chip.modelData.isSudo ? 16 : 12
+                        radius: chip.modelData.isSudo ? 2 : 0
 
                         height: chip.modelData.isSudo ? 43 : 36
 
@@ -328,17 +328,17 @@ PanelWindow {
                          *                          allows us to swap colors immediately for specific custom keywords.
                          */
                         color: chip.modelData.isSudo ? Qt.rgba(0.18, 0.14, 0.02, 0.55) : Qt.rgba(
-                            0.12 + (chip.modelData.heat * 0.22),
-                                                                                                 0.12 - (chip.modelData.heat * 0.04),
-                                                                                                 0.16 - (chip.modelData.heat * 0.06),
-                                                                                                 0.45
+                            0.14 + (chip.modelData.heat * 0.20),
+                                                                                                 0.09 - (chip.modelData.heat * 0.04),
+                                                                                                 0.04,
+                                                                                                 0.5
                         )
 
                         border.color: chip.modelData.isSudo ? Qt.rgba(1.0, 0.85, 0.15, 0.85) : Qt.rgba(
                             1.0,
-                            1.0 - (chip.modelData.heat * 0.5),
-                                                                                                       1.0 - (chip.modelData.heat * 0.5),
-                                                                                                       0.16
+                            0.42 - (chip.modelData.heat * 0.42),
+                                                                                                       0,
+                                                                                                       0.5
                         )
                         border.width: chip.modelData.isSudo ? 1.5 : 1
 
@@ -383,7 +383,7 @@ PanelWindow {
                             height: parent.height
                             radius: parent.radius
                             color: "transparent"
-                            border.color: shellRoot ? shellRoot.colAccent : "#007AFF"
+                            border.color: shellRoot ? shellRoot.colAccent : "#FF6A00"
                             border.width: 2
                             visible: chip.modelData.isEnter
                             opacity: 0
@@ -421,15 +421,15 @@ PanelWindow {
                         }
 
                         Rectangle {
+                            anchors.top: parent.top
                             anchors.bottom: parent.bottom
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: parent.width * 0.5
-                            height: 2
-                            radius: 1
+                            anchors.left: parent.left
+                            width: 3
+                            radius: 0
 
                             color: {
                                 if (chip.modelData.isSudo) return "#FFD700";
-                                var defaultColor = shellRoot ? shellRoot.colAccent : "#007AFF";
+                                var defaultColor = shellRoot ? shellRoot.colAccent : "#FF6A00";
                                 if (chip.modelData.heat <= 0.05) {
                                     return defaultColor;
                                 } else {

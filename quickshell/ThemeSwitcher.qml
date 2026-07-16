@@ -92,11 +92,21 @@ PanelWindow {
             height: show ? 280 : 32
             
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
-            radius: show ? 24 : (shellRoot && shellRoot.isBarMode ? 0 : 16)
-            border.color: Qt.rgba(1, 1, 1, 0.1)
+            radius: 0
+            border.color: Qt.rgba(1, 0.42, 0, 0.5)
             border.width: show ? 1 : 0
-            
+
             opacity: (!show && height <= 36) ? 0.0 : 1.0
+
+            // NERV 終端機風格左側警示條
+            Rectangle {
+                visible: show
+                width: 3
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                color: "#FF6A00"
+            }
             
             Behavior on radius { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
             Behavior on width { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -117,14 +127,16 @@ PanelWindow {
                 TextField {
                     id: searchInput
                     Layout.fillWidth: true
-                    placeholderText: "Search themes..."
+                    placeholderText: "SEARCH THEMES..."
                     color: shellRoot ? shellRoot.colFg : "white"
                     font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                     font.pixelSize: 14
+                    font.bold: true
                     background: Rectangle {
                         color: Qt.rgba(1,1,1,0.05)
-                        radius: 12
-                        border.color: searchInput.activeFocus ? Qt.rgba(1,1,1,0.2) : "transparent"
+                        radius: 0
+                        border.color: searchInput.activeFocus ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                        border.width: 1
                     }
                     onTextEdited: filterThemes(text)
                     Keys.onDownPressed: listView.incrementCurrentIndex()
@@ -151,18 +163,31 @@ PanelWindow {
                     delegate: Rectangle {
                         width: ListView.view.width
                         height: 48
-                        radius: 12
-                        color: listView.currentIndex === index || ma.containsMouse ? Qt.rgba(1,1,1,0.1) : "transparent"
-                        
+                        radius: 0
+                        color: listView.currentIndex === index || ma.containsMouse ? Qt.rgba(1, 0.42, 0, 0.15) : "transparent"
+                        border.color: listView.currentIndex === index ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                        border.width: 1
+
+                        Rectangle {
+                            visible: listView.currentIndex === index
+                            width: 3
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            anchors.left: parent.left
+                            color: "#FF6A00"
+                        }
+
                         RowLayout {
                             anchors.fill: parent
                             anchors.margins: 12
                             spacing: 12
                             Text {
-                                text: model.name
+                                text: model.name.toUpperCase()
                                 color: shellRoot ? shellRoot.colFg : "white"
                                 font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                                 font.pixelSize: 12
+                                font.bold: true
+                                font.letterSpacing: 1
                                 Layout.fillWidth: true
                             }
                         }

@@ -77,11 +77,21 @@ PanelWindow {
             height: show ? 380 : 32
 
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
-            radius: show ? 24 : (shellRoot && shellRoot.isBarMode ? 0 : 16)
-            border.color: Qt.rgba(1, 1, 1, 0.1)
+            radius: 0
+            border.color: Qt.rgba(1, 0.42, 0, 0.5)
             border.width: show ? 1 : 0
 
             opacity: (!show && height <= 36) ? 0.0 : 1.0
+
+            // NERV 終端機風格左側警示條
+            Rectangle {
+                visible: show
+                width: 3
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                color: "#FF6A00"
+            }
 
             Behavior on radius    { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
             Behavior on width     { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -103,28 +113,30 @@ PanelWindow {
                         Layout.fillWidth: true
 
                         Text {
-                            text: "Wallpapers"
-                            color: shellRoot ? shellRoot.colFg : "white"
+                            text: "WALLPAPERS"
+                            color: "#FF6A00"
                             font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                             font.pixelSize: 14
                             font.bold: true
+                            font.letterSpacing: 1
                             Layout.fillWidth: true
                         }
 
                         Rectangle {
-                            width: 90; height: 22; radius: 8
-                            color: rootWindow.matugenMode ? Qt.rgba(1, 0.6, 0, 0.18) : Qt.rgba(1, 1, 1, 0.08)
-                            border.color: rootWindow.matugenMode ? "#FF9500" : Qt.rgba(1, 1, 1, 0.15)
+                            width: 90; height: 22; radius: 0
+                            color: rootWindow.matugenMode ? Qt.rgba(1, 0.42, 0, 0.18) : Qt.rgba(1, 1, 1, 0.08)
+                            border.color: rootWindow.matugenMode ? "#FF6A00" : Qt.rgba(1, 1, 1, 0.15)
                             border.width: 1
                             Behavior on color { ColorAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 200 } }
 
                             Text {
                                 anchors.centerIn: parent
-                                text: rootWindow.matugenMode ? "󰏘 Matugen" : "󰏘 Static"
-                                color: rootWindow.matugenMode ? "#FF9500" : (shellRoot ? shellRoot.colMuted : "#888")
+                                text: rootWindow.matugenMode ? "MATUGEN" : "STATIC"
+                                color: rootWindow.matugenMode ? "#FF6A00" : (shellRoot ? shellRoot.colMuted : "#888")
                                 font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
-                                font.pixelSize: 10
+                                font.pixelSize: 9
                                 font.bold: true
+                                font.letterSpacing: 1
                             }
 
                             MouseArea {
@@ -152,9 +164,9 @@ PanelWindow {
                                 id: card
                                 anchors.fill: parent
                                 anchors.margins: 4
-                                radius: 8
+                                radius: 0
                                 color: ma.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.05)
-                                border.color: Qt.rgba(1, 1, 1, 0.1)
+                                border.color: ma.containsMouse ? Qt.rgba(1, 0.42, 0, 0.6) : Qt.rgba(1, 0.42, 0, 0.2)
                                 border.width: 1
                                 clip: true
 
