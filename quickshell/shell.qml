@@ -777,7 +777,7 @@ ShellRoot {
                     text: modelData
                     textColor: isActive ? root.colFg : root.colMuted
                     bgColor: "transparent"
-                    show: (ws !== undefined || isActive) && !root.showOsd && !root.islandActive
+                    show: (ws !== undefined || isActive) && !root.showOsd
                     onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + modelData + " })")
                 }
             }
