@@ -13,6 +13,31 @@ Scope {
     property int  intrusionPhase: 0
     property bool errorVisible: false
 
+    // 平常維持綠色主題，偶爾（約 1% 機率）短暫閃成橘色的彩蛋事件
+    property bool glitchOrange: false
+    readonly property color primaryBright: glitchOrange ? "#FF6A00" : "#00ff41"
+    readonly property color primaryMed: glitchOrange ? "#CC5500" : "#00cc44"
+    readonly property color primaryDark: glitchOrange ? "#994000" : "#009920"
+
+    Timer {
+        id: glitchOrangeCheckTimer
+        interval: 4000
+        running: lockRoot.active && !lockRoot.authSuccess
+        repeat: true
+        onTriggered: {
+            if (!lockRoot.glitchOrange && Math.random() < 0.01) {
+                lockRoot.glitchOrange = true
+                glitchOrangeRevertTimer.restart()
+            }
+        }
+    }
+    Timer {
+        id: glitchOrangeRevertTimer
+        interval: 3000
+        repeat: false
+        onTriggered: lockRoot.glitchOrange = false
+    }
+
     readonly property string matrixChars: "ｦｱｼﾝｲｳｴｵｶｷｸｹｺｻｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝｳﾞｰ･0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%&*()-+=[]{}|;:,./<>?♀αΦζ♀∞β㏒±∩"
     readonly property int atlasCharW: 14
     readonly property int atlasCharH: 18
@@ -126,9 +151,9 @@ Scope {
             lockRoot.intrusionActive = true
             lockRoot.intrusionPhase = 0
             intrusionPhaseTimer.start()
-            interval = Math.floor(Math.random() * 300000 + 300000)
+            interval = Math.floor(Math.random() * 300000 + 900000)
         }
-        Component.onCompleted: interval = Math.floor(Math.random() * 300000 + 300000)
+        Component.onCompleted: interval = Math.floor(Math.random() * 300000 + 900000)
     }
 
     Timer {
@@ -240,8 +265,8 @@ Scope {
                             return "#00ff41"
                         }
                         if (lockRoot.authFailed) return "#ff3333"
-                        if (lockRoot.authSuccess) return "#FF6A00"
-                        return "#FF6A00"
+                        if (lockRoot.authSuccess) return lockRoot.primaryBright
+                        return lockRoot.primaryBright
                     }
                     property real tintR: matrixTint.r
                     property real tintG: matrixTint.g
@@ -295,7 +320,7 @@ Scope {
                         if (t < 9)  return (t % 2 === 0) ? "#ff1133" : "#ff4455"
                         if (t < 22) return (t % 3 === 0) ? "#ffaa00" : "#ff6600"
                         if (t < 33) return (t % 2 === 0) ? "#00aaff" : "#00d4ff"
-                        return "#FF6A00"
+                        return lockRoot.primaryBright
                     }
 
                     readonly property var statusLines: [
@@ -344,7 +369,7 @@ Scope {
                             text: preLockOverlay.statusLines[
                                 Math.min(Math.floor(preLockOverlay.tick / 4), preLockOverlay.statusLines.length - 1)
                             ]
-                            color: preLockOverlay.tick < 22 ? "#ff6666" : preLockOverlay.tick < 33 ? "#88ccff" : "#CC5500"
+                            color: preLockOverlay.tick < 22 ? "#ff6666" : preLockOverlay.tick < 33 ? "#88ccff" : lockRoot.primaryMed
                             opacity: 0.85
                         }
                     }
@@ -383,7 +408,7 @@ Scope {
                                 passwordField.text = ""
                                 clockText.now = new Date()
                                 clockText.unlockTick = 0
-                                clockText.unlockColor = "#FF6A00"
+                                clockText.unlockColor = lockRoot.primaryBright
                                 clockText.glitchStreamText = ""
 
                                 dateText.isCyberpunkGlitch = false
@@ -412,7 +437,7 @@ Scope {
                         property bool glitchActive: false
                         property string glitchStreamText: ""
                         property int unlockTick: 0
-                        property string unlockColor: "#FF6A00"
+                        property string unlockColor: lockRoot.primaryBright
                         property int intrusionTick: 0
 
                         text: lockRoot.authSuccess ? glitchStreamText
@@ -421,7 +446,7 @@ Scope {
 
                         color: lockRoot.authSuccess ? unlockColor
                             : lockRoot.intrusionActive ? intrusionClockColor(intrusionTick)
-                            : (lockRoot.authFailed ? "#ff3333" : (glowTrigger ? "#ffffff" : "#FF6A00"))
+                            : (lockRoot.authFailed ? "#ff3333" : (glowTrigger ? "#ffffff" : lockRoot.primaryBright))
 
                         function getIntrusionClock(tick) {
                             var p = lockRoot.intrusionPhase
@@ -510,11 +535,11 @@ Scope {
                                         "NEO_ONE_", "01010101", "FREE_MND", "ACCESS__",
                                         "INIT....", "LOAD_SYS", "DAT4_RUN", "EXEC_CTL"]
                                     clockText.glitchStreamText = matrixPool[Math.floor(r * matrixPool.length)]
-                                    clockText.unlockColor = "#FF6A00"
+                                    clockText.unlockColor = lockRoot.primaryBright
                                 } else if (t <= 22) {
                                     if (r < 0.18) {
                                         clockText.glitchStreamText = clockText.getUnlockMatrixStream()
-                                        clockText.unlockColor = "#FF6A00"
+                                        clockText.unlockColor = lockRoot.primaryBright
                                     } else {
                                         var cp = ["BREACH..", "PROTOCOL", "ICE_MELT", "JACK_IN.",
                                             "NETRUN__", "SYNC:400", "ICE:BRKE", "NET.DIVE",
@@ -525,7 +550,7 @@ Scope {
                                 } else if (t <= 36) {
                                     if (r < 0.10) {
                                         clockText.glitchStreamText = clockText.getUnlockMatrixStream()
-                                        clockText.unlockColor = "#FF6A00"
+                                        clockText.unlockColor = lockRoot.primaryBright
                                     } else if (r < 0.20) {
                                         var cp2 = ["NETRUN__", "DAEMON__", "JACK_IN.", "SHARD_OK"]
                                         clockText.glitchStreamText = cp2[Math.floor(Math.random() * cp2.length)]
@@ -540,7 +565,7 @@ Scope {
                                 } else {
                                     if (r < 0.07) {
                                         clockText.glitchStreamText = clockText.getUnlockMatrixStream()
-                                        clockText.unlockColor = "#FF6A00"
+                                        clockText.unlockColor = lockRoot.primaryBright
                                     } else {
                                         var fin = ["WELCOME.", "PILOT_OK", "INIT:100", "SYNC_100", "UNIT_ONL", "FREE____"]
                                         clockText.glitchStreamText = fin[Math.floor(Math.random() * fin.length)]
@@ -638,7 +663,7 @@ Scope {
                             ? (lockRoot.intrusionPhase === 0 ? "#ff1133"
                                : lockRoot.intrusionPhase === 1 ? "#ff6600"
                                : lockRoot.intrusionPhase === 2 ? "#ffcc00" : "#00ff41")
-                            : (lockRoot.authFailed ? "#ff3333" : (isCyberpunkGlitch ? "#fcee0a" : (clockText.glowTrigger ? "#ffffff" : "#994000")))
+                            : (lockRoot.authFailed ? "#ff3333" : (isCyberpunkGlitch ? "#fcee0a" : (clockText.glowTrigger ? "#ffffff" : lockRoot.primaryDark)))
 
                         Timer {
                             id: cyberpunkFreezeTimer
@@ -722,7 +747,10 @@ Scope {
                         opacity: lockRoot.authSuccess ? 0.0 : 1.0
                         color: "#22000000"
 
-                        border.color: lockRoot.authSuccess ? "#ffffff" : (dotsContainer.shaking ? "#ff1133" : "#FF6A00")
+                        border.color: lockRoot.authSuccess ? "#ffffff"
+                            : lockRoot.intrusionActive
+                            ? (lockRoot.intrusionPhase === 0 ? "#ff1133" : lockRoot.intrusionPhase === 1 ? "#ff6600" : lockRoot.intrusionPhase === 2 ? "#ffcc00" : lockRoot.primaryBright)
+                            : (dotsContainer.shaking ? "#ff1133" : lockRoot.primaryBright)
                         border.width: lockRoot.authSuccess ? 3 : 1
                         radius: 2
 
@@ -753,7 +781,7 @@ Scope {
                                 anchors.centerIn: parent
                                 visible: pAuth.running || lockRoot.authSuccess
                                 text: lockRoot.authSuccess ? "ACCESS GRANTED [SYSTEM UNLOCKED]" : "AUTHENTICATING..."
-                                color: lockRoot.authSuccess ? "#ffffff" : "#CC5500"
+                                color: lockRoot.authSuccess ? "#ffffff" : lockRoot.primaryMed
                                 font.bold: true
                                 opacity: pAuth.running && !lockRoot.authSuccess ? (Math.random() * 0.3 + 0.7) : 1.0
                                 font.pixelSize: 13
@@ -785,7 +813,10 @@ Scope {
                                             ? lockRoot.matrixChars[Math.floor((Math.sin(index * 45.67 + dotsContainer.glitchSeed) + 1) / 2 * lockRoot.matrixChars.length)]
                                             : "■"
 
-                                            color: dotsContainer.shaking ? "#ff1133" : "#FF6A00"
+                                            color: dotsContainer.shaking ? "#ff1133"
+                                                : lockRoot.intrusionActive
+                                                ? (lockRoot.intrusionPhase === 0 ? "#ff1133" : lockRoot.intrusionPhase === 1 ? "#ff6600" : lockRoot.intrusionPhase === 2 ? "#ffcc00" : lockRoot.primaryBright)
+                                                : lockRoot.primaryBright
                                             Behavior on color { ColorAnimation { duration: 60 } }
                                         }
                                     }
