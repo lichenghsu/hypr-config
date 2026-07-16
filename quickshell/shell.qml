@@ -777,7 +777,7 @@ ShellRoot {
                     text: modelData
                     textColor: isActive ? root.colFg : root.colMuted
                     bgColor: "transparent"
-                    show: (ws !== undefined || isActive) && !root.showOsd
+                    show: (ws !== undefined || isActive) && !root.showOsd && !root.islandActive
                     onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + modelData + " })")
                 }
             }
@@ -803,7 +803,7 @@ ShellRoot {
                 }
                 bgColor: "transparent"
                 blink: isCrit
-                show: !controlCenter.show && !root.showOsd
+                show: !controlCenter.show && !root.showOsd && !root.islandActive
                 onClicked: controlCenter.show = true
             }
 
@@ -812,7 +812,7 @@ ShellRoot {
                 text: "SW " + root.stopwatchText
                 textColor: root.stopwatchRunning ? "#FFA500" : root.colFg
                 bgColor: "transparent"
-                show: isActive && !controlCenter.show && !root.showOsd
+                show: isActive && !controlCenter.show && !root.showOsd && !root.islandActive
                 onClicked: controlCenter.show = true
             }
 
@@ -821,7 +821,7 @@ ShellRoot {
                 text: "TMR " + root.timerText
                 textColor: root.timerRunning ? "#FFA500" : root.colFg
                 bgColor: "transparent"
-                show: isActive && !controlCenter.show && !root.showOsd
+                show: isActive && !controlCenter.show && !root.showOsd && !root.islandActive
                 onClicked: controlCenter.show = true
             }
 
@@ -829,14 +829,59 @@ ShellRoot {
                 text: root.batteryMode ? "POWER SAVER" : "PERFORMANCE"
                 textColor: root.batteryMode ? "#FFCC00" : "#76B900"
                 bgColor: "transparent"
-                show: root.showBatteryModeIndicator && !controlCenter.show && !root.showOsd
+                show: root.showBatteryModeIndicator && !controlCenter.show && !root.showOsd && !root.islandActive
             }
 
             Mod {
                 text: "MIC"
                 textColor: root.micMuted ? root.colMuted : "#FFA500"
                 bgColor: "transparent"
-                show: root.showMicIndicator && !controlCenter.show && !root.showOsd
+                show: root.showMicIndicator && !controlCenter.show && !root.showOsd && !root.islandActive
+            }
+
+            // 融合進動態島本體的音樂播放狀態（取代原本浮在上方的獨立 islandPill）
+            Mod {
+                text: ""
+                textColor: root.colFg
+                bgColor: "transparent"
+                show: root.islandActive && !root.showOsd
+                customWidth: 160
+                onClicked: musicPopup.show = !musicPopup.show
+
+                Item {
+                    anchors.centerIn: parent
+                    width: 160
+                    height: 20
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 3
+                        opacity: musicPopup.show ? 0 : 1
+                        Behavior on opacity { NumberAnimation { duration: 150 } }
+                        visible: opacity > 0
+                        Repeater {
+                            model: root.cavaBars
+                            Item {
+                                width: 4; height: 20
+                                Rectangle {
+                                    width: parent.width
+                                    height: Math.max(2, Math.round(modelData * 20 / 20))
+                                    anchors.bottom: parent.bottom; radius: 0
+                                    color: root.mprisPlayer === "spotify" ? "#FF6A00" : root.colFg
+                                    Behavior on height { NumberAnimation { duration: 80 } }
+                                }
+                            }
+                        }
+                    }
+                    Text {
+                        anchors.centerIn: parent; width: parent.width - 8
+                        text: root.mprisTitle; color: root.colFg
+                        font.family: root.fontFamily; font.pixelSize: 11; font.bold: true
+                        elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
+                        opacity: musicPopup.show ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: 150 } }
+                    }
+                }
             }
 
             Mod {
@@ -878,59 +923,6 @@ ShellRoot {
                     }
                 }
             }
-        }
-    }
-
-    // ── Island pill: overlays bar center when music plays ─────────
-    Rectangle {
-        id: islandPill
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: root.isBarMode ? 0 : 4
-        z: 1
-        visible: root.islandActive
-        opacity: root.isAnyPopupOpen ? 0.0 : 1.0
-        scale: root.isAnyPopupOpen ? 0.85 : 1.0
-        Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 200 } }
-        Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
-        width: root.islandActive ? 360 : 0
-        height: 32
-        radius: root.isBarMode ? 0 : 16
-        color: Qt.rgba(0.02, 0.02, 0.02, 0.98); clip: true
-        border.color: Qt.rgba(1, 0.42, 0, 0.5)
-        border.width: root.isBarMode ? 0 : 1
-        Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutExpo } }
-        Behavior on anchors.topMargin { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
-        Behavior on radius { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
-
-        MouseArea { anchors.fill: parent; onClicked: musicPopup.show = !musicPopup.show }
-
-        Row {
-            anchors.centerIn: parent; spacing: 3
-            opacity: musicPopup.show ? 0 : 1
-            Behavior on opacity { NumberAnimation { duration: 150 } }
-            visible: opacity > 0
-            Repeater {
-                model: root.cavaBars
-                Item {
-                    width: 4; height: 20
-                    Rectangle {
-                        width: parent.width
-                        height: Math.max(2, Math.round(modelData * 20 / 20))
-                        anchors.bottom: parent.bottom; radius: 0
-                        color: root.mprisPlayer === "spotify" ? "#FF6A00" : root.colFg
-                        Behavior on height { NumberAnimation { duration: 80 } }
-                    }
-                }
-            }
-        }
-        Text {
-            anchors.centerIn: parent; width: parent.width - 24
-            text: root.mprisTitle; color: root.colFg
-            font.family: root.fontFamily; font.pixelSize: 11; font.bold: true
-            elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
-            opacity: musicPopup.show ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 150 } }
         }
     }
 
