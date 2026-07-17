@@ -30,8 +30,21 @@ ShellRoot {
     property string webdavSync: "OK"
     property bool webdavSyncing: false
 
+    property string k8sContext: ""
+    property int k8sReady: 0
+    property int k8sTotal: 0
+    property bool k8sReachable: false
+    property var k8sContexts: []
+    property var k8sExpanded: ({})
+
     property var notificationHistory: []
     property int unreadCount: 0
+    property bool presentLive: false
+    property bool presentFrozen: false
+    function togglePresentFreeze() {
+        root.presentFrozen = !root.presentFrozen;
+        pPresentToggleFreeze.running = true;
+    }
 
     property bool isAnyPopupOpen: controlCenter.show || appLauncherPopup.show || clipboardManagerPopup.show || themeSwitcherPopup.show || wifiMenuPopup.show || powerMenuPopup.show || bluetoothMenuPopup.show || wallpaperPickerPopup.show
     property bool isAnyPopupAnimActive: isAnyPopupOpen || controlCenter.animHeight > 36 || appLauncherPopup.animHeight > 36 || clipboardManagerPopup.animHeight > 36 || themeSwitcherPopup.animHeight > 36 || wifiMenuPopup.animHeight > 36 || powerMenuPopup.animHeight > 36 || bluetoothMenuPopup.animHeight > 36 || wallpaperPickerPopup.animHeight > 36
@@ -84,6 +97,77 @@ ShellRoot {
         }
     }
 
+    // presentation mirror 狀態：輪詢 wl-mirror 是否在跑
+    Process {
+        command: ["sh", "-c", "while true; do \
+            if pgrep -x wl-mirror >/dev/null 2>&1; then echo live; else echo off; fi; \
+            sleep 2; \
+        done"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                root.presentLive = (data.trim() === "live");
+                if (!root.presentLive) root.presentFrozen = false;
+            }
+        }
+    }
+    Process { id: pPresentMenu; command: ["kitty", "--class", "wl-present-menu", "-e", "/home/miles/.config/hypr/scripts/present_menu.sh"] }
+    Process { id: pPresentToggleFreeze; command: ["wl-present", "toggle-freeze"] }
+
+    // kubectl 叢集狀態：輪詢 kubeconfig 裡「所有」context 及其各自的節點明細，
+    // 每個 context 各自 timeout，VPN 斷線的 context 不會卡住其他的。
+    // roles 欄位裡的逗號換成斜線，避免跟分隔用的逗號衝突。
+    Process {
+        command: ["sh", "-c", "while true; do \
+            cur=$(timeout 4 kubectl config current-context 2>/dev/null); \
+            entries=\"\"; \
+            for c in $(timeout 4 kubectl config get-contexts -o name 2>/dev/null); do \
+                nodes=$(timeout 4 kubectl --context=\"$c\" get nodes --no-headers 2>/dev/null); \
+                if [ -n \"$nodes\" ]; then \
+                    total=$(echo \"$nodes\" | wc -l); \
+                    ready=$(echo \"$nodes\" | awk '$2 ~ /^Ready/' | wc -l); \
+                    reach=1; \
+                    detail=$(echo \"$nodes\" | awk '{gsub(\",\",\"/\",$3); print $1\":\"$2\":\"$3}' | tr '\\n' ';'); \
+                else \
+                    total=0; ready=0; reach=0; detail=\"\"; \
+                fi; \
+                entries=\"${entries}${c},${ready},${total},${reach},${detail}~\"; \
+            done; \
+            echo \"${cur:-none}|$entries\"; \
+            sleep 20; \
+        done"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                var bar = data.indexOf("|");
+                var cur = bar >= 0 ? data.substring(0, bar) : data.trim();
+                var rest = bar >= 0 ? data.substring(bar + 1) : "";
+                var entries = rest.trim().split("~").filter(s => s.length > 0).map(s => {
+                    var f = s.split(",");
+                    var nodes = (f[4] || "").split(";").filter(n => n.length > 0).map(n => {
+                        var nf = n.split(":");
+                        return { name: nf[0] || "", status: nf[1] || "", roles: nf[2] || "<none>" };
+                    });
+                    return { name: f[0] || "", ready: parseInt(f[1]) || 0, total: parseInt(f[2]) || 0, reachable: f[3] === "1", nodes: nodes };
+                });
+                root.k8sContext = cur || "none";
+                root.k8sContexts = entries;
+                var curEntry = entries.find(e => e.name === root.k8sContext);
+                root.k8sReachable = curEntry ? curEntry.reachable : false;
+                root.k8sReady = curEntry ? curEntry.ready : 0;
+                root.k8sTotal = curEntry ? curEntry.total : 0;
+            }
+        }
+    }
+
+    Process { id: pK8sSwitch }
+
+    function toggleK8sExpanded(name) {
+        var e = Object.assign({}, root.k8sExpanded);
+        e[name] = !e[name];
+        root.k8sExpanded = e;
+    }
+
     Process {
         command: ["/home/miles/.config/quickshell/count_tiled.sh"]
         running: true
@@ -95,7 +179,7 @@ ShellRoot {
         }
     }
 
-    // 3. Desktop notification daemon (取代 mako/dunst，直接用 quickshell 內建實作並用自家風格顯示)
+    // 3. Desktop notification daemon
     NotificationServer {
         id: notificationServer
         keepOnReload: false
@@ -111,7 +195,7 @@ ShellRoot {
                 appName: notif.appName || "System",
                 summary: notif.summary,
                 body: notif.body,
-                time: new Date().toLocaleTimeString()
+                time: Qt.formatTime(new Date(), "h:mm:ss AP")
             });
             root.notificationHistory = arr.slice(0, 50);
 
@@ -237,6 +321,11 @@ ShellRoot {
         var m = Math.floor(s / 60);
         var sec = s % 60;
         return (m < 10 ? "0" + m : m) + ":" + (sec < 10 ? "0" + sec : sec);
+    }
+
+    readonly property var romanNumerals: ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
+    function toRoman(n) {
+        return root.romanNumerals[n] || n;
     }
 
     // Click Actions
@@ -707,7 +796,9 @@ ShellRoot {
         height: 32
         width: root.isBarMode
             ? parent.width
-            : (root.islandActive ? (notchLayout.implicitWidth + notchLayoutRight.implicitWidth + 224) : notchLayout.implicitWidth + 32)
+            // 播放音樂時工作區數字整排隱藏，島只需容納 cava 本身；
+            // 平常收合狀態則要同時容納工作區數字＋狀態列，兩排才不會疊在一起、溢出膠囊外
+            : (root.islandActive ? 200 : wsLayout.implicitWidth + notchLayout.implicitWidth + 40)
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
         radius: root.isBarMode ? 0 : 16
 
@@ -761,15 +852,16 @@ ShellRoot {
             }
         }
 
+        // 工作區數字固定在左側定位，不隨其他 mod 展開/收合而被推擠、蓋住；
+        // 播放音樂進入 cava 動態島時整排隱藏，不再跟 cava 搶位置
         RowLayout {
-            id: notchLayout
+            id: wsLayout
+            visible: !root.islandActive
             opacity: root.isAnyPopupOpen ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: parent.left
-            anchors.leftMargin: root.isBarMode
-                ? (root.islandActive ? 90 : (notchRect.width - notchLayout.width) / 2)
-                : 16
+            anchors.leftMargin: root.isBarMode ? 70 : 16
             height: parent.height
             spacing: 8
 
@@ -779,13 +871,26 @@ ShellRoot {
                     property var ws: Hyprland.workspaces.values.find(w => w.id === modelData)
                     property bool isActive: Hyprland.focusedWorkspace != null && Hyprland.focusedWorkspace.id === modelData
 
-                    text: modelData
+                    text: root.toRoman(modelData)
                     textColor: isActive ? root.colFg : root.colMuted
                     bgColor: "transparent"
-                    show: (ws !== undefined || isActive) && !root.showOsd && (!root.islandActive || modelData <= 5)
+                    show: (ws !== undefined || isActive) && !root.showOsd
                     onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + modelData + " })")
                 }
             }
+        }
+
+        RowLayout {
+            id: notchLayout
+            opacity: root.isAnyPopupOpen ? 0 : 1
+            Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: root.isBarMode
+                ? (root.islandActive ? wsLayout.x + wsLayout.width + 16 : (notchRect.width - notchLayout.width) / 2)
+                : wsLayout.x + wsLayout.width + 8
+            height: parent.height
+            spacing: 8
 
             Mod {
                 property int cap: parseInt(root.batteryCap)
@@ -885,33 +990,6 @@ ShellRoot {
             }
         }
 
-        // 播放音樂時，工作區 6-10 移到右側跟左側 1-5 對稱，讓 cava 保持置中
-        RowLayout {
-            id: notchLayoutRight
-            visible: root.islandActive
-            opacity: root.isAnyPopupOpen ? 0 : 1
-            Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.right: parent.right
-            anchors.rightMargin: root.isBarMode ? 90 : 16
-            height: parent.height
-            spacing: 8
-
-            Repeater {
-                model: [6, 7, 8, 9, 10]
-                Mod {
-                    property var ws: Hyprland.workspaces.values.find(w => w.id === modelData)
-                    property bool isActive: Hyprland.focusedWorkspace != null && Hyprland.focusedWorkspace.id === modelData
-
-                    text: modelData
-                    textColor: isActive ? root.colFg : root.colMuted
-                    bgColor: "transparent"
-                    show: (ws !== undefined || isActive) && !root.showOsd
-                    onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + modelData + " })")
-                }
-            }
-        }
-
         // 播放中的 cava 視覺化永遠置中於整個動態島，不隨左側工作區/狀態列擠壓
         Item {
             id: cavaCenter
@@ -983,6 +1061,61 @@ ShellRoot {
                     border.color: Qt.rgba(1, 1, 1, 0.25)
                 }
             }
+        }
+    }
+
+    // ── 左上角 kubectl 叢集動態島 (固定顯示，緊接在時鐘右側，不隨其他 mod 展開被推擠) ──
+    Rectangle {
+        id: k8sIsland
+        anchors.left: parent.left
+        anchors.leftMargin: root.isBarMode ? (wsLayout.x + wsLayout.width + 16) : 16
+        anchors.top: parent.top
+        anchors.topMargin: root.isBarMode ? 0 : 4
+        z: 2
+
+        // 固定寬度，不隨叢集資料 (context 名稱長度、reachable 狀態) 變動而改變，
+        // 避免拖著釘死在它右側的工作區數字一起被推擠
+        width: 200
+        height: 32
+        radius: root.isBarMode ? 0 : 16
+        color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
+        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.width: root.isBarMode ? 0 : 1
+
+        RowLayout {
+            id: k8sRow
+            anchors.left: parent.left
+            anchors.leftMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 6
+
+            Text {
+                text: "K8S"
+                color: root.colMuted
+                font { family: root.fontFamily; pixelSize: root.fontSize }
+            }
+            Text {
+                Layout.maximumWidth: 90
+                elide: Text.ElideRight
+                text: root.k8sReachable ? root.k8sContext : "OFFLINE"
+                color: root.k8sReachable ? root.colFg : root.colCrit
+                font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+            }
+            Text {
+                visible: root.k8sReachable
+                text: root.k8sReady + "/" + root.k8sTotal
+                color: root.k8sReady === root.k8sTotal ? "#3DDC84" : "#FFA500"
+                font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+            }
+        }
+
+        // 點擊展開節點明細；用獨立 popup 呈現，不改動這個島本身的寬度/位置，
+        // 才不會又把釘死在它右側的工作區數字推出去
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: k8sPopup.show = !k8sPopup.show
         }
     }
 
@@ -1137,12 +1270,51 @@ ShellRoot {
                         }
                     }
                 }
+
+                // 分隔線（只在簡報鏡像進行中才顯示，平常隱藏不佔 bar 空間）
+                Rectangle {
+                    visible: root.presentLive
+                    Layout.fillHeight: true
+                    Layout.topMargin: 8
+                    Layout.bottomMargin: 8
+                    width: 1
+                    color: Qt.rgba(1, 1, 1, 0.15)
+                }
+
+                // 簡報鏡像狀態：只在鏡像進行中才顯示。點擊開啟控制選單，右鍵快速切換凍結
+                Item {
+                    id: presentButton
+                    visible: root.presentLive
+                    implicitWidth: presentLabel.implicitWidth + 10
+                    implicitHeight: 20
+
+                    Text {
+                        id: presentLabel
+                        anchors.centerIn: parent
+                        text: root.presentFrozen ? "PRESENT | FROZEN" : "PRESENT | LIVE"
+                        color: root.presentFrozen ? "#FFCC00" : "#3DDC84"
+                        font { family: root.fontFamily; pixelSize: root.fontSize; bold: true; letterSpacing: 1 }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: mouse => {
+                            if (mouse.button === Qt.RightButton && root.presentLive) {
+                                root.togglePresentFreeze();
+                            } else {
+                                pPresentMenu.running = true;
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-// ── 通知堆疊：取代 mako/dunst，顯示在右上角，跟 sysIsland 同一套視覺風格 ──
+// ── notify stacks ──
 PopupWindow {
     id: notificationPopup
     anchor {
@@ -1178,7 +1350,6 @@ PopupWindow {
                 border.color: Qt.rgba(1, 0.42, 0, 0.5)
                 border.width: 1
 
-                // NERV 終端機風格左側警示條
                 Rectangle {
                     width: 3
                     anchors.top: parent.top
@@ -1187,7 +1358,6 @@ PopupWindow {
                     color: "#FF6A00"
                 }
 
-                // 依通知標示的 expire timeout 自動關閉，沒指定則預設 5 秒
                 Timer {
                     running: true
                     interval: notifCard.modelData.expireTimeout > 0 ? notifCard.modelData.expireTimeout : 5000
@@ -1243,12 +1413,203 @@ PopupWindow {
     }
 }
 
+// ── kubectl tree
+PopupWindow {
+    id: k8sPopup
+    property bool show: false
+    grabFocus: show
+    visible: show
+
+    HyprlandFocusGrab {
+        id: k8sFocusGrab
+        windows: [k8sPopup]
+        active: k8sPopup.show
+        onCleared: () => k8sPopup.show = false
+    }
+
+    anchor {
+        window: root
+        rect: Qt.rect(k8sIsland.x, root.isBarMode ? 32 : 40, k8sIsland.width, 1)
+        edges: Edges.Top | Edges.Left
+        gravity: Edges.Bottom | Edges.Right
+    }
+    color: "transparent"
+    implicitWidth: 300
+    implicitHeight: k8sCard.implicitHeight
+
+    Rectangle {
+        id: k8sCard
+        width: 300
+        implicitHeight: k8sColumn.implicitHeight + 24
+        radius: 0
+        color: Qt.rgba(0.02, 0.02, 0.02, 0.97)
+        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.width: 1
+
+        ColumnLayout {
+            id: k8sColumn
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 12
+            spacing: 8
+
+            RowLayout {
+                Layout.fillWidth: true
+                Text {
+                    text: "K8S CONTEXTS"
+                    color: "#FF6A00"
+                    font { family: root.fontFamily; pixelSize: root.fontSize + 3; bold: true; letterSpacing: 1 }
+                }
+            }
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: Qt.rgba(1, 0.42, 0, 0.25)
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: root.k8sContexts.length === 0
+                text: "NO CONTEXTS"
+                color: root.colMuted
+                font { family: root.fontFamily; pixelSize: root.fontSize + 2; letterSpacing: 1 }
+            }
+
+            Repeater {
+                model: root.k8sContexts
+
+                delegate: ColumnLayout {
+                    id: k8sTreeItem
+                    required property var modelData
+                    property bool expanded: !!root.k8sExpanded[modelData.name]
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    // ── context node ──
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 28
+                        color: k8sTreeItem.modelData.name === root.k8sContext ? Qt.rgba(1, 0.42, 0, 0.12) : "transparent"
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 4
+                            anchors.rightMargin: 4
+                            spacing: 8
+
+                            Text {
+                                text: k8sTreeItem.expanded ? "▾" : "▸"
+                                color: root.colMuted
+                                visible: k8sTreeItem.modelData.nodes.length > 0
+                                font { family: root.fontFamily; pixelSize: root.fontSize }
+                            }
+                            Rectangle {
+                                width: 8; height: 8; radius: 4
+                                color: !k8sTreeItem.modelData.reachable ? "#FF3B30" : (k8sTreeItem.modelData.ready === k8sTreeItem.modelData.total ? "#3DDC84" : "#FFA500")
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: k8sTreeItem.modelData.name
+                                color: k8sTreeItem.modelData.name === root.k8sContext ? "#FF6A00" : root.colFg
+                                elide: Text.ElideRight
+                                font { family: root.fontFamily; pixelSize: root.fontSize + 1; bold: true }
+                            }
+                            Text {
+                                text: k8sTreeItem.modelData.reachable ? (k8sTreeItem.modelData.ready + "/" + k8sTreeItem.modelData.total) : "OFFLINE"
+                                color: root.colMuted
+                                font { family: root.fontFamily; pixelSize: root.fontSize }
+                            }
+                            Text {
+                                visible: k8sTreeItem.modelData.name !== root.k8sContext
+                                text: "[USE]"
+                                color: root.colMuted
+                                font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        pK8sSwitch.command = ["kubectl", "config", "use-context", k8sTreeItem.modelData.name];
+                                        pK8sSwitch.running = true;
+                                        root.k8sContext = k8sTreeItem.modelData.name;
+                                        root.k8sReachable = k8sTreeItem.modelData.reachable;
+                                        root.k8sReady = k8sTreeItem.modelData.ready;
+                                        root.k8sTotal = k8sTreeItem.modelData.total;
+                                    }
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.rightMargin: 40 // 讓出 [USE] 的點擊區域
+                            hoverEnabled: true
+                            cursorShape: k8sTreeItem.modelData.nodes.length > 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: root.toggleK8sExpanded(k8sTreeItem.modelData.name)
+                        }
+                    }
+
+                    // ── 樹狀長出的節點清單 ──
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 20
+                        spacing: 2
+                        visible: k8sTreeItem.expanded && k8sTreeItem.modelData.nodes.length > 0
+
+                        Repeater {
+                            model: k8sTreeItem.modelData.nodes
+
+                            delegate: RowLayout {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 22
+                                spacing: 8
+
+                                Text {
+                                    text: "└"
+                                    color: root.colMuted
+                                    font { family: root.fontFamily; pixelSize: root.fontSize }
+                                }
+                                Rectangle {
+                                    width: 7; height: 7; radius: 3.5
+                                    color: modelData.status === "Ready" ? "#3DDC84" : "#FF3B30"
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.name
+                                    color: root.colFg
+                                    elide: Text.ElideRight
+                                    font { family: root.fontFamily; pixelSize: root.fontSize }
+                                }
+                                Text {
+                                    text: modelData.roles
+                                    color: root.colMuted
+                                    font { family: root.fontFamily; pixelSize: root.fontSize - 1 }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ── 通知歷史清單：點右上角小鈴鐺開關 ──
 PopupWindow {
     id: notifHistoryPopup
     property bool show: false
     grabFocus: show
     visible: show
+
+    HyprlandFocusGrab {
+        id: notifFocusGrab
+        windows: [notifHistoryPopup]
+        active: notifHistoryPopup.show
+        onCleared: () => notifHistoryPopup.show = false
+    }
+
     anchor {
         window: root
         rect: Qt.rect(0, root.isBarMode ? 32 : 40, root.width, 1)
@@ -1340,11 +1701,12 @@ PopupWindow {
                         RowLayout {
                             Layout.fillWidth: true
                             Text {
+                                Layout.fillWidth: true
                                 text: modelData.appName.toUpperCase()
                                 color: "#FF6A00"
+                                elide: Text.ElideRight
                                 font { family: root.fontFamily; pixelSize: root.fontSize + 1; bold: true; letterSpacing: 1 }
                             }
-                            Item { Layout.fillWidth: true }
                             Text {
                                 text: modelData.time
                                 color: "#3DDC84"
@@ -1406,8 +1768,7 @@ PopupWindow {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 24 // 加大留白，提升呼吸感
-            spacing: 20
+            anchors.margins: 24
 
             Rectangle {
                 Layout.alignment: Qt.AlignHCenter
@@ -1432,7 +1793,6 @@ PopupWindow {
                     visible: source !== "" && status === Image.Ready
                 }
 
-                // 封面未載入時的現代替代圖標
                 Text {
                     anchors.centerIn: parent
                     text: "NOTE"
@@ -1478,12 +1838,11 @@ PopupWindow {
                     Layout.fillWidth: true
                     height: 12
 
-                    // 進度條軌道
                     Rectangle {
                         id: progressBarTrack
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width
-                        height: 4 // 超纖細軌道
+                        height: 4
                         radius: 0
                         color: Qt.rgba(1, 1, 1, 0.1)
 
@@ -1510,7 +1869,7 @@ PopupWindow {
                     MouseArea {
                         id: progressMouseArea
                         anchors.fill: parent
-                        anchors.margins: -6 // 加大滑鼠判定範圍
+                        anchors.margins: -6
                         hoverEnabled: true
                         preventStealing: true
 
@@ -1526,7 +1885,6 @@ PopupWindow {
                     }
                 }
 
-                // 重新排列至進度條下方的時間標籤
                 RowLayout {
                     Layout.fillWidth: true
                     Text {
@@ -1558,7 +1916,6 @@ PopupWindow {
                     Text { anchors.centerIn: parent; text: "[<<]"; color: "#FFF"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
                 }
 
-                // 播放 / 暫停（主按鈕放大、圓環焦點）
                 MouseArea {
                     id: btnPlay
                     Layout.preferredWidth: 54; Layout.preferredHeight: 54
@@ -1573,14 +1930,13 @@ PopupWindow {
                     Text {
                         anchors.centerIn: parent
                         text: root.mprisStatus === "Playing" ? "[||]" : "[>]"
-                        color: root.mprisStatus === "Playing" ? "#000000" : "#FFFFFF" // 播放時反白
+                        color: root.mprisStatus === "Playing" ? "#000000" : "#FFFFFF"
                         font.family: root.fontFamily
                         font.pixelSize: 14
                         font.bold: true
                     }
                 }
 
-                // 下一首
                 MouseArea {
                     id: btnNext
                     Layout.preferredWidth: 40; Layout.preferredHeight: 40
@@ -1981,7 +2337,6 @@ PopupWindow {
                                 font.family: root.fontFamily
                                 font.pixelSize: 24
                                 font.bold: true
-                                // 初始化顯示
                                 text: Qt.formatDateTime(new Date(), "HH:mm:ss tt")
 
                                 // timer
@@ -3138,6 +3493,9 @@ PopupWindow {
         }
         function toggleKeyOverlay() {
             keyOverlayPopup.show = !keyOverlayPopup.show;
+        }
+        function togglePresentFreeze() {
+            root.togglePresentFreeze();
         }
         function updateColors(bg: string, fg: string, accent: string) {
             root.colBg     = bg;

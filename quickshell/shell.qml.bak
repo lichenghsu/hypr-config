@@ -9,6 +9,7 @@ import Quickshell.Io
 ShellRoot {
     PanelWindow {
         id: root
+        screen: Quickshell.screens.find(s => s.name.startsWith("eDP")) ?? Quickshell.screens[0]
 
         property color colBg: "#000000"
         property color colFg: "#ffffff"
@@ -107,11 +108,6 @@ ShellRoot {
             repeat: false
             onTriggered: root.showMicIndicator = false
         }
-
-        property string claudeBlockRemain: "--"
-        property int claudeBlockUsedPct: 0
-        property string claudeWeekRemain: "--"
-        property int claudeWeekRemainPct: 0
 
         property bool islandActive: root.mprisStatus !== "offline" && root.mprisTitle !== ""
         property var cavaBars: []
@@ -233,7 +229,7 @@ ShellRoot {
         Process { id: pPowerShutdown; command: ["systemctl", "poweroff"] }
         Process { id: pPowerReboot;   command: ["systemctl", "reboot"] }
 
-        Process { id: pPowerLock;     command: ["swaylock"] }
+        Process { id: pPowerLock;     command: ["/home/miles/.local/bin/qs-lock"] }
         Process { id: pPowerSuspend;  command: ["systemctl", "suspend"] }
         Process { id: pPowerLogout;   command: ["pkill", "-x", "Hyprland"] }
 
@@ -547,24 +543,6 @@ ShellRoot {
             }
         }
 
-        Process {
-            id: pClaudeUsage
-            command: ["python3", "/home/miles/Lab/hypr/dotfiles/scripts/claude_usage.sh"]
-            running: true
-            stdout: SplitParser {
-                onRead: data => {
-                    var parts = data.trim().split("|");
-                    if (parts.length === 4) {
-                        root.claudeBlockRemain = parts[0];
-                        root.claudeBlockUsedPct = parseInt(parts[1]) || 0;
-                        root.claudeWeekRemain = parts[2];
-                        root.claudeWeekRemainPct = parseInt(parts[3]) || 0;
-                    }
-                }
-            }
-        }
-        Timer { interval: 300000; running: true; repeat: true; onTriggered: { if (!pClaudeUsage.running) pClaudeUsage.running = true } }
-
         Timer { interval: 10000; running: true; repeat: true; onTriggered: root.barClock = Qt.formatDateTime(new Date(), "HH:mm") }
 
         Process {
@@ -674,22 +652,18 @@ ShellRoot {
             // ── Right: battery ────────────────────────────────────────────────
             MouseArea {
                 anchors.right: parent.right
-                anchors.rightMargin: 10
+                anchors.rightMargin: 12
                 anchors.verticalCenter: parent.verticalCenter
-                width: 28; height: parent.height
+
+                width: root.batteryCharging ? 75 : 55
+                height: parent.height
                 visible: root.isBarMode && !root.showOsd && !controlCenter.show
                 onClicked: controlCenter.show = true
+
                 Text {
                     anchors.centerIn: parent
                     property int cap: parseInt(root.batteryCap)
-                    text: {
-                        if (root.batteryCharging) return ""
-                            if (cap > 80) return ""
-                                if (cap > 60) return ""
-                                    if (cap > 40) return ""
-                                        if (cap > 20) return ""
-                                            return ""
-                    }
+                    text: root.batteryCharging ? "󱐌 " + root.batteryCap + "%" : root.batteryCap + "%"
                     color: {
                         var cap = parseInt(root.batteryCap)
                         if (cap <= 15 && !root.batteryCharging) return root.colCrit
@@ -697,7 +671,9 @@ ShellRoot {
                                 if (root.batteryCharging) return "#76B900"
                                     return root.colFg
                     }
-                    font.family: root.fontFamily; font.pixelSize: root.fontSize + 2
+                    font.family: root.fontFamily
+                    font.pixelSize: root.fontSize
+                    font.bold: true
                 }
             }
 
@@ -831,6 +807,10 @@ ShellRoot {
             anchors.topMargin: root.isBarMode ? 0 : 4
             z: 1
             visible: root.islandActive
+            opacity: root.isAnyPopupOpen ? 0.0 : 1.0
+            scale: root.isAnyPopupOpen ? 0.85 : 1.0
+            Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 200 } }
+            Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
             width: root.islandActive ? 360 : 0
             height: 32
             radius: root.isBarMode ? 0 : 16
@@ -879,122 +859,135 @@ ShellRoot {
         color: "transparent"
         anchor {
             window: root
-            rect: Qt.rect(root.width / 2 - 210, 0, 420, root.height)
+            rect: Qt.rect(root.width / 2 - 180, 0, 360, root.height)
             edges: Edges.Bottom
             gravity: Edges.Bottom
         }
-        implicitWidth: 420
-        implicitHeight: 200
-        Keys.onEscapePressed: musicPopup.show = false
+        implicitWidth: 400
+        implicitHeight: 400
 
         Rectangle {
             id: musicCard
             anchors.fill: parent
-            anchors.topMargin: 6
-            color: Qt.rgba(0.07, 0.07, 0.07, 0.97)
-            radius: 18
+            anchors.topMargin: 12
+            focus: musicPopup.show
+            Keys.onEscapePressed: musicPopup.show = false
+
+            // 現代深色調（仿玻璃基底）
+            color: Qt.rgba(0.05, 0.05, 0.05, 0.88)
+            radius: 24 // 更圓潤的現代倒角
             opacity: musicPopup.show ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            border.color: Qt.rgba(1, 1, 1, 0.08) // 極細微光邊框
+            border.width: 1
+
+            Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 16
-                spacing: 12
+                anchors.margins: 24 // 加大留白，提升呼吸感
+                spacing: 20
 
-                // Top row: album art + title/artist
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 14
+                Rectangle {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.preferredWidth: 160
+                    Layout.preferredHeight: 160
+                    radius: 20
+                    color: "#161616"
+                    clip: true
 
-                    Rectangle {
-                        width: 64; height: 64; radius: 10
-                        color: "#1C1C1C"; clip: true
-                        layer.enabled: true
-                        Image {
-                            id: musicArt
-                            anchors.fill: parent
-                            source: (root.mprisArtUrl.startsWith("file://") || root.mprisArtUrl.startsWith("https://")) ? root.mprisArtUrl : ""
-                            fillMode: Image.PreserveAspectCrop; smooth: true; asynchronous: true
-                            visible: source !== "" && status === Image.Ready
-                        }
-                        Text {
-                            anchors.centerIn: parent
-                            text: root.mprisPlayer === "spotify" ? "" : "󰝚"
-                            color: root.mprisPlayer === "spotify" ? "#1DB954" : "#3A3A3A"
-                            font.family: root.fontFamily; font.pixelSize: 26
-                            visible: musicArt.source === "" || musicArt.status !== Image.Ready
-                        }
+                    // 封面陰影/發光效果
+                    layer.enabled: true
+
+                    Image {
+                        id: musicArt
+                        anchors.fill: parent
+                        source: (root.mprisArtUrl.startsWith("file://") || root.mprisArtUrl.startsWith("https://")) ? root.mprisArtUrl : ""
+                        fillMode: Image.PreserveAspectCrop
+                        smooth: true
+                        asynchronous: true
+                        visible: source !== "" && status === Image.Ready
                     }
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignVCenter
-                        spacing: 3
-
-                        Text {
-                            text: root.mprisTitle
-                            color: "#F0F0F0"
-                            font.family: root.fontFamily; font.pixelSize: 14; font.bold: true
-                            elide: Text.ElideRight; Layout.fillWidth: true
-                        }
-                        Text {
-                            text: root.mprisArtist
-                            color: root.mprisPlayer === "spotify" ? "#1DB954" : "#777"
-                            font.family: root.fontFamily; font.pixelSize: 11
-                            elide: Text.ElideRight; Layout.fillWidth: true
-                        }
+                    // 封面未載入時的現代替代圖標
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰝚"
+                        color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colMuted
+                        font.family: root.fontFamily
+                        font.pixelSize: 36
+                        visible: musicArt.source === "" || musicArt.status !== Image.Ready
                     }
                 }
 
-                // Progress bar (tall hit area for sensitivity)
-                Item {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    height: 28
+                    spacing: 4
 
-                    // Time labels
                     Text {
-                        anchors.left: parent.left; anchors.top: parent.top
-                        text: { var s=Math.floor(root.mprisPosition/1000000); return Math.floor(s/60)+":"+(s%60<10?"0":"")+s%60 }
-                        color: "#555"; font.family: root.fontFamily; font.pixelSize: 9
+                        text: root.mprisTitle !== "" ? root.mprisTitle : "未在播放音樂"
+                        color: "#FFFFFF"
+                        font.family: root.fontFamily
+                        font.pixelSize: 16
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
                     }
                     Text {
-                        anchors.right: parent.right; anchors.top: parent.top
-                        text: { var s=Math.floor(root.mprisLength/1000000); return Math.floor(s/60)+":"+(s%60<10?"0":"")+s%60 }
-                        color: "#555"; font.family: root.fontFamily; font.pixelSize: 9
+                        text: root.mprisArtist !== "" ? root.mprisArtist : "未知藝術家"
+                        color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colMuted
+                        font.family: root.fontFamily
+                        font.pixelSize: 12
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
                     }
+                }
 
-                    // Track + dot
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
                     Item {
-                        anchors.left: parent.left; anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: 16
+                        Layout.fillWidth: true
+                        height: 12
 
-                        property real prog: root.mprisProgress
-
+                        // 進度條軌道
                         Rectangle {
+                            id: progressBarTrack
                             anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width; height: 4; radius: 2
-                            color: "#2A2A2A"
+                            width: parent.width
+                            height: 4 // 超纖細軌道
+                            radius: 2
+                            color: Qt.rgba(1, 1, 1, 0.1)
+
                             Rectangle {
                                 id: seekFill
                                 width: parent.width * root.mprisProgress
-                                height: 4; radius: 2
-                                color: root.mprisPlayer === "spotify" ? "#1DB954" : "#E0E0E0"
-                                Behavior on width { NumberAnimation { duration: 250 } }
+                                height: parent.height
+                                radius: 2
+                                color: root.mprisPlayer === "spotify" ? "#1DB954" : root.colAccent
                             }
                         }
-                        // Dot handle
+
                         Rectangle {
+                            id: progressHandle
                             x: Math.max(0, Math.min(parent.width - width, parent.width * root.mprisProgress - width/2))
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 12; height: 12; radius: 6
-                            color: root.mprisPlayer === "spotify" ? "#1DB954" : "#FFFFFF"
+                            width: progressMouseArea.containsMouse ? 12 : 0
+                            height: width
+                            radius: width / 2
+                            color: "#FFFFFF"
+                            Behavior on width { NumberAnimation { duration: 120 } }
                         }
 
                         MouseArea {
+                            id: progressMouseArea
                             anchors.fill: parent
-                            anchors.topMargin: -8; anchors.bottomMargin: -8
+                            anchors.margins: -6 // 加大滑鼠判定範圍
+                            hoverEnabled: true
                             preventStealing: true
+
                             function seek(mx) {
                                 if (root.mprisLength > 0) {
                                     var sec = Math.max(0, Math.min(1, mx / width)) * root.mprisLength / 1000000
@@ -1006,34 +999,75 @@ ShellRoot {
                             onPositionChanged: function(mouse) { if (pressed) seek(mouse.x) }
                         }
                     }
+
+                    // 重新排列至進度條下方的時間標籤
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: { var s=Math.floor(root.mprisPosition/1000000); return Math.floor(s/60)+":"+(s%60<10?"0":"")+s%60 }
+                            color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 10
+                        }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: { var s=Math.floor(root.mprisLength/1000000); return Math.floor(s/60)+":"+(s%60<10?"0":"")+s%60 }
+                            color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 10
+                        }
+                    }
                 }
 
-                // Controls
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 0
+                    Layout.bottomMargin: 8
+                    spacing: 24
+
                     Item { Layout.fillWidth: true }
-                    ModernButton {
-                        Layout.preferredWidth: 44; Layout.preferredHeight: 36
-                        iconText: "󰒮"; onClicked: pSpotPrev.running = true
+
+                    // 上一首
+                    MouseArea {
+                        id: btnPrev
+                        Layout.preferredWidth: 40; Layout.preferredHeight: 40
+                        hoverEnabled: true
+                        onClicked: pSpotPrev.running = true
+                        Rectangle { anchors.fill: parent; radius: 20; color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent" }
+                        Text { anchors.centerIn: parent; text: "󰒮"; color: "#FFF"; font.family: root.fontFamily; font.pixelSize: 18 }
                     }
-                    ModernButton {
-                        Layout.preferredWidth: 60; Layout.preferredHeight: 36
-                        iconText: root.mprisStatus === "Playing" ? "󰏤" : "󰐊"
-                        isActive: root.mprisStatus === "Playing"
-                        accent: root.mprisPlayer === "spotify" ? "#1DB954" : root.colFg
+
+                    // 播放 / 暫停（主按鈕放大、圓環焦點）
+                    MouseArea {
+                        id: btnPlay
+                        Layout.preferredWidth: 54; Layout.preferredHeight: 54
+                        hoverEnabled: true
                         onClicked: pSpotPlay.running = true
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 27
+                            color: root.mprisStatus === "Playing" ? (root.mprisPlayer === "spotify" ? "#1DB954" : root.colFg) : Qt.rgba(1, 1, 1, 0.1)
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                        }
+                        Text {
+                            anchors.centerIn: parent
+                            text: root.mprisStatus === "Playing" ? "󰏤" : "󰐊"
+                            color: root.mprisStatus === "Playing" ? "#000000" : "#FFFFFF" // 播放時反白
+                            font.family: root.fontFamily
+                            font.pixelSize: 22
+                        }
                     }
-                    ModernButton {
-                        Layout.preferredWidth: 44; Layout.preferredHeight: 36
-                        iconText: "󰒭"; onClicked: pSpotNext.running = true
+
+                    // 下一首
+                    MouseArea {
+                        id: btnNext
+                        Layout.preferredWidth: 40; Layout.preferredHeight: 40
+                        hoverEnabled: true
+                        onClicked: pSpotNext.running = true
+                        Rectangle { anchors.fill: parent; radius: 20; color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent" }
+                        Text { anchors.centerIn: parent; text: "󰒭"; color: "#FFF"; font.family: root.fontFamily; font.pixelSize: 18 }
                     }
+
                     Item { Layout.fillWidth: true }
                 }
             }
         }
     }
-
 
     component ModernBatteryIcon: Item {
         id: battIcon
@@ -1400,28 +1434,43 @@ ShellRoot {
 
                         spacing: 8
 
-                        // Header: Clock & Date & Battery
+                        /// Header: Clock & Date & Battery
                         RowLayout {
                             Layout.fillWidth: true
 
                             ColumnLayout {
                                 spacing: 4
+
+                                // 1. time text
                                 Text {
                                     id: clockText
                                     color: root.colFg
                                     font.family: root.fontFamily
                                     font.pixelSize: 24
                                     font.bold: true
-                                    text: Qt.formatDateTime(new Date(), "HH:mm")
+                                    // 初始化顯示
+                                    text: Qt.formatDateTime(new Date(), "HH:mm:ss tt")
+
+                                    // timer
                                     Timer {
-                                        interval: 1000; running: true; repeat: true
-                                        onTriggered: clockText.text = Qt.formatDateTime(new Date(), "HH:mm")
+                                        interval: 1000
+                                        running: true
+                                        repeat: true
+                                        onTriggered: {
+                                            var currentDate = new Date();
+                                            clockText.text = Qt.formatDateTime(currentDate, "HH:mm:ss tt");
+                                            dateText.text = Qt.formatDateTime(currentDate, "dddd, MMMM d");
+                                        }
                                     }
                                 }
+
+                                // 2. date text
                                 Text {
+                                    id: dateText
                                     color: root.colMuted
                                     font.family: root.fontFamily
                                     font.pixelSize: 13
+                                    // init
                                     text: Qt.formatDateTime(new Date(), "dddd, MMMM d")
                                 }
                             }
@@ -1492,42 +1541,6 @@ ShellRoot {
                             Text { text: " " + root.temperature + "°"; color: parseInt(root.temperature) >= 80 ? root.colCrit : root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
                             Text { text: "󰠯 " + root.updates; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; visible: parseInt(root.updates) > 0 }
                         }
-
-                        // Claude Code session usage
-                        ColumnLayout {
-                            Layout.fillWidth: true; spacing: 4
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 6
-                                Text { text: "󰀖"; color: "#CC785C"; font.family: root.fontFamily; font.pixelSize: 12 }
-                                Text { text: "Claude"; color: root.colFg; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
-                                Item { Layout.fillWidth: true }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 6
-                                Text { text: "Block"; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 10 }
-                                Text { text: root.claudeBlockRemain + " reset"; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 10 }
-                                Item { Layout.fillWidth: true }
-                                Text {
-                                    property int pct: root.claudeBlockUsedPct
-                                    text: pct + "% usage"
-                                    color: pct > 80 ? root.colCrit : (pct > 60 ? "#FFA500" : root.colMuted)
-                                    font.family: root.fontFamily; font.pixelSize: 10; font.bold: pct > 60
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 6
-                                Text { text: "Week"; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 10 }
-                                Text { text: root.claudeWeekRemain + " left"; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 10 }
-                                Item { Layout.fillWidth: true }
-                                Text {
-                                    property int pct: 100 - root.claudeWeekRemainPct
-                                    text: pct + "% usage"
-                                    color: pct > 80 ? root.colCrit : (pct > 60 ? "#FFA500" : root.colMuted)
-                                    font.family: root.fontFamily; font.pixelSize: 10; font.bold: pct > 60
-                                }
-                            }
-                        }
-
 
                         Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,1,1,0.1); visible: root.mprisStatus !== "offline" }
 
@@ -2012,9 +2025,17 @@ ShellRoot {
                                             Layout.preferredHeight: 32
                                             hoverEnabled: true
                                             onClicked: {
-                                                pRemmina.command = ["bash", "-c", "remmina \"$1\" &", "--", model.filePath];
-                                                pRemmina.running = true;
-                                                root.remminaExpanded = false;
+                                                onClicked: {
+                                                    // 1. 先強制停止/重置上一次的行程狀態（依據 QuickShell API，通常是 terminate() 或 stop()）
+                                                    if (pRemmina.running) {
+                                                        pRemmina.terminate();
+                                                    }
+
+                                                    // 2. 重新指派指令並啟動
+                                                    pRemmina.command = ["remmina", "--connect", model.filePath];
+                                                    pRemmina.running = true;
+                                                    root.remminaExpanded = false;
+                                                }
                                             }
 
                                             Rectangle {
@@ -2525,6 +2546,11 @@ ShellRoot {
         shellRoot: root
     }
 
+    KeyOverlay {
+        id: keyOverlayPopup
+        shellRoot: root
+    }
+
     IpcHandler {
         id: qsIpc
         target: "qsIpc"
@@ -2571,11 +2597,22 @@ ShellRoot {
         function toggleWindowOverview() {
             windowOverviewPopup.show = !windowOverviewPopup.show;
         }
+        function stepWindowOverview(delta: string) {
+            if (!windowOverviewPopup.show) windowOverviewPopup.show = true;
+            windowOverviewPopup.moveSelCell(parseInt(delta));
+        }
+        function toggleKeyOverlay() {
+            keyOverlayPopup.show = !keyOverlayPopup.show;
+        }
         function updateColors(bg: string, fg: string, accent: string) {
             root.colBg     = bg;
             root.colFg     = fg;
             root.colAccent = accent;
         }
+        function lock() {
+            lockScreen.activate()
+        }
     }
 
+    LockScreen { id: lockScreen }
 }

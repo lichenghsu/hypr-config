@@ -45,6 +45,14 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "wl-present-menu",
+	match = { class = "^wl-present-menu$" },
+	float = true,
+	size = "480 260",
+	center = true,
+})
+
+hl.window_rule({
 	name = "blueberry",
 	match = { class = "blueberry.py" },
 	float = true,

@@ -41,6 +41,9 @@ hl.bind(mainMod .. " + CTRL + right", moveWindowToMonitor("eDP-1"))
 hl.bind("mouse:275", moveWindowToMonitor("HDMI-A-1"))
 hl.bind("mouse:276", moveWindowToMonitor("eDP-1"))
 hl.bind(mainMod .. " + CTRL + R",     hl.dsp.exec_cmd("/home/miles/.local/bin/wallpaper.sh --random"))
+-- Presentation mirroring (wl-present): SHIFT+P opens the TUI menu, SHIFT+F is a quick freeze toggle
+hl.bind(mainMod .. " + SHIFT + P", hl.dsp.exec_cmd("kitty --class wl-present-menu -e /home/miles/.config/hypr/scripts/present_menu.sh"))
+hl.bind(mainMod .. " + SHIFT + F", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_present_freeze.sh"))
 hl.bind("mouse:277", hl.dsp.window.close())
 local battery_mode = false
 hl.bind(mainMod .. " + B", function()

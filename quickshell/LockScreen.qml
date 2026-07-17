@@ -13,7 +13,7 @@ Scope {
     property int  intrusionPhase: 0
     property bool errorVisible: false
 
-    // 平常維持綠色主題，偶爾（約 1% 機率）短暫閃成橘色的彩蛋事件
+    // 平常維持綠色主題，偶爾（約 3% 機率）短暫閃成橘色的彩蛋事件
     property bool glitchOrange: false
     readonly property color primaryBright: glitchOrange ? "#FF6A00" : "#00ff41"
     readonly property color primaryMed: glitchOrange ? "#CC5500" : "#00cc44"
@@ -25,7 +25,7 @@ Scope {
         running: lockRoot.active && !lockRoot.authSuccess
         repeat: true
         onTriggered: {
-            if (!lockRoot.glitchOrange && Math.random() < 0.01) {
+            if (!lockRoot.glitchOrange && Math.random() < 0.03) {
                 lockRoot.glitchOrange = true
                 glitchOrangeRevertTimer.restart()
             }
