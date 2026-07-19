@@ -21,6 +21,15 @@ PanelWindow {
     property var dragWin: null
     property real dragGhostX: 0
     property real dragGhostY: 0
+    // Snapshot of wsGroups taken when a drag starts. wsGroups rebuilds from
+    // scratch (new arrays/objects) on every Hyprland.toplevels change, which
+    // makes the Repeater below tear down and recreate all thumbnail delegates
+    // - including the one currently grabbed by the mouse - so an unrelated
+    // window-list update mid-drag can silently hand the gesture off to
+    // whatever tile ends up under the cursor. Freezing the grid to this
+    // snapshot while dragging keeps delegate identity (and the mouse grab)
+    // stable until the drop completes.
+    property var dragSnapshot: null
 
     // 1. Helper to filter out helper/stray windows (like LINE's "explorer.exe")
     function isHiddenWindow(w) {
@@ -49,6 +58,10 @@ PanelWindow {
         }
         return result
     }
+
+    // Grid delegates bind to this instead of wsGroups directly, so the grid
+    // stays frozen (see dragSnapshot above) while a drag is in progress.
+    readonly property var displayWsGroups: (rootWindow.dragging && rootWindow.dragSnapshot) ? rootWindow.dragSnapshot : rootWindow.wsGroups
 
     // 3. Reactively updates the list of windows in the special workspace (scratchpad).
     readonly property var specialWindows: {
@@ -88,34 +101,23 @@ PanelWindow {
     }
 
     // 5. IPC Processes to safely dispatch commands to Hyprland via hyprctl.
+    // Quickshell's HyprlandToplevel.address omits the "0x" prefix that
+    // hyprctl's own address selectors require ("address:0x...") - without
+    // it, hl.get_window() silently returns nil (no error) and the dispatcher
+    // falls back to acting on whatever window currently has focus instead.
+    function hyprAddress(addr) {
+        return addr.indexOf("0x") === 0 ? addr : "0x" + addr
+    }
+
     Process { id: pMoveWs }
     function moveWindowToWorkspace(win, wsId) {
         if (!win || !win.address) return
-
-            let targetWs = wsId
-            // 檢查是否有外接螢幕
-            const hasExternal = Hyprland.monitors && Hyprland.monitors.values && Hyprland.monitors.values.length > 1
-
-            // 若無外接螢幕且嘗試移至 6-10，則自動降回 1-5
-            if (!hasExternal && wsId > 5) {
-                targetWs = wsId - 5
-            }
-
-            pMoveWs.command = ["hyprctl", "dispatch", "hl.dsp.window.move({workspace = " + targetWs + ", follow = false, window = hl.get_window(\"address:" + win.address + "\")})"]
+            pMoveWs.command = ["hyprctl", "dispatch", "hl.dsp.window.move({workspace = " + wsId + ", follow = false, window = hl.get_window(\"address:" + rootWindow.hyprAddress(win.address) + "\")})"]
             pMoveWs.running = true
     }
 
     Process { id: pFocusWs }
     function focusWorkspace(wsId) {
-
-        let targetWs = wsId
-
-        const hasExternal = Hyprland.monitors && Hyprland.monitors.values && Hyprland.monitors.values.length > 1
-
-        if (!hasExternal && wsId > 5) {
-            targetWs = wsId - 5
-        }
-
         pFocusWs.command = ["hyprctl", "dispatch", "hl.dsp.focus({workspace = " + wsId + "})"]
         pFocusWs.running = true
     }
@@ -123,7 +125,7 @@ PanelWindow {
     Process { id: pRestoreFocus }
     function restoreFocus() {
         if (!prevFocusAddr) return
-            pRestoreFocus.command = ["hyprctl", "dispatch", "hl.dsp.focus({window = hl.get_window(\"address:" + prevFocusAddr + "\")})"]
+            pRestoreFocus.command = ["hyprctl", "dispatch", "hl.dsp.focus({window = hl.get_window(\"address:" + rootWindow.hyprAddress(prevFocusAddr) + "\")})"]
             pRestoreFocus.running = true
             prevFocusAddr = ""
     }
@@ -150,6 +152,9 @@ PanelWindow {
             commitTimer.stop()
             contextMenu.close()
             rootWindow.restoreFocus()
+            rootWindow.dragging = false
+            rootWindow.dragWin = null
+            rootWindow.dragSnapshot = null
         }
     }
 
@@ -277,7 +282,7 @@ PanelWindow {
                 rowSpacing: 20
 
                 Repeater {
-                    model: rootWindow.wsGroups
+                    model: rootWindow.displayWsGroups
                     delegate: Rectangle {
                         id: wsCell
                         required property var modelData
@@ -323,41 +328,10 @@ PanelWindow {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: {
-                                    const hasExt = Hyprland.monitors && Hyprland.monitors.values.length > 1;
-                                    return (!hasExt && wsCell.modelData.wsId > 5) ? (wsCell.modelData.wsId - 5) : wsCell.modelData.wsId;
-                                }
+                                text: wsCell.modelData.wsId
                                 color: shellRoot ? shellRoot.colMuted : "#888"
                                 font.family: shellRoot ? shellRoot.fontFamily : "monospace"
                                 font.pixelSize: 30
-                            }
-
-                        }
-
-                        // Empty workspace state
-                        Item {
-                            anchors.fill: parent
-                            visible: wsCell.modelData.windows.length === 0
-
-                            Text {
-                                anchors.centerIn: parent
-                                // 若無外接螢幕，視覺上顯示對應的主螢幕工作區編號
-                                text: {
-                                    const hasExt = Hyprland.monitors && Hyprland.monitors.values.length > 1;
-                                    return (!hasExt && wsCell.modelData.wsId > 5) ? (wsCell.modelData.wsId - 5) : wsCell.modelData.wsId;
-                                }
-                                color: shellRoot ? shellRoot.colMuted : "#888"
-                                font.family: shellRoot ? shellRoot.fontFamily : "monospace"
-                                font.pixelSize: 30
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    rootWindow.prevFocusAddr = ""
-                                    rootWindow.show = false
-                                    rootWindow.focusWorkspace(wsCell.modelData.wsId)
-                                }
                             }
                         }
 
@@ -458,6 +432,7 @@ PanelWindow {
                                                             const dy = mouse.y - pressY
                                                             if (!didDrag && Math.sqrt(dx * dx + dy * dy) > 8) {
                                                                 didDrag = true
+                                                                rootWindow.dragSnapshot = rootWindow.wsGroups
                                                                 rootWindow.dragging = true
                                                                 rootWindow.dragWin = modelData
                                                             }
@@ -472,6 +447,7 @@ PanelWindow {
                                                             dragGhost.Drag.drop()
                                                             rootWindow.dragging = false
                                                             rootWindow.dragWin = null
+                                                            rootWindow.dragSnapshot = null
                                                         }
                                                     }
                                                     onClicked: (mouse) => {
@@ -691,11 +667,7 @@ PanelWindow {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: {
-                                    // 選單上的文字也對齊邏輯顯示
-                                    const hasExt = Hyprland.monitors && Hyprland.monitors.values.length > 1;
-                                    return (!hasExt && wsBtn.wsId > 5) ? (wsBtn.wsId - 5) : wsBtn.wsId;
-                                }
+                                text: wsBtn.wsId
                                 color: shellRoot ? shellRoot.colFg : "#fff"
                                 font.family: shellRoot ? shellRoot.fontFamily : "monospace"
                                 font.pixelSize: 11
