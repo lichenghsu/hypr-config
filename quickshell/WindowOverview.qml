@@ -23,94 +23,103 @@ PanelWindow {
     property real dragGhostY: 0
 
     // 1. Helper to filter out helper/stray windows (like LINE's "explorer.exe")
-    // these shouldn't be rendered as thumbnails in our workspace overview.
     function isHiddenWindow(w) {
-        var appId = (w.wayland && w.wayland.appId ? w.wayland.appId : "").toLowerCase()
-        var title = (w.title || "").toLowerCase()
-        return appId.indexOf("explorer.exe") !== -1 || title.indexOf("explorer.exe") !== -1
+        if (!w || !w.wayland) return true
+            const appId = (w.wayland.appId || "").toLowerCase()
+            const title = (w.title || "").toLowerCase()
+            return appId.indexOf("explorer.exe") !== -1 || title.indexOf("explorer.exe") !== -1
     }
 
-    // 2. Filters the global toplevels list for windows belonging to a specific normal workspace (1-10)
-    function windowsForWorkspace(wsId, toplevelsList) {
-        if (!toplevelsList) return []
-            var result = []
-            for (var i = 0; i < toplevelsList.length; i++) {
-                var w = toplevelsList[i]
-                if (!w.wayland || w.wayland.minimized) continue
-                    if (!w.workspace || w.workspace.id !== wsId) continue
-                        if (rootWindow.isHiddenWindow(w)) continue
-                            result.push(w)
-            }
-            return result
-    }
-
-    // 3. Reactively binds and groups windows into workspaces 1-10.
-    // Making this a 'readonly property' bound directly to 'Hyprland.toplevels.values' ensures
-    // QML updates this model automatically whenever windows open, close, or move.
+    // 2. Reactively binds and groups windows into workspaces 1-10.
+    // Using Array.filter for better performance and readability.
     readonly property var wsGroups: {
-        var list = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
-        var result = []
-        for (var wsId = 1; wsId <= 10; wsId++) {
+        const list = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : []
+        const result = []
+        for (let wsId = 1; wsId <= 10; wsId++) {
             result.push({
                 wsId: wsId,
-                windows: rootWindow.windowsForWorkspace(wsId, list)
+                windows: list.filter(w =>
+                w.workspace &&
+                w.workspace.id === wsId &&
+                w.wayland &&
+                !w.wayland.minimized &&
+                !rootWindow.isHiddenWindow(w)
+                )
             })
         }
         return result
     }
 
-    // 4. Reactively updates the list of windows in the special workspace (scratchpad).
-    // Note: Hyprland uses negative IDs (e.g., -99) for special/scratchpad workspaces.
+    // 3. Reactively updates the list of windows in the special workspace (scratchpad).
     readonly property var specialWindows: {
-        var list = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
-        var result = []
-        for (var i = 0; i < list.length; i++) {
-            var w = list[i]
-            if (!w.wayland || w.wayland.minimized) continue
-                if (!w.workspace || w.workspace.id >= 0) continue // Skip normal workspaces
-                    if (rootWindow.isHiddenWindow(w)) continue
-                        result.push(w)
-        }
-        return result
+        const list = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : []
+        return list.filter(w =>
+        w.workspace &&
+        w.workspace.id < 0 &&
+        w.wayland &&
+        !w.wayland.minimized &&
+        !rootWindow.isHiddenWindow(w)
+        )
     }
 
-    // 5. Splits a list of windows into rows that dynamically scale and stretch
-    // to fit the parent cell width, preventing single windows from expanding vertically.
+    // 4. Splits a list of windows into rows that dynamically scale and stretch
     function buildThumbRows(windows, cellW, cellH, maxItemH) {
-        var n = windows.length
+        const n = windows.length
         if (n === 0 || cellW <= 0 || cellH <= 0) return []
-            var targetRows = Math.min(n, Math.max(1, Math.ceil(cellH / maxItemH)))
-            var itemH = Math.min(maxItemH, cellH / targetRows)
-            var rows = []
-            var remaining = n
-            var idx = 0
-            for (var r = 0; r < targetRows; r++) {
-                var rowsLeft = targetRows - r
-                var countInRow = Math.ceil(remaining / rowsLeft)
-                rows.push({ items: windows.slice(idx, idx + countInRow), itemW: cellW / countInRow, itemH: itemH })
+
+            const targetRows = Math.min(n, Math.max(1, Math.ceil(cellH / maxItemH)))
+            const itemH = Math.min(maxItemH, cellH / targetRows)
+            const rows = []
+
+            let remaining = n
+            let idx = 0
+            for (let r = 0; r < targetRows; r++) {
+                const rowsLeft = targetRows - r
+                const countInRow = Math.ceil(remaining / rowsLeft)
+                rows.push({
+                    items: windows.slice(idx, idx + countInRow),
+                          itemW: cellW / countInRow,
+                          itemH: itemH
+                })
                 idx += countInRow
                 remaining -= countInRow
             }
             return rows
     }
 
-    // 6. IPC Processes to safely dispatch commands to Hyprland via hyprctl.
-    // Moving a window to another workspace silently (without switching user focus)
+    // 5. IPC Processes to safely dispatch commands to Hyprland via hyprctl.
     Process { id: pMoveWs }
     function moveWindowToWorkspace(win, wsId) {
         if (!win || !win.address) return
-            pMoveWs.command = ["hyprctl", "dispatch", "hl.dsp.window.move({workspace = " + wsId + ", follow = false, window = hl.get_window(\"address:" + win.address + "\")})"]
+
+            let targetWs = wsId
+            // 檢查是否有外接螢幕
+            const hasExternal = Hyprland.monitors && Hyprland.monitors.values && Hyprland.monitors.values.length > 1
+
+            // 若無外接螢幕且嘗試移至 6-10，則自動降回 1-5
+            if (!hasExternal && wsId > 5) {
+                targetWs = wsId - 5
+            }
+
+            pMoveWs.command = ["hyprctl", "dispatch", "hl.dsp.window.move({workspace = " + targetWs + ", follow = false, window = hl.get_window(\"address:" + win.address + "\")})"]
             pMoveWs.running = true
     }
 
-    // Focuses the chosen workspace
     Process { id: pFocusWs }
     function focusWorkspace(wsId) {
+
+        let targetWs = wsId
+
+        const hasExternal = Hyprland.monitors && Hyprland.monitors.values && Hyprland.monitors.values.length > 1
+
+        if (!hasExternal && wsId > 5) {
+            targetWs = wsId - 5
+        }
+
         pFocusWs.command = ["hyprctl", "dispatch", "hl.dsp.focus({workspace = " + wsId + "})"]
         pFocusWs.running = true
     }
 
-    // Restores keyboard focus to the window that was active before opening the overview overlay
     Process { id: pRestoreFocus }
     function restoreFocus() {
         if (!prevFocusAddr) return
@@ -119,25 +128,23 @@ PanelWindow {
             prevFocusAddr = ""
     }
 
-    // Switches focus to a specific window (native Quickshell handle, no hyprctl round-trip needed)
     function activateWindow(win) {
         if (!win || !win.wayland) return
             win.wayland.activate()
     }
 
-    // Resetting state and tracking focus when the overview window opens or closes
+    // 6. Resetting state and tracking focus when the overview window opens or closes
     onShowChanged: {
         if (show) {
             showSpecial = false
-            var fw = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1
-            // Clamp current workspace index between 0 and 9 (corresponds to workspaces 1-10)
+            const fw = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1
             selCell = Math.max(0, Math.min(9, fw - 1))
             prevFocusAddr = ""
+
             if (Hyprland.toplevels && Hyprland.toplevels.values) {
-                var list = Hyprland.toplevels.values
-                for (var i = 0; i < list.length; i++) {
-                    if (list[i].activated) { prevFocusAddr = list[i].address; break }
-                }
+                const list = Hyprland.toplevels.values
+                const activeWin = list.find(w => w.activated)
+                if (activeWin) prevFocusAddr = activeWin.address
             }
         } else {
             commitTimer.stop()
@@ -146,8 +153,6 @@ PanelWindow {
         }
     }
 
-    // Pause-to-commit: Switches to the selected cell automatically after
-    // keyboard navigation settles for a brief moment, eliminating the need to press Enter.
     Timer {
         id: commitTimer
         interval: 1000
@@ -155,18 +160,18 @@ PanelWindow {
         onTriggered: rootWindow.activateSelectedCell()
     }
 
-    // Keyboard cell selection navigation
     function moveSelCell(delta) {
         selCell = ((selCell + delta) % 10 + 10) % 10
         commitTimer.restart()
     }
 
-    // Confirms and executes the action on the selected workspace cell
     function activateSelectedCell() {
-        var cell = rootWindow.wsGroups[selCell]
+        const cell = rootWindow.wsGroups[selCell]
         if (!cell) return
+
             prevFocusAddr = "" // Target window selected, override restoreFocus
             rootWindow.show = false
+
             if (cell.windows.length > 0 && cell.windows[0].wayland) {
                 rootWindow.activateWindow(cell.windows[0])
             } else {
@@ -174,8 +179,8 @@ PanelWindow {
             }
     }
 
-    // 7. Window/Layer shell constraints (using overlay to capture shortcuts globally)
-    WlrLayershell.keyboardFocus: show ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    // 7. Window/Layer shell constraints
+    WlrLayershell.keyboardFocus: show ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "qs-overview"
     anchors.top: true
@@ -204,13 +209,12 @@ PanelWindow {
         Keys.onTabPressed: rootWindow.showSpecial = !rootWindow.showSpecial
         Keys.onBacktabPressed: rootWindow.showSpecial = !rootWindow.showSpecial
 
-        // Backdrop tint (dim effect)
+        // Backdrop tint
         Rectangle {
             anchors.fill: parent
             color: Qt.rgba(0, 0, 0, 0.05)
         }
 
-        // Click outside the panel to close
         MouseArea {
             anchors.fill: parent
             onClicked: rootWindow.show = false
@@ -227,10 +231,9 @@ PanelWindow {
             border.color: Qt.rgba(1, 0.42, 0, 0.5)
             border.width: 1
 
-            // Prevent backdrop mouse area from stealing clicks on the panel
             MouseArea { anchors.fill: parent }
 
-            // Special Workspace Toggle Button (Top-Right)
+            // Special Workspace Toggle Button
             Rectangle {
                 id: pinBtn
                 z: 5
@@ -263,7 +266,7 @@ PanelWindow {
                 }
             }
 
-            // Normal Workspaces Layout (1 to 10 in a 5x2 grid)
+            // Normal Workspaces Layout
             GridLayout {
                 visible: !rootWindow.showSpecial
                 anchors.fill: parent
@@ -275,12 +278,12 @@ PanelWindow {
 
                 Repeater {
                     model: rootWindow.wsGroups
-
                     delegate: Rectangle {
                         id: wsCell
                         required property var modelData
                         required property int index
                         property bool dropHighlight: false
+
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: 0
@@ -292,7 +295,15 @@ PanelWindow {
                         : rootWindow.selCell === index ? "#ffffff" : Qt.rgba(1, 1, 1, 0.10)
                         border.width: wsCell.dropHighlight || rootWindow.selCell === index ? 2 : 1
 
-                        // Accepts a dropped thumbnail (rootWindow.dragWin) and moves that window here.
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                rootWindow.prevFocusAddr = ""
+                                rootWindow.show = false
+                                rootWindow.focusWorkspace(wsCell.modelData.wsId)
+                            }
+                        }
+
                         DropArea {
                             anchors.fill: parent
                             onEntered: wsCell.dropHighlight = true
@@ -305,14 +316,36 @@ PanelWindow {
                             }
                         }
 
-                        // Render empty workspace state (just display the workspace number)
+                        // Empty workspace state
                         Item {
                             anchors.fill: parent
                             visible: wsCell.modelData.windows.length === 0
 
                             Text {
                                 anchors.centerIn: parent
-                                text: wsCell.modelData.wsId
+                                text: {
+                                    const hasExt = Hyprland.monitors && Hyprland.monitors.values.length > 1;
+                                    return (!hasExt && wsCell.modelData.wsId > 5) ? (wsCell.modelData.wsId - 5) : wsCell.modelData.wsId;
+                                }
+                                color: shellRoot ? shellRoot.colMuted : "#888"
+                                font.family: shellRoot ? shellRoot.fontFamily : "monospace"
+                                font.pixelSize: 30
+                            }
+
+                        }
+
+                        // Empty workspace state
+                        Item {
+                            anchors.fill: parent
+                            visible: wsCell.modelData.windows.length === 0
+
+                            Text {
+                                anchors.centerIn: parent
+                                // 若無外接螢幕，視覺上顯示對應的主螢幕工作區編號
+                                text: {
+                                    const hasExt = Hyprland.monitors && Hyprland.monitors.values.length > 1;
+                                    return (!hasExt && wsCell.modelData.wsId > 5) ? (wsCell.modelData.wsId - 5) : wsCell.modelData.wsId;
+                                }
                                 color: shellRoot ? shellRoot.colMuted : "#888"
                                 font.family: shellRoot ? shellRoot.fontFamily : "monospace"
                                 font.pixelSize: 30
@@ -328,7 +361,7 @@ PanelWindow {
                             }
                         }
 
-                        // Render occupied workspace state (displaying live preview thumbnails)
+                        // Occupied workspace state
                         Item {
                             id: thumbArea
                             visible: wsCell.modelData.windows.length > 0
@@ -369,12 +402,12 @@ PanelWindow {
                                                 : Qt.rgba(1, 1, 1, 0.16)
                                                 border.width: modelData.activated ? 2 : 1
 
-                                                // Wayland Screencopy view for live window thumbnails
+                                                // 效能優化：僅在面板顯示時啟用 live 擷取
                                                 ScreencopyView {
                                                     id: scv
                                                     captureSource: modelData.wayland
-                                                    live: false
-                                                    enabled: false
+                                                    live: rootWindow.show
+                                                    enabled: rootWindow.show
 
                                                     readonly property real srcAspect: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : (thumb.width / thumb.height)
                                                     readonly property real dstAspect: thumb.width / thumb.height
@@ -384,8 +417,6 @@ PanelWindow {
                                                     height: srcAspect > dstAspect ? thumb.height : thumb.width / srcAspect
                                                 }
 
-                                                // App icon badge (bottom-left), gives each thumbnail a
-                                                // clear identity beyond the raw screencopy content.
                                                 Rectangle {
                                                     z: 5
                                                     visible: thumb.width > 60 && thumb.height > 44
@@ -423,15 +454,15 @@ PanelWindow {
                                                     }
                                                     onPositionChanged: (mouse) => {
                                                         if (mouse.buttons !== Qt.LeftButton) return
-                                                            var dx = mouse.x - pressX
-                                                            var dy = mouse.y - pressY
+                                                            const dx = mouse.x - pressX
+                                                            const dy = mouse.y - pressY
                                                             if (!didDrag && Math.sqrt(dx * dx + dy * dy) > 8) {
                                                                 didDrag = true
                                                                 rootWindow.dragging = true
                                                                 rootWindow.dragWin = modelData
                                                             }
                                                             if (rootWindow.dragging) {
-                                                                var gp = thumbMa.mapToItem(overviewRoot, mouse.x, mouse.y)
+                                                                const gp = thumbMa.mapToItem(overviewRoot, mouse.x, mouse.y)
                                                                 rootWindow.dragGhostX = gp.x
                                                                 rootWindow.dragGhostY = gp.y
                                                             }
@@ -445,14 +476,14 @@ PanelWindow {
                                                     }
                                                     onClicked: (mouse) => {
                                                         if (didDrag) { didDrag = false; return }
-                                                            if (mouse.button === Qt.RightButton) {
-                                                                var pos = thumb.mapToItem(overviewRoot, mouse.x, mouse.y)
-                                                                contextMenu.openFor(modelData, pos)
-                                                            } else {
-                                                                rootWindow.prevFocusAddr = ""
-                                                                rootWindow.show = false
-                                                                rootWindow.activateWindow(modelData)
-                                                            }
+                                                        if (mouse.button === Qt.RightButton) {
+                                                            const pos = thumb.mapToItem(overviewRoot, mouse.x, mouse.y)
+                                                            contextMenu.openFor(modelData, pos)
+                                                        } else {
+                                                            rootWindow.prevFocusAddr = ""
+                                                            rootWindow.show = false
+                                                            rootWindow.activateWindow(modelData)
+                                                        }
                                                     }
                                                 }
                                             }
@@ -461,9 +492,6 @@ PanelWindow {
                                 }
                             }
 
-                            // Dot visual feedback to mark the currently focused workspace.
-                            // Placed top-right (icon badges occupy bottom-left) with a white ring
-                            // so it stays visible against any thumbnail content.
                             Rectangle {
                                 z: 6
                                 visible: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === wsCell.modelData.wsId
@@ -510,11 +538,12 @@ PanelWindow {
                             : Qt.rgba(1, 1, 1, 0.12)
                             border.width: 1
 
+                            // 效能優化
                             ScreencopyView {
                                 id: specScv
                                 captureSource: modelData.wayland
-                                live: false
-                                enabled: false
+                                live: rootWindow.show
+                                enabled: rootWindow.show
 
                                 readonly property real srcAspect: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : (specThumb.width / specThumb.height)
                                 readonly property real dstAspect: specThumb.width / specThumb.height
@@ -529,7 +558,7 @@ PanelWindow {
                                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                                 onClicked: (mouse) => {
                                     if (mouse.button === Qt.RightButton) {
-                                        var pos = specThumb.mapToItem(overviewRoot, mouse.x, mouse.y)
+                                        const pos = specThumb.mapToItem(overviewRoot, mouse.x, mouse.y)
                                         contextMenu.openFor(modelData, pos)
                                     } else {
                                         rootWindow.prevFocusAddr = ""
@@ -542,7 +571,6 @@ PanelWindow {
                     }
                 }
 
-                // Empty Special Workspace notice
                 Text {
                     visible: rootWindow.specialWindows.length === 0
                     anchors.centerIn: parent
@@ -554,7 +582,7 @@ PanelWindow {
             }
         }
 
-        // Floating ghost thumbnail shown while dragging a window onto another workspace cell
+        // Floating ghost thumbnail
         Rectangle {
             id: dragGhost
             z: 200
@@ -574,7 +602,7 @@ PanelWindow {
             Drag.hotSpot.y: height / 2
         }
 
-        // Right-Click Context Menu (For closing and moving windows)
+        // Right-Click Context Menu
         Rectangle {
             id: contextMenu
             z: 100
@@ -607,7 +635,6 @@ PanelWindow {
                 anchors.margins: 8
                 spacing: 4
 
-                // Option: Close Window
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 32
@@ -645,7 +672,6 @@ PanelWindow {
                     Layout.topMargin: 4
                 }
 
-                // Grid Flow of buttons (Workspaces 1 to 10) for window redirection
                 Flow {
                     Layout.fillWidth: true
                     spacing: 4
@@ -665,7 +691,11 @@ PanelWindow {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: wsBtn.wsId
+                                text: {
+                                    // 選單上的文字也對齊邏輯顯示
+                                    const hasExt = Hyprland.monitors && Hyprland.monitors.values.length > 1;
+                                    return (!hasExt && wsBtn.wsId > 5) ? (wsBtn.wsId - 5) : wsBtn.wsId;
+                                }
                                 color: shellRoot ? shellRoot.colFg : "#fff"
                                 font.family: shellRoot ? shellRoot.fontFamily : "monospace"
                                 font.pixelSize: 11

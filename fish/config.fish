@@ -41,3 +41,6 @@ abbr -a gp 'git push'
 
 # Added by Antigravity CLI installer
 set -gx PATH "/home/miles/.local/bin" $PATH
+
+# Krew 
+set -gx PATH $PATH $HOME/.krew/bin

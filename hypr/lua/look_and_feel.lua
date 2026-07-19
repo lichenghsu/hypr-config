@@ -51,6 +51,10 @@ hl.config({
         background_color        = 0x000000,
         animate_manual_resizes  = true,
         vrr                     = 1,
+        col = {
+            splash = "rgba(ff6a00ff)",
+        },
+        splash_font_family = "JetBrainsMono Nerd Font",
     },
     xwayland = { force_zero_scaling = true },
     cursor = {
