@@ -5,7 +5,10 @@ DEBUG_LOG="/tmp/present-menu-debug.log"
 echo "[$(date '+%H:%M:%S')] script started, args: $*" >> "$DEBUG_LOG"
 
 MIRROR_OUTPUT="eDP-1"
-PRESENT_OUTPUT="HDMI-A-1"
+# Port names change depending on which cable/port the external monitor is
+# plugged into (HDMI-A-1 vs DP-1 etc.), so detect it by "not the laptop
+# panel" rather than hardcoding a specific port name.
+PRESENT_OUTPUT=$(hyprctl monitors -j | jq -r --arg laptop "$MIRROR_OUTPUT" '[.[] | select(.name != $laptop)][0].name // $laptop')
 PIPE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pipectl.1000.wl-present.pipe"
 
 # A previous mirror session killed with Ctrl+C (instead of Stop Mirror) leaves

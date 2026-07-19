@@ -29,17 +29,34 @@ hl.bind(mainMod .. " + SHIFT + F12", hl.dsp.exec_cmd("brightnessctl s 0"))
 hl.bind("XF86Launch1", hl.dsp.exec_cmd(p.rog))
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_theme.sh"))
 hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_wallpaper.sh"))
--- Move focused window to the other monitor's active workspace
-local function moveWindowToMonitor(monitor)
+-- Move focused window to the other monitor's active workspace.
+-- Port names change depending on which cable/port the external monitor is
+-- plugged into (HDMI-A-1 vs DP-1 etc.), so detect it by "not the laptop
+-- panel" rather than hardcoding a specific port name (see workspaces.lua).
+local LAPTOP_MONITOR = "eDP-1"
+local function find_external_monitor()
+    for _, m in ipairs(hl.get_monitors()) do
+        if m.name ~= LAPTOP_MONITOR then
+            return m.name
+        end
+    end
+    return nil
+end
+
+local function moveWindowToMonitor(getMonitor)
     return function()
-        hl.dispatch(hl.dsp.window.move({ workspace = hl.get_active_workspace(monitor) }))
+        local monitor = getMonitor()
+        if not monitor then return end
+        local ws = hl.get_active_workspace(monitor)
+        if not ws then return end
+        hl.dispatch(hl.dsp.window.move({ workspace = ws }))
     end
 end
-hl.bind(mainMod .. " + CTRL + left",  moveWindowToMonitor("HDMI-A-1"))
-hl.bind(mainMod .. " + CTRL + right", moveWindowToMonitor("eDP-1"))
+hl.bind(mainMod .. " + CTRL + left",  moveWindowToMonitor(find_external_monitor))
+hl.bind(mainMod .. " + CTRL + right", moveWindowToMonitor(function() return LAPTOP_MONITOR end))
 -- M4/M5 side buttons mirror the same action (adjust codes below if these aren't your M4/M5)
-hl.bind("mouse:275", moveWindowToMonitor("HDMI-A-1"))
-hl.bind("mouse:276", moveWindowToMonitor("eDP-1"))
+hl.bind("mouse:275", moveWindowToMonitor(find_external_monitor))
+hl.bind("mouse:276", moveWindowToMonitor(function() return LAPTOP_MONITOR end))
 hl.bind(mainMod .. " + CTRL + R",     hl.dsp.exec_cmd("/home/miles/.local/bin/wallpaper.sh --random"))
 -- Presentation mirroring (wl-present): SHIFT+P opens the TUI menu, SHIFT+F is a quick freeze toggle
 hl.bind(mainMod .. " + SHIFT + P", hl.dsp.exec_cmd("kitty --class wl-present-menu -e /home/miles/.config/hypr/scripts/present_menu.sh"))

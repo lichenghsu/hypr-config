@@ -204,6 +204,14 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "filezilla",
+	match = { class = "^filezilla$" },
+	float = true,
+	size = "850 650",
+	center = true,
+})
+
+hl.window_rule({
 	name = "firefox",
 	match = { class = "^org.mozilla.firefox$" },
 	float = false,
@@ -239,11 +247,30 @@ hl.window_rule({
 
 -- AnyDesk's renderer breaks on the HiDPI primary panel (eDP-1, scale 2.0),
 -- but renders correctly on the 1.0-scale external monitor, so pin it there.
-hl.window_rule({
-	name = "anydesk-monitor",
-	match = { class = "anydesk" },
-	monitor = "HDMI-A-1",
-})
+-- Port names change depending on which cable/port the external monitor is
+-- plugged into (HDMI-A-1 vs DP-1 etc.), so detect it by "not the laptop
+-- panel" rather than hardcoding a specific port name (see workspaces.lua).
+local LAPTOP_MONITOR = "eDP-1"
+local function find_external_monitor()
+	for _, m in ipairs(hl.get_monitors()) do
+		if m.name ~= LAPTOP_MONITOR then
+			return m.name
+		end
+	end
+	return nil
+end
+
+local function apply_anydesk_monitor_rule()
+	hl.window_rule({
+		name = "anydesk-monitor",
+		match = { class = "anydesk" },
+		monitor = find_external_monitor() or LAPTOP_MONITOR,
+	})
+end
+
+apply_anydesk_monitor_rule()
+hl.on("monitor.added", apply_anydesk_monitor_rule)
+hl.on("monitor.removed", apply_anydesk_monitor_rule)
 
 -- VMS is an Xwayland app; Xwayland can only broadcast one global DPI
 -- (matching the primary monitor), so pin it to eDP-1 to avoid rendering
