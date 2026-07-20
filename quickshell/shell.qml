@@ -113,6 +113,7 @@ ShellRoot {
     }
     Process { id: pPresentMenu; command: ["kitty", "--class", "wl-present-menu", "-e", "/home/miles/.config/hypr/scripts/present_menu.sh"] }
     Process { id: pPresentToggleFreeze; command: ["wl-present", "toggle-freeze"] }
+    Process { id: pCopyNotif }
 
     // kubectl 叢集狀態：輪詢 kubeconfig 裡「所有」context 及其各自的節點明細，
     // 每個 context 各自 timeout，VPN 斷線的 context 不會卡住其他的。
@@ -326,6 +327,12 @@ ShellRoot {
     readonly property var romanNumerals: ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
     function toRoman(n) {
         return root.romanNumerals[n] || n;
+    }
+
+    function copyNotifText(summary, body) {
+        var text = body && body.length > 0 ? summary + "\n" + body : summary;
+        pCopyNotif.command = ["wl-copy", text];
+        pCopyNotif.running = true;
     }
 
     // Click Actions
@@ -1381,6 +1388,16 @@ PopupWindow {
                         }
                         Item { Layout.fillWidth: true }
                         Text {
+                            text: "[COPY]"
+                            color: root.colMuted
+                            font { family: root.fontFamily; pixelSize: root.fontSize + 1; bold: true }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.copyNotifText(notifCard.modelData.summary, notifCard.modelData.body)
+                            }
+                        }
+                        Text {
                             text: "[X]"
                             color: root.colMuted
                             font { family: root.fontFamily; pixelSize: root.fontSize + 2; bold: true }
@@ -1711,6 +1728,16 @@ PopupWindow {
                                 text: modelData.time
                                 color: "#3DDC84"
                                 font { family: root.fontFamily; pixelSize: root.fontSize }
+                            }
+                            Text {
+                                text: "[COPY]"
+                                color: root.colMuted
+                                font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.copyNotifText(modelData.summary, modelData.body)
+                                }
                             }
                         }
                         Text {
