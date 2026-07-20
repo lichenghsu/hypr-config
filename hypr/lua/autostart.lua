@@ -34,7 +34,7 @@ hl.on("hyprland.start", function ()
   hl.timer(function()
       hl.exec_cmd("keepassxc")
       hl.exec_cmd("kontact")
-      hl.exec_cmd("obsidian --no-sandbox")
+      hl.exec_cmd("/home/miles/.local/bin/obsidian --no-sandbox")
   end, { timeout = 3000, type = "oneshot" })
 
   hl.timer(function()
