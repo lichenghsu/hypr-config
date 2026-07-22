@@ -11,6 +11,6 @@ programs.browser = "firefox"
 programs.powermenu = "/home/miles/.local/bin/smart_powermenu.sh"
 programs.lock = "/home/miles/.local/bin/qs-lock"
 programs.note = "obsidian"
-programs.dock = ""
+programs.dock = "/home/miles/.local/bin/smart_dock.sh"
 
 return programs

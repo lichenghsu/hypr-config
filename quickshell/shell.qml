@@ -46,8 +46,8 @@ ShellRoot {
         pPresentToggleFreeze.running = true;
     }
 
-    property bool isAnyPopupOpen: controlCenter.show || appLauncherPopup.show || clipboardManagerPopup.show || themeSwitcherPopup.show || wifiMenuPopup.show || powerMenuPopup.show || bluetoothMenuPopup.show || wallpaperPickerPopup.show
-    property bool isAnyPopupAnimActive: isAnyPopupOpen || controlCenter.animHeight > 36 || appLauncherPopup.animHeight > 36 || clipboardManagerPopup.animHeight > 36 || themeSwitcherPopup.animHeight > 36 || wifiMenuPopup.animHeight > 36 || powerMenuPopup.animHeight > 36 || bluetoothMenuPopup.animHeight > 36 || wallpaperPickerPopup.animHeight > 36
+    property bool isAnyPopupOpen: controlCenter.show || appLauncherPopup.show || clipboardManagerPopup.show || themeSwitcherPopup.show || wifiMenuPopup.show || powerMenuPopup.show || bluetoothMenuPopup.show || wallpaperPickerPopup.show || dockPopup.show
+    property bool isAnyPopupAnimActive: isAnyPopupOpen || controlCenter.animHeight > 36 || appLauncherPopup.animHeight > 36 || clipboardManagerPopup.animHeight > 36 || themeSwitcherPopup.animHeight > 36 || wifiMenuPopup.animHeight > 36 || powerMenuPopup.animHeight > 36 || bluetoothMenuPopup.animHeight > 36 || wallpaperPickerPopup.animHeight > 36 || dockPopup.animHeight > 36
 
     // 1. monitor of CPU、RAM and SWAP
     Process {
@@ -3433,6 +3433,11 @@ PopupWindow {
         shellRoot: root
     }
 
+    Dock {
+        id: dockPopup
+        shellRoot: root
+    }
+
     ClipboardManager {
         id: clipboardManagerPopup
         shellRoot: root
@@ -3486,6 +3491,9 @@ PopupWindow {
         }
         function toggleAppLauncher() {
             appLauncherPopup.show = !appLauncherPopup.show;
+        }
+        function toggleDock() {
+            dockPopup.show = !dockPopup.show;
         }
         function togglePowerMenu() {
             powerMenuPopup.show = !powerMenuPopup.show;
