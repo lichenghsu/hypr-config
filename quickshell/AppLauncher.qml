@@ -92,9 +92,9 @@ PanelWindow {
         if (listView.currentIndex < 0 || listView.currentIndex >= model.count) return;
         var item = model.get(listView.currentIndex);
         if (activeTab === "apps") {
-            pExec.command = ["sh", "-c", item.exec + " &"];
+            pExec.command = ["sh", "-c", item.exec + " > /dev/null 2>&1 &"];
         } else {
-            pExec.command = ["sh", "-c", "xdg-open " + JSON.stringify(item.path) + " &"];
+            pExec.command = ["sh", "-c", "xdg-open " + JSON.stringify(item.path) + " > /dev/null 2>&1 &"];
         }
         pExec.running = true;
         show = false;
