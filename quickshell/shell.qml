@@ -349,8 +349,8 @@ ShellRoot {
     Process { id: pWifiOff; command: ["nmcli", "radio", "wifi", "off"] }
     Process { id: pBtOn; command: ["rfkill", "unblock", "bluetooth"] }
     Process { id: pBtOff; command: ["rfkill", "block", "bluetooth"] }
-    Process { id: pVpnUp }
     Process { id: pVpnDown }
+    Process { id: pVpnAsk }
 
     Process {
         id: pGetDefaultSink
@@ -2774,9 +2774,15 @@ PopupWindow {
                                         root.vpnDisconnectTarget = model.name;
                                     } else {
                                         root.vpnDisconnectTarget = "";
+
+                                        // Fortinet VPN 用動態表單登入，NetworkManager 每次連線
+                                        // 都得即時跟 secret agent 要新的表單欄位，預存的值沒用，
+                                        // 所以一律走終端機彈窗互動輸入 (nmcli --ask)
+                                        var vpnName = model.name.replace(/'/g, "'\\''");
                                         vpnModel.setProperty(index, "connecting", true);
-                                        pVpnUp.command = ["nmcli", "con", "up", model.name];
-                                        pVpnUp.running = true;
+                                        pVpnAsk.command = ["kitty", "--class", "wl-vpn-auth", "-e", "sh", "-c",
+                                            "nmcli --ask connection up '" + vpnName + "'; echo; read -p 'Press Enter to close...'"];
+                                        pVpnAsk.running = true;
                                     }
                                 }
                                 onMainClicked: iconClicked()
@@ -3423,6 +3429,36 @@ PopupWindow {
         }
     }
 
+    // ── 識別證彈出視窗 ──
+    PopupWindow {
+        id: idCardPopup
+        property bool show: false
+        grabFocus: show
+        visible: show
+
+        HyprlandFocusGrab {
+            id: idCardFocusGrab
+            windows: [idCardPopup]
+            active: idCardPopup.show
+            onCleared: () => idCardPopup.show = false
+        }
+
+        anchor {
+            window: root
+            // 修改為 2 倍大後的置中計算方式 (680x1080)
+            rect: Qt.rect((root.width - 680) / 2, (root.height - 1080) / 2, 680, 1080)
+            edges: Edges.Top | Edges.Left
+            gravity: Edges.Bottom | Edges.Right
+        }
+        color: "transparent"
+        implicitWidth: 680
+        implicitHeight: 1080
+
+        IdCard {
+            anchors.fill: parent
+        }
+    }
+
     PowerMenu {
         id: powerMenuPopup
         shellRoot: root
@@ -3539,6 +3575,10 @@ PopupWindow {
         }
         function lock() {
             lockScreen.activate()
+        }
+        // id card
+        function toggleIdCard() {
+            idCardPopup.show = !idCardPopup.show;
         }
     }
 

@@ -31,6 +31,24 @@ PanelWindow {
     // stable until the drop completes.
     property var dragSnapshot: null
 
+    readonly property var iconOverrides: ({
+        "dev.zed.zed": "file:///home/miles/.local/zed.app/share/icons/hicolor/512x512/apps/zed.png",
+        "zed": "file:///home/miles/.local/zed.app/share/icons/hicolor/512x512/apps/zed.png"
+    })
+
+    function resolveIcon(appId) {
+        if (!appId) return Quickshell.iconPath("", "application-x-executable")
+
+            const key = appId.toLowerCase()
+            // 如果在覆寫清單內，直接回傳指定路徑
+            if (iconOverrides[key]) {
+                return iconOverrides[key]
+            }
+
+            // 否則使用系統預設圖示搜尋
+            return Quickshell.iconPath(appId, "application-x-executable")
+    }
+
     // 1. Helper to filter out helper/stray windows (like LINE's "explorer.exe")
     function isHiddenWindow(w) {
         if (!w || !w.wayland) return true
@@ -406,10 +424,8 @@ PanelWindow {
                                                         id: iconImg
                                                         anchors.centerIn: parent
                                                         implicitSize: 20
-                                                        source: Quickshell.iconPath(
-                                                            modelData.wayland ? modelData.wayland.appId : "",
-                                                            "application-x-executable"
-                                                        )
+                                                        // 使用剛才建立的 resolveIcon 函式
+                                                        source: rootWindow.resolveIcon(modelData.wayland ? modelData.wayland.appId : "")
                                                     }
                                                 }
 

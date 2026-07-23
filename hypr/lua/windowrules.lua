@@ -40,6 +40,14 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "wl-vpn-auth",
+	match = { class = "^wl-vpn-auth$" },
+	float = true,
+	size = "640 400",
+	center = true,
+})
+
+hl.window_rule({
 	name = "blueberry",
 	match = { class = "blueberry.py" },
 	float = true,
@@ -104,7 +112,7 @@ hl.window_rule({
 	name = "keepassxc",
 	match = { class = "org.keepassxc.KeePassXC" },
 	float = true,
-	size = "900 600",
+	size = "1200 600",
 	center = true,
 	workspace = "special:keepass silent",
 })
