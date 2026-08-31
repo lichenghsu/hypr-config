@@ -3,3 +3,4 @@
 .DS_Store
 *.swp
 hypr/wallpaper/ml4w/
+__pycache__/

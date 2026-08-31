@@ -15,12 +15,13 @@ PanelWindow {
 
     readonly property var pinnedApps: [
         { name: "Firefox", exec: "firefox", icon: "org.mozilla.FirefoxDevEdition" },
-        { name: "tabularis", exec: "/usr/bin/tabularis", icon: "tabularis" },
+        { name: "Brave", exec: "/usr/bin/brave-browser-stable", icon: "brave-browser" },
+        { name: "Tabularis", exec: "/usr/bin/tabularis", icon: "tabularis" },
         { name: "Discord", exec: "/usr/bin/discord", icon: "discord" },
         { name: "Zed", exec: "/home/miles/.local/zed.app/bin/zed", icon: "/home/miles/.local/zed.app/share/icons/hicolor/512x512/apps/zed.png" },
-        { name: "Brave", exec: "/usr/bin/brave-browser-stable", icon: "brave-browser" },
         { name: "Virtual Machine Manager", exec: "virt-manager", icon: "virt-manager" },
-        { name: "Dolphin", exec: "dolphin", icon: "org.kde.dolphin"}
+        { name: "Dolphin", exec: "dolphin", icon: "org.kde.dolphin"},
+        { name: "Remmina", exec: "remmina", icon: "remmina"}
     ]
 
     function iconSource(icon) {

@@ -40,7 +40,7 @@ PanelWindow {
         focus: show
         Keys.onEscapePressed: show = false
         Keys.onLeftPressed: selectedIndex = Math.max(0, selectedIndex - 1)
-        Keys.onRightPressed: selectedIndex = Math.min(4, selectedIndex + 1)
+        Keys.onRightPressed: selectedIndex = Math.min(5, selectedIndex + 1)
         Keys.onReturnPressed: {
             show = false;
             if (selectedIndex === 0) pShutdown.running = true;
@@ -48,6 +48,7 @@ PanelWindow {
             else if (selectedIndex === 2) pLock.running = true;
             else if (selectedIndex === 3) pSuspend.running = true;
             else if (selectedIndex === 4) pLogout.running = true;
+            else if (selectedIndex === 5) pTextMode.running = true;
         }
         
         MouseArea {
@@ -148,6 +149,16 @@ PanelWindow {
                     Text { anchors.centerIn: parent; text: "LOGOUT"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 10; font.bold: true; font.letterSpacing: 1 }
                     MouseArea { id: loMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pLogout.running = true } }
                 }
+                // Text Mode (drop to multi-user.target, reverts on next reboot)
+                Rectangle {
+                    width: 92; height: 48; radius: 0
+                    border.color: Qt.rgba(1, 0.42, 0, 0.5); border.width: 1
+                    color: (tmMouse.containsMouse || selectedIndex === 5) ? Qt.rgba(0.2, 0.7, 0.7, 0.8) : Qt.rgba(1, 1, 1, 0.1)
+                    scale: (tmMouse.containsMouse || selectedIndex === 5) ? 1.1 : 1.0
+                    Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150 } }
+                    Text { anchors.centerIn: parent; text: "TEXT MODE"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 9; font.bold: true; font.letterSpacing: 1 }
+                    MouseArea { id: tmMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pTextMode.running = true } }
+                }
                 }
             }
         }
@@ -158,4 +169,5 @@ PanelWindow {
     Process { id: pLock; command: ["/home/miles/.local/bin/qs-lock"] }
     Process { id: pSuspend; command: ["systemctl", "suspend"] }
     Process { id: pLogout; command: ["pkill", "-x", "Hyprland"] }
+    Process { id: pTextMode; command: ["/home/miles/.local/bin/qs-textmode"] }
 }

@@ -1,36 +1,51 @@
-
--- Pin workspaces 1-5 to the laptop panel, 6-10 to the external monitor,
--- so numbered workspaces stop jumping between monitors on focus/creation.
--- When no external monitor is plugged in, 6-10 fall back to the laptop panel
--- too, instead of staying pinned to a disconnected output.
 local LAPTOP_MONITOR = "eDP-1"
 
--- Port names change depending on which cable/port the external monitor is
--- plugged into (HDMI-A-1 vs DP-1 etc.), so detect it by "not the laptop
--- panel" rather than hardcoding a specific port name.
 local function find_external_monitor()
-    for _, m in ipairs(hl.get_monitors()) do
-        if m.name ~= LAPTOP_MONITOR then
-            return m.name
+for _, m in ipairs(hl.get_monitors()) do
+    if m.name ~= LAPTOP_MONITOR then
+        return m
         end
-    end
-    return nil
-end
+        end
+        return nil
+        end
 
-local function apply_workspace_monitor_rules()
-    local secondHalf = find_external_monitor() or LAPTOP_MONITOR
-    hl.workspace_rule({ workspace = "1",  monitor = LAPTOP_MONITOR, persistent = true })
-    hl.workspace_rule({ workspace = "2",  monitor = LAPTOP_MONITOR, persistent = true, layout_opts = { direction = "right" } })
-    hl.workspace_rule({ workspace = "3",  monitor = LAPTOP_MONITOR, persistent = true })
-    hl.workspace_rule({ workspace = "4",  monitor = LAPTOP_MONITOR, persistent = true })
-    hl.workspace_rule({ workspace = "5",  monitor = LAPTOP_MONITOR, persistent = true })
-    hl.workspace_rule({ workspace = "6",  monitor = secondHalf, persistent = true })
-    hl.workspace_rule({ workspace = "7",  monitor = secondHalf, persistent = true })
-    hl.workspace_rule({ workspace = "8",  monitor = secondHalf, persistent = true })
-    hl.workspace_rule({ workspace = "9",  monitor = secondHalf, persistent = true })
-    hl.workspace_rule({ workspace = "10", monitor = secondHalf, persistent = true })
-end
+        local function apply_workspace_monitor_rules()
+        local external = find_external_monitor()
 
-apply_workspace_monitor_rules()
-hl.on("monitor.added", apply_workspace_monitor_rules)
-hl.on("monitor.removed", apply_workspace_monitor_rules)
+        -- Assign workspaces 1–5 to the internal laptop screen
+        for i = 1, 5 do
+            hl.workspace_rule({
+                workspace = tostring(i),
+                              monitor = LAPTOP_MONITOR,
+                              persistent = true,
+            })
+            end
+
+            -- Assign workspaces 6–10 to the external screen (or fallback to laptop screen)
+            local target_monitor = external and external.name or LAPTOP_MONITOR
+            for i = 6, 10 do
+                hl.workspace_rule({
+                    workspace = tostring(i),
+                                  monitor = target_monitor,
+                                  persistent = true,
+                })
+                end
+
+                -- Handling for external monitor presence
+                if external then
+                    local ws = hl.get_active_workspace(external)
+                    -- If an out-of-range workspace (> 10) was created on the external display, switch focus to workspace 6
+                    if ws and ws.id > 10 then
+                        hl.dispatch(
+                            hl.dsp.focus({ workspace = 6 })
+                        )
+                        end
+                        end
+                        end
+
+                        -- Apply rules immediately on startup
+                        apply_workspace_monitor_rules()
+
+                        -- Re-apply dynamic rules on hotplug events
+                        hl.on("monitor.added", apply_workspace_monitor_rules)
+                        hl.on("monitor.removed", apply_workspace_monitor_rules)

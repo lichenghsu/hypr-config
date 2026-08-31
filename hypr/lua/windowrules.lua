@@ -83,9 +83,9 @@ hl.window_rule({
 	name = "line-main",
 	match = { class = "line.exe" },
 	float = true,
-	size = "1882 1170",
 	center = true,
 	workspace = "special:line silent",
+	size = "100% 100%",
 })
 
 hl.window_rule({
@@ -112,7 +112,7 @@ hl.window_rule({
 	name = "keepassxc",
 	match = { class = "org.keepassxc.KeePassXC" },
 	float = true,
-	size = "1200 600",
+	size = "1200 800",
 	center = true,
 	workspace = "special:keepass silent",
 })
@@ -233,6 +233,14 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "kate",
+	match = { class = "^org.kde.kate$" },
+	float = true,
+	size = "1682 970",
+	center = true,
+})
+
+hl.window_rule({
 	name = "openconnect-auth",
 	match = { class = "nm-openconnect-auth-dialog" },
 	float = true,
@@ -266,12 +274,3 @@ end
 apply_anydesk_monitor_rule()
 hl.on("monitor.added", apply_anydesk_monitor_rule)
 hl.on("monitor.removed", apply_anydesk_monitor_rule)
-
--- VMS is an Xwayland app; Xwayland can only broadcast one global DPI
--- (matching the primary monitor), so pin it to eDP-1 to avoid rendering
--- 2x oversized on the external monitor.
-hl.window_rule({
-	name = "vms-monitor",
-	match = { class = "Vms-desktop" },
-	monitor = "eDP-1",
-})

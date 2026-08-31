@@ -70,11 +70,12 @@ PanelWindow {
         Rectangle {
             id: animRect
             anchors.top: parent.top
-            anchors.topMargin: show ? 16 : (shellRoot && shellRoot.isBarMode ? 0 : 4)
+            anchors.topMargin: show ? 24 : (shellRoot && shellRoot.isBarMode ? 0 : 4)
             anchors.horizontalCenter: parent.horizontalCenter
 
-            width: show ? 520 : (shellRoot ? shellRoot.notchWidth + 32 : 120)
-            height: show ? 380 : 32
+            // 1.5 倍放大尺寸：520 -> 780, 380 -> 570
+            width: show ? 780 : (shellRoot ? shellRoot.notchWidth + 32 : 120)
+            height: show ? 570 : 32
 
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
             radius: 0
@@ -83,10 +84,10 @@ PanelWindow {
 
             opacity: (!show && height <= 36) ? 0.0 : 1.0
 
-            // NERV 終端機風格左側警示條
+            // NERV 終端機風格左側警示條 (放大至 5px)
             Rectangle {
                 visible: show
-                width: 3
+                width: 5
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
@@ -100,14 +101,14 @@ PanelWindow {
 
             Item {
                 anchors.fill: parent
-                anchors.margins: 16
+                anchors.margins: 24
                 opacity: show ? 1.0 : 0.0
                 clip: true
                 Behavior on opacity { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 300 : 100; easing.type: Easing.InOutQuad } }
 
                 ColumnLayout {
                     anchors.fill: parent
-                    spacing: 12
+                    spacing: 18
 
                     RowLayout {
                         Layout.fillWidth: true
@@ -116,14 +117,14 @@ PanelWindow {
                             text: "WALLPAPERS"
                             color: "#FF6A00"
                             font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
-                            font.pixelSize: 14
+                            font.pixelSize: 21
                             font.bold: true
-                            font.letterSpacing: 1
+                            font.letterSpacing: 2
                             Layout.fillWidth: true
                         }
 
                         Rectangle {
-                            width: 90; height: 22; radius: 0
+                            width: 135; height: 33; radius: 0
                             color: rootWindow.matugenMode ? Qt.rgba(1, 0.42, 0, 0.18) : Qt.rgba(1, 1, 1, 0.08)
                             border.color: rootWindow.matugenMode ? "#FF6A00" : Qt.rgba(1, 1, 1, 0.15)
                             border.width: 1
@@ -134,7 +135,7 @@ PanelWindow {
                                 text: rootWindow.matugenMode ? "MATUGEN" : "STATIC"
                                 color: rootWindow.matugenMode ? "#FF6A00" : (shellRoot ? shellRoot.colMuted : "#888")
                                 font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
-                                font.pixelSize: 9
+                                font.pixelSize: 14
                                 font.bold: true
                                 font.letterSpacing: 1
                             }
@@ -151,8 +152,8 @@ PanelWindow {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
-                        cellWidth: 116
-                        cellHeight: 94
+                        cellWidth: 174
+                        cellHeight: 141
 
                         model: ListModel { id: wallpaperModel }
 
@@ -163,7 +164,7 @@ PanelWindow {
                             Rectangle {
                                 id: card
                                 anchors.fill: parent
-                                anchors.margins: 4
+                                anchors.margins: 6
                                 radius: 0
                                 color: ma.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.05)
                                 border.color: ma.containsMouse ? Qt.rgba(1, 0.42, 0, 0.6) : Qt.rgba(1, 0.42, 0, 0.2)
@@ -174,26 +175,26 @@ PanelWindow {
                                     anchors.top: parent.top
                                     anchors.left: parent.left
                                     anchors.right: parent.right
-                                    height: 66
+                                    height: 99
                                     source: "file://" + model.thumb
                                     fillMode: Image.PreserveAspectCrop
                                     smooth: true
                                     asynchronous: true
-                                    sourceSize.width: 200
-                                    sourceSize.height: 66
+                                    sourceSize.width: 300
+                                    sourceSize.height: 99
                                 }
 
                                 Text {
                                     anchors.bottom: parent.bottom
                                     anchors.left: parent.left
                                     anchors.right: parent.right
-                                    anchors.bottomMargin: 5
-                                    anchors.leftMargin: 4
-                                    anchors.rightMargin: 4
+                                    anchors.bottomMargin: 8
+                                    anchors.leftMargin: 6
+                                    anchors.rightMargin: 6
                                     text: model.name
                                     color: shellRoot ? shellRoot.colFg : "white"
                                     font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
-                                    font.pixelSize: 9
+                                    font.pixelSize: 14
                                     horizontalAlignment: Text.AlignHCenter
                                     elide: Text.ElideRight
                                 }
@@ -204,8 +205,8 @@ PanelWindow {
                                     hoverEnabled: true
                                     onClicked: {
                                         pApply.command = rootWindow.matugenMode
-                                            ? ["/home/miles/.local/bin/matugen_theme.sh", model.path]
-                                            : ["/home/miles/.local/bin/set_wallpaper.sh", model.path];
+                                        ? ["/home/miles/.local/bin/matugen_theme.sh", model.path]
+                                        : ["/home/miles/.local/bin/set_wallpaper.sh", model.path];
                                         pApply.running = true;
                                         rootWindow.show = false;
                                     }

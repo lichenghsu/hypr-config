@@ -44,3 +44,4 @@ set -gx PATH "/home/miles/.local/bin" $PATH
 
 # Krew 
 set -gx PATH $PATH $HOME/.krew/bin
+fish_add_path ~/Apps/termagotchi
