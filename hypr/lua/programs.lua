@@ -12,5 +12,6 @@ programs.powermenu = "/home/miles/.local/bin/smart_powermenu.sh"
 programs.lock = "/home/miles/.local/bin/qs-lock"
 programs.note = "obsidian"
 programs.dock = "/home/miles/.local/bin/smart_dock.sh"
+programs.monitorLayout = "/home/miles/.local/bin/smart_monitorlayout.sh"
 
 return programs

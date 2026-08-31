@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Displays
+Comment=Drag to arrange monitors, click one to edit resolution/scale
+Exec=quickshell ipc call qsIpc toggleMonitorLayout
+Icon=preferences-desktop-display
+Terminal=false
+Type=Application
+Categories=Settings;

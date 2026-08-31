@@ -16,6 +16,7 @@ hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_clipboa
 hl.bind(mainMod .. " + Z", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_controlcenter.sh"))
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(p.menu))
 hl.bind(mainMod .. " + D", hl.dsp.exec_cmd(p.dock))
+hl.bind(mainMod .. " + SHIFT + M", hl.dsp.exec_cmd(p.monitorLayout))
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))
 hl.bind(mainMod .. " + W", hl.dsp.workspace.toggle_special("note"))
