@@ -46,6 +46,18 @@ ShellRoot {
         pPresentToggleFreeze.running = true;
     }
 
+    function toggleCaffeine() {
+        root.caffeineOn = !root.caffeineOn;
+        if (root.caffeineOn) {
+            pCaffeineOn.running = true;
+            pNotify.command = ["notify-send", "-u", "low", "-i", "media-playback-pause", "Caffeine", "Idle inhibited — screen stays awake."];
+        } else {
+            pCaffeineOff.running = true;
+            pNotify.command = ["notify-send", "-u", "low", "-i", "media-playback-start", "Caffeine", "Idle restored — screen can sleep again."];
+        }
+        pNotify.running = true;
+    }
+
     property bool isAnyPopupOpen: controlCenter.show || appLauncherPopup.show || clipboardManagerPopup.show || themeSwitcherPopup.show || wifiMenuPopup.show || powerMenuPopup.show || bluetoothMenuPopup.show || wallpaperPickerPopup.show || dockPopup.show || monitorLayoutPopup.show
     property bool isAnyPopupAnimActive: isAnyPopupOpen || controlCenter.animHeight > 36 || appLauncherPopup.animHeight > 36 || clipboardManagerPopup.animHeight > 36 || themeSwitcherPopup.animHeight > 36 || wifiMenuPopup.animHeight > 36 || powerMenuPopup.animHeight > 36 || bluetoothMenuPopup.animHeight > 36 || wallpaperPickerPopup.animHeight > 36 || dockPopup.animHeight > 36 || monitorLayoutPopup.animHeight > 36
 
@@ -452,8 +464,15 @@ ShellRoot {
     }
 
     Process { id: pSpotPrev; command: ["playerctl", "previous"] }
+    Process {
+        id: pCheckCaffeine
+        command: ["sh", "-c", "pgrep -x hypridle >/dev/null && echo off || echo on"]
+        running: true
+        stdout: SplitParser { onRead: data => { root.caffeineOn = (data.trim() === 'on'); } }
+    }
+    Timer { interval: 5000; running: true; repeat: true; onTriggered: pCheckCaffeine.running = true }
     Process { id: pCaffeineOn; command: ["pkill", "hypridle"] }
-    Process { id: pCaffeineOff; command: ["hypridle"] }
+    Process { id: pCaffeineOff; command: ["sh", "-c", "pkill hypridle; setsid -f hypridle"] }
     Process { id: pSeek }
 
     Process {
@@ -954,6 +973,14 @@ ShellRoot {
                 textColor: root.micMuted ? root.colMuted : "#FFA500"
                 bgColor: "transparent"
                 show: root.showMicIndicator && !controlCenter.show && !root.showOsd && !root.islandActive
+            }
+
+            Mod {
+                text: "CAF"
+                textColor: root.caffeineOn ? "#FFCC00" : root.colMuted
+                bgColor: "transparent"
+                show: root.caffeineOn && !controlCenter.show && !root.showOsd && !root.islandActive
+                onClicked: root.toggleCaffeine()
             }
 
             Mod {
@@ -3162,6 +3189,13 @@ PopupWindow {
                                 controlCenter.show = false
                             }
                         }
+                        ModernButton {
+                            id: btnCaffeine
+                            iconText: "CAF"
+                            isActive: root.caffeineOn
+                            accent: "#FFCC00"
+                            onClicked: root.toggleCaffeine()
+                        }
                     }
 
                     // Power Row
@@ -3575,6 +3609,9 @@ PopupWindow {
         }
         function togglePresentFreeze() {
             root.togglePresentFreeze();
+        }
+        function toggleCaffeine() {
+            root.toggleCaffeine();
         }
         function updateColors(bg: string, fg: string, accent: string) {
             root.colBg     = bg;

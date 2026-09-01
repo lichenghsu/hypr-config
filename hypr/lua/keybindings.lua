@@ -22,6 +22,7 @@ hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))
 hl.bind(mainMod .. " + W", hl.dsp.workspace.toggle_special("note"))
 -- 將原本開啟 p.note 改為呼叫 Quickshell 切換識別證卡片
 hl.bind(mainMod .. " + O", hl.dsp.exec_cmd("quickshell msg qsIpc toggleIdCard"))
+hl.bind(mainMod .. " + SHIFT + C", hl.dsp.exec_cmd("quickshell msg qsIpc toggleCaffeine"))
 -- hl.bind(mainMod .. " + O", hl.dsp.exec_cmd(p.note))
 hl.bind("F6", hl.dsp.exec_cmd(p.screenshot))
 hl.bind("PRINT", hl.dsp.exec_cmd(p.screenshot))
