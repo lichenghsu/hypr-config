@@ -118,6 +118,13 @@ PanelWindow {
     function setScale(index, scale) { monitors[index].scale = scale; monitorsChanged(); }
 
     function runOne(action, m, pos) {
+        // guard: a monitor hyprctl reported at 0x0 (disconnected mid-session)
+        // would persist a black-screening "0x0@60" rule -- skip it.
+        var mm = /^(\d+)x(\d+)/.exec(m.mode);
+        if (!mm || parseInt(mm[1]) === 0 || parseInt(mm[2]) === 0) {
+            rootWindow.statusText = m.name + ": skipped (invalid mode " + m.mode + ")";
+            return;
+        }
         var proc = Qt.createQmlObject('import Quickshell.Io; Process {}', rootWindow);
         proc.command = ["/home/miles/.local/bin/monitor_tui.py", action, m.name, m.mode, pos, String(m.scale)];
         proc.exited.connect((code, status) => {

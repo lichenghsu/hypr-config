@@ -100,11 +100,26 @@ def pick_position(mon):
 
 
 def apply_live(output, mode, position, scale):
-    lua = f'hl.monitor({{output="{output}", mode="{mode}", position="{position}", scale="{scale}"}})'
+    if not valid_mode(mode):
+        sys.exit(f"refusing to apply invalid mode {mode!r} for {output}")
+    lua =f'hl.monitor({{output="{output}", mode="{mode}", position="{position}", scale="{scale}"}})'
     subprocess.run(["hyprctl", "eval", lua], check=True)
 
 
+def valid_mode(mode):
+    """Reject modes that would black-screen the output. `mode` may be
+    "preferred"/"highres" etc., or WxH[@RR] -- the numeric form must have
+    non-zero width and height (hyprctl reports 0x0 for a disconnected panel,
+    and pick_mode() would then derive a bogus "0x0@60")."""
+    if not re.match(r"^\d+x\d+", mode):
+        return mode in ("preferred", "highres", "highrr")
+    w, h = (int(n) for n in re.match(r"^(\d+)x(\d+)", mode).groups())
+    return w > 0 and h > 0
+
+
 def persist(output, mode, position, scale):
+    if not valid_mode(mode):
+        sys.exit(f"refusing to persist invalid mode {mode!r} for {output}")
     text = MONITORS_LUA.read_text()
     block = (
         f'hl.monitor({{ output = "{output}", mode = "{mode}", '
