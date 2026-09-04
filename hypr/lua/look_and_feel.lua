@@ -41,7 +41,7 @@ require("lua.animations").apply()
 
 -- Layout Config
 hl.config({
-    dwindle = { preserve_split = true },
+    dwindle = { preserve_split = true, smart_split = true },
     master = { new_status = "master" },
     scrolling = { fullscreen_on_one_column = true },
     misc = {
