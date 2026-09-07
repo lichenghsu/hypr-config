@@ -404,16 +404,22 @@ ShellRoot {
     }
     Process {
         id: pSetDefaultSink
-        property string sinkName: ""
-        onRunningChanged: {
-            if (running) command = ["pactl", "set-default-sink", sinkName];
+        function apply(sinkName) {
+            command = ["sh", "-c",
+                "pactl set-default-sink '" + sinkName + "'; " +
+                "for i in $(pactl list short sink-inputs | cut -f1); do " +
+                "pactl move-sink-input \"$i\" '" + sinkName + "'; done"];
+            running = true;
         }
     }
     Process {
         id: pSetDefaultSource
-        property string sourceName: ""
-        onRunningChanged: {
-            if (running) command = ["pactl", "set-default-source", sourceName];
+        function apply(sourceName) {
+            command = ["sh", "-c",
+                "pactl set-default-source '" + sourceName + "'; " +
+                "for i in $(pactl list short source-outputs | cut -f1); do " +
+                "pactl move-source-output \"$i\" '" + sourceName + "'; done"];
+            running = true;
         }
     }
     Process { id: pPowerShutdown; command: ["systemctl", "poweroff"] }
@@ -2547,8 +2553,7 @@ PopupWindow {
                                     hoverEnabled: true
                                     onClicked: {
                                         root.defaultSink = model.name;
-                                        pSetDefaultSink.sinkName = model.name;
-                                        pSetDefaultSink.running = true;
+                                        pSetDefaultSink.apply(model.name);
                                     }
                                     Rectangle {
                                         anchors.fill: parent
@@ -2638,8 +2643,7 @@ PopupWindow {
                                     hoverEnabled: true
                                     onClicked: {
                                         root.defaultSource = model.name;
-                                        pSetDefaultSource.sourceName = model.name;
-                                        pSetDefaultSource.running = true;
+                                        pSetDefaultSource.apply(model.name);
                                     }
                                     Rectangle {
                                         anchors.fill: parent
