@@ -35,6 +35,7 @@ hl.on("hyprland.start", function ()
       hl.exec_cmd("keepassxc")
       hl.exec_cmd("kontact")
       hl.exec_cmd("/home/miles/.local/bin/obsidian --no-sandbox")
+      hl.exec_cmd("kitty --class kitty-dropdown")
   end, { timeout = 3000, type = "oneshot" })
 
   hl.timer(function()

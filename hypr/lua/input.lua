@@ -11,6 +11,11 @@ hl.config({
 			natural_scroll = true,
 		},
 	},
+	-- 加入此區塊來解決游標自動隱藏與消失問題
+	cursor = {
+		no_hardware_cursors = true, -- 防止 3D 繪圖卡或 XWayland 渲染導致游標遺失
+		inactive_timeout = 0,       -- 設為 0 代表「永遠不自動隱藏游標」
+	},
 })
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
@@ -20,9 +25,9 @@ hl.gesture({
 	fingers = 3,
 	direction = "down",
 	action = function()
-		hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
-		hl.dispatch(hl.dsp.window.resize({ x = 850, y = 650, relative = false }))
-		hl.dispatch(hl.dsp.window.center())
+	hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
+	hl.dispatch(hl.dsp.window.resize({ x = 850, y = 650, relative = false }))
+	hl.dispatch(hl.dsp.window.center())
 	end,
 })
 

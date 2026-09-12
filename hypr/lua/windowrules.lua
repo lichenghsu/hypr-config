@@ -199,6 +199,15 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "kitty-dropdown",
+	match = { class = "^kitty-dropdown$" },
+	float = true,
+	size = "1200 800",
+	center = true,
+	workspace = "special:term silent",
+})
+
+hl.window_rule({
 	name = "filezilla",
 	match = { class = "^filezilla$" },
 	float = true,

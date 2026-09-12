@@ -10,7 +10,7 @@ hl.bind(mainMod .. " + SHIFT + Space", function()
     hl.dispatch(hl.dsp.window.resize({ x = 800, y = 600, relative = false }))
     hl.dispatch(hl.dsp.window.center())
 end)
-hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(p.fileManager))
+hl.bind(mainMod .. " + E", hl.dsp.exec_cmd("dolphin")) -- p.fileManagergggg
 hl.bind(mainMod .. " + SHIFT + E", hl.dsp.exec_cmd("nautilus"))
 hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_clipboard.sh"))
 hl.bind(mainMod .. " + Z", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_controlcenter.sh"))
@@ -163,6 +163,8 @@ hl.bind(mainMod .. " + K",         hl.dsp.workspace.toggle_special("keepass"))
 hl.bind(mainMod .. " + L",         hl.dsp.workspace.toggle_special("line"))
 hl.bind(mainMod .. " + M",         hl.dsp.workspace.toggle_special("kontact"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
+-- Dropdown kitty terminal (quake-style), dedicated special workspace
+hl.bind(mainMod .. " + G",         hl.dsp.workspace.toggle_special("term"))
 hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind(mainMod .. " + mouse_up",   hl.dsp.focus({ workspace = "e-1" }))
 
