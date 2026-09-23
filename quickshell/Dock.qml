@@ -14,6 +14,7 @@ PanelWindow {
     property int selectedIndex: 0
 
     readonly property var pinnedApps: [
+        { name: "Chromium", exec: "chromium-browser", icon: "org.chromium.Chromium.BaseApp"},
         { name: "Firefox", exec: "firefox", icon: "org.mozilla.FirefoxDevEdition" },
         { name: "Brave", exec: "/usr/bin/brave-browser-stable", icon: "brave-browser" },
         { name: "Tabularis", exec: "/usr/bin/tabularis", icon: "tabularis" },
@@ -21,7 +22,7 @@ PanelWindow {
         { name: "Zed", exec: "/home/miles/.local/zed.app/bin/zed", icon: "/home/miles/.local/zed.app/share/icons/hicolor/512x512/apps/zed.png" },
         { name: "Virtual Machine Manager", exec: "virt-manager", icon: "virt-manager" },
         { name: "Dolphin", exec: "dolphin", icon: "org.kde.dolphin"},
-        { name: "Remmina", exec: "remmina", icon: "remmina"}
+        { name: "Remmina", exec: "remmina", icon: "remmina"},
     ]
 
     function iconSource(icon) {
