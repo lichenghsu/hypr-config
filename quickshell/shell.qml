@@ -425,7 +425,7 @@ ShellRoot {
     Process { id: pPowerShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pPowerReboot;   command: ["systemctl", "reboot"] }
 
-    Process { id: pPowerLock;     command: ["/home/miles/.local/bin/qs-lock"] }
+    Process { id: pPowerLock;     command: ["/home/miles/.local/bin/smart_lock.sh"] }
     Process { id: pPowerSuspend;  command: ["systemctl", "suspend"] }
     Process { id: pPowerLogout;   command: ["pkill", "-x", "Hyprland"] }
 
@@ -472,13 +472,14 @@ ShellRoot {
     Process { id: pSpotPrev; command: ["playerctl", "previous"] }
     Process {
         id: pCheckCaffeine
-        command: ["sh", "-c", "pgrep -x hypridle >/dev/null && echo off || echo on"]
+        command: ["sh", "-c", "[ -e \"$XDG_RUNTIME_DIR/caffeine\" ] && echo on || echo off"]
         running: true
         stdout: SplitParser { onRead: data => { root.caffeineOn = (data.trim() === 'on'); } }
     }
     Timer { interval: 5000; running: true; repeat: true; onTriggered: pCheckCaffeine.running = true }
-    Process { id: pCaffeineOn; command: ["pkill", "hypridle"] }
-    Process { id: pCaffeineOff; command: ["sh", "-c", "pkill hypridle; setsid -f hypridle"] }
+    // Caffeine = flag file; hypridle keeps running but locks with swaylock and skips dpms/suspend
+    Process { id: pCaffeineOn; command: ["sh", "-c", "touch \"$XDG_RUNTIME_DIR/caffeine\"; pgrep -x hypridle >/dev/null || setsid -f hypridle"] }
+    Process { id: pCaffeineOff; command: ["sh", "-c", "rm -f \"$XDG_RUNTIME_DIR/caffeine\"; pgrep -x hypridle >/dev/null || setsid -f hypridle"] }
     Process { id: pSeek }
 
     Process {

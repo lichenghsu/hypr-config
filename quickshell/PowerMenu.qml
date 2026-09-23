@@ -166,7 +166,7 @@ PanelWindow {
     
     Process { id: pShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pReboot; command: ["systemctl", "reboot"] }
-    Process { id: pLock; command: ["/home/miles/.local/bin/qs-lock"] }
+    Process { id: pLock; command: ["/home/miles/.local/bin/smart_lock.sh"] }
     Process { id: pSuspend; command: ["systemctl", "suspend"] }
     Process { id: pLogout; command: ["pkill", "-x", "Hyprland"] }
     Process { id: pTextMode; command: ["/home/miles/.local/bin/qs-textmode"] }

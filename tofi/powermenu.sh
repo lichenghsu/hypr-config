@@ -6,7 +6,7 @@ choice=$(echo -e "$options" | tofi --config ~/.config/tofi/configpowermenu)
 
 case "$choice" in
     "Shutdown") systemctl poweroff ;;
-    "Lock") hyprlock ;;
+    "Lock") /home/miles/.local/bin/smart_lock.sh ;;
     "Suspend") systemctl suspend ;;
     "Reboot") systemctl reboot ;;
     "Logout") hyprctl dispatch exit ;;
