@@ -51,6 +51,8 @@ hl.config({
         background_color        = 0x000000,
         animate_manual_resizes  = true,
         vrr                     = 1,
+        -- let a new locker take over if swaylock/qs-lock dies mid-lock
+        allow_session_lock_restore = true,
         col = {
             splash = "rgba(ff6a00ff)",
         },
