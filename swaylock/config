@@ -1,25 +1,19 @@
-# swaylock-effects — Style A: screenshot + heavy blur + centered clock
+# swaylock (upstream 1.8) — wallpaper background + ring indicator
+# swaylock-effects was dropped: its unlock left Hyprland 0.56 stuck in session lock
 
-# Background: take screenshot and blur it
-screenshots
-effect-blur=4x2
-effect-greyscale
-effect-vignette=0.0:0.6
+image=/home/miles/.config/hypr/wallpaper/ml4w/mountain.jpg
+scaling=fill
+color=000000ff
 
-# Clock
-clock
-timestr=%H:%M
-datestr=%A, %B %d
 font=JetBrainsMono Nerd Font
-font-size=64
+font-size=32
 
 # Indicator ring
-indicator
+indicator-idle-visible
 indicator-radius=120
 indicator-thickness=8
 
 # Colors — transparent base, ring and text visible
-color=00000000
 inside-color=00000000
 inside-ver-color=00000000
 inside-wrong-color=00000033
