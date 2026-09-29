@@ -15,6 +15,40 @@ ShellRoot {
     property color colBg: "#000000"
     property color colFg: "#ffffff"
     property color colAccent: "#FF6A00"
+    // 音樂播放器配色：依播放器 / 網站品牌色，偵測不到就用預設橘
+    // 網站從 url 判斷；瀏覽器沒給 url 時退而用標題（例如 "... - YouTube"）
+    readonly property var playerSites: [
+        { key: "spotify",    match: /spotify/i,                         color: "#1DB954" },
+        { key: "ytmusic",    match: /music\.youtube\.com|YouTube Music/i, color: "#FF0000" },
+        { key: "youtube",    match: /youtube\.com|youtu\.be|YouTube/i,   color: "#FF0000" },
+        { key: "netflix",    match: /netflix/i,                         color: "#E50914", rainbow: true },
+        { key: "bilibili",   match: /bilibili|b23\.tv|嗶哩嗶哩|哔哩哔哩/i, color: "#FB7299" },
+        { key: "twitch",     match: /twitch/i,                          color: "#9146FF" },
+        { key: "soundcloud", match: /soundcloud/i,                      color: "#FF5500" },
+        { key: "applemusic", match: /music\.apple\.com|Apple Music/i,   color: "#FA243C" },
+        { key: "disney",     match: /disneyplus|Disney\+/i,             color: "#113CCF" },
+        { key: "prime",      match: /primevideo|Prime Video/i,          color: "#00A8E1" },
+        { key: "vimeo",      match: /vimeo/i,                           color: "#1AB7EA" },
+        { key: "kkbox",      match: /kkbox/i,                           color: "#09CEF6" },
+        { key: "niconico",   match: /nicovideo|niconico/i,              color: "#EEEEEE" }
+    ]
+    readonly property var playerSite: {
+        // 先比對 player 名稱 + url，比不到才看標題，避免標題含 "Spotify" 的 YouTube 影片被誤判
+        var hays = [mprisPlayer + " " + mprisUrl, mprisTitle]
+        for (var h = 0; h < hays.length; h++)
+            for (var i = 0; i < playerSites.length; i++)
+                if (playerSites[i].match.test(hays[h])) return playerSites[i]
+        return null
+    }
+    // 彩虹色相偏移，讓 Netflix 的彩色 cava 緩慢流動
+    property real rainbowShift: 0
+    NumberAnimation on rainbowShift {
+        from: 0; to: 1; duration: 6000; loops: Animation.Infinite
+        running: root.playerRainbow && root.mprisStatus === "Playing"
+    }
+    property color playerColor: playerSite ? playerSite.color : colAccent
+    // 彩虹模式（Netflix）：cava 每根 bar 不同色相，其他元件用 playerColor
+    property bool playerRainbow: !!(playerSite && playerSite.rainbow)
     property color colMuted: Qt.rgba(1, 1, 1, 0.4)
     property color colHover: Qt.rgba(1, 1, 1, 0.1)
     property color colCrit: "#ff0000"
@@ -301,6 +335,7 @@ ShellRoot {
     property string mprisTitle: ""
     property string mprisArtist: ""
     property string mprisArtUrl: ""
+    property string mprisUrl: ""
     property int    mprisLength: 0
     property int    mprisPosition: 0
     property real   mprisProgress: 0.0
@@ -685,14 +720,14 @@ ShellRoot {
         }
     }
     Process {
-        command: ["sh", "-c", "while true; do out=$(playerctl metadata --format '{{playerName}}|{{status}}|{{title}}|{{artist}}|{{mpris:artUrl}}|{{mpris:length}}' 2>/dev/null); [ -z \"$out\" ] && echo 'offline||||0' || echo \"$out\"; sleep 0.5; done"]
+        command: ["/home/miles/.config/quickshell/mpris_watch.sh"]
         running: true
         stdout: SplitParser {
             onRead: data => {
                 var p = data.split("|");
                 if (p[0].trim() === "offline" || p.length < 5) {
                     root.mprisStatus = "offline"; root.spotifyStatus = "offline";
-                    root.mprisPlayer = root.mprisTitle = root.mprisArtist = root.mprisArtUrl = "";
+                    root.mprisPlayer = root.mprisTitle = root.mprisArtist = root.mprisArtUrl = root.mprisUrl = "";
                     root.mprisLength = 0;
                     return;
                 }
@@ -702,6 +737,7 @@ ShellRoot {
                 root.mprisArtist   = p[3].trim();
                 root.mprisArtUrl   = p[4].trim();
                 root.mprisLength   = parseInt(p[5].trim()) || 0;
+                root.mprisUrl      = (p[6] || "").trim();
                 if (root.mprisPlayer === "spotify") {
                     root.spotifyStatus = root.mprisStatus;
                     root.spotifyText   = root.mprisTitle + (root.mprisArtist ? " — " + root.mprisArtist : "");
@@ -755,7 +791,8 @@ ShellRoot {
         running: root.islandActive && !musicPopup.show
         stdout: SplitParser {
             onRead: data => {
-                var vals = data.trim().split(";").map(function(v) { return parseInt(v) || 0 })
+                // cava 每個值後面都帶 ';'（含最後一個），要濾掉尾端空字串，否則會多出一根永遠 0 的 bar
+                var vals = data.trim().split(";").filter(function(v) { return v !== "" }).map(function(v) { return parseInt(v) || 0 })
                 if (vals.length > 1) root.cavaBars = vals
             }
         }
@@ -1041,7 +1078,16 @@ ShellRoot {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: musicPopup.show = !musicPopup.show
+                // 左鍵：音樂 popup；右鍵：展開 control center
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: mouse => {
+                    if (mouse.button === Qt.RightButton) {
+                        musicPopup.show = false
+                        controlCenter.show = true
+                    } else {
+                        musicPopup.show = !musicPopup.show
+                    }
+                }
             }
 
             Row {
@@ -1053,12 +1099,16 @@ ShellRoot {
                 Repeater {
                     model: root.cavaBars
                     Item {
+                        required property int index
+                        required property var modelData
                         width: 4; height: 20
                         Rectangle {
                             width: parent.width
-                            height: Math.max(2, Math.round(modelData * 20 / 20))
+                            height: Math.max(2, Math.round(parent.modelData * 20 / 20))
                             anchors.bottom: parent.bottom; radius: 0
-                            color: root.mprisPlayer === "spotify" ? "#FF6A00" : root.colFg
+                            color: root.playerRainbow
+                                ? Qt.hsva((parent.index / Math.max(1, root.cavaBars.length) + root.rainbowShift) % 1, 0.8, 1, 1)
+                                : root.playerColor
                             Behavior on height { NumberAnimation { duration: 80 } }
                         }
                     }
@@ -1857,7 +1907,7 @@ PopupWindow {
                 Text {
                     anchors.centerIn: parent
                     text: "NOTE"
-                    color: root.mprisPlayer === "spotify" ? "#FF6A00" : root.colMuted
+                    color: root.playerColor
                     font.family: root.fontFamily
                     font.pixelSize: 16
                     font.bold: true
@@ -1882,7 +1932,7 @@ PopupWindow {
                 }
                 Text {
                     text: root.mprisArtist !== "" ? root.mprisArtist : "未知藝術家"
-                    color: root.mprisPlayer === "spotify" ? "#FF6A00" : root.colMuted
+                    color: root.playerColor
                     font.family: root.fontFamily
                     font.pixelSize: 12
                     horizontalAlignment: Text.AlignHCenter
@@ -1985,7 +2035,7 @@ PopupWindow {
                     Rectangle {
                         anchors.fill: parent
                         radius: 0
-                        color: root.mprisStatus === "Playing" ? (root.mprisPlayer === "spotify" ? "#FF6A00" : root.colFg) : Qt.rgba(1, 1, 1, 0.1)
+                        color: root.mprisStatus === "Playing" ? root.playerColor : Qt.rgba(1, 1, 1, 0.1)
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
                     Text {
