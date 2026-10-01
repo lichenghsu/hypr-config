@@ -40,6 +40,15 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "qs-btop",
+	match = { class = "^qs-btop$" },
+	float = true,
+	monitor = "eDP-1", -- 跟 quickshell bar 同一塊（內建螢幕）
+	size = "1100 700",
+	move = "(monitor_w-1116) 44",
+})
+
+hl.window_rule({
 	name = "wl-vpn-auth",
 	match = { class = "^wl-vpn-auth$" },
 	float = true,

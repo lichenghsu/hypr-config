@@ -914,9 +914,10 @@ ShellRoot {
         height: 32
         width: root.isBarMode
             ? parent.width
-            // 播放音樂時工作區數字整排隱藏，島只需容納 cava 本身；
-            // 平常收合狀態則要同時容納工作區數字＋狀態列，兩排才不會疊在一起、溢出膠囊外
-            : (root.islandActive ? 200 : wsLayout.implicitWidth + notchLayout.implicitWidth + 40)
+            // 播放音樂時容納「工作區數字＋cava」；平常收合狀態容納工作區數字＋狀態列，
+            // 兩排才不會疊在一起、溢出膠囊外
+            : (root.islandActive ? 16 + wsLayout.implicitWidth + 12 + cavaCenter.width + 16
+                                 : wsLayout.implicitWidth + notchLayout.implicitWidth + 40)
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
         radius: root.isBarMode ? 0 : 16
 
@@ -971,10 +972,9 @@ ShellRoot {
         }
 
         // 工作區數字固定在左側定位，不隨其他 mod 展開/收合而被推擠、蓋住；
-        // 播放音樂進入 cava 動態島時整排隱藏，不再跟 cava 搶位置
+        // 播放音樂時照樣顯示，cava 排在它右邊
         RowLayout {
             id: wsLayout
-            visible: !root.islandActive
             opacity: root.isAnyPopupOpen ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 150 } }
             anchors.verticalCenter: parent.verticalCenter
@@ -1116,10 +1116,11 @@ ShellRoot {
             }
         }
 
-        // 播放中的 cava 視覺化永遠置中於整個動態島，不隨左側工作區/狀態列擠壓
+        // 播放中的 cava：bar 模式置中於整條 bar；島模式靠右，左邊留給工作區數字
         Item {
             id: cavaCenter
-            anchors.centerIn: parent
+            x: root.isBarMode ? (parent.width - width) / 2 : parent.width - width - 16
+            anchors.verticalCenter: parent.verticalCenter
             width: 160
             height: 20
             visible: root.islandActive && !root.showOsd
@@ -1170,6 +1171,60 @@ ShellRoot {
                 opacity: musicPopup.show ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 150 } }
             }
+        }
+    }
+
+    // ── RunCat 風格像素小貓：CPU 越忙跑越快，≥60% 變橘、≥85% 變紅 ──
+    component RunCat: Canvas {
+        id: runCat
+        property real cpu: 0 // 0 ~ 100
+        property int frame: 0
+        readonly property real px: 4 / 3 // eDP 縮放 1.5 下剛好 2 個實體像素，邊緣才銳利
+        // 16 x 9 像素，每格一個字元；4 格腿＋尾巴輪播
+        readonly property var body: [
+            "...........#...#",
+            "...........#####",
+            "...........#.#.#",
+            "...........#####",
+            "...###########..",
+            "...###########..",
+            "...##########..."
+        ]
+        readonly property var tails: [
+            [[1, 2], [2, 3]], [[1, 3], [2, 3]], [[1, 4], [2, 4]], [[1, 3], [2, 3]]
+        ]
+        readonly property var legs: [
+            ["...#.#.....#.#..", "..#...#...#...#."],
+            ["...#.#.....#.#..", "...#.#.....#.#.."],
+            ["....##......##..", "....##......##.."],
+            ["...#.#.....#.#..", "...#.#.....#.#.."]
+        ]
+        readonly property color tint: cpu >= 85 ? "#FF3B30" : (cpu >= 60 ? "#FFA500" : root.colFg)
+
+        implicitWidth: 16 * px
+        implicitHeight: 9 * px
+        antialiasing: false
+        onFrameChanged: requestPaint()
+        onTintChanged: requestPaint()
+
+        Timer {
+            // 0% 約 5 fps、100% 約 25 fps；省電模式最多 8 fps
+            interval: Math.max(root.batteryMode ? 120 : 40, 200 - runCat.cpu * 1.6)
+            running: runCat.visible
+            repeat: true
+            onTriggered: runCat.frame = (runCat.frame + 1) % 4
+        }
+
+        onPaint: {
+            var ctx = getContext("2d");
+            ctx.reset();
+            ctx.fillStyle = tint;
+            var rows = body.concat(legs[frame]);
+            for (var y = 0; y < rows.length; y++)
+                for (var x = 0; x < rows[y].length; x++)
+                    if (rows[y][x] === "#") ctx.fillRect(x * px, y * px, px, px);
+            var t = tails[frame];
+            for (var i = 0; i < t.length; i++) ctx.fillRect(t[i][0] * px, t[i][1] * px, px, px);
         }
     }
 
@@ -1261,7 +1316,8 @@ ShellRoot {
     // ── 歌詞動態島：緊貼中央 cava 島右側，播放中且查得到同步歌詞才展開 ──
     Rectangle {
         id: lyricsIsland
-        readonly property real leftEdge: parent.width / 2 + 100 + 8 // cava 島寬 200、置中
+        // bar 模式 cava 置中（寬 160）；島模式緊貼中央島右緣
+        readonly property real leftEdge: root.isBarMode ? parent.width / 2 + 80 + 16 : notchRect.x + notchRect.width + 8
         readonly property real maxW: Math.max(0, sysIsland.x - 8 - leftEdge)
         readonly property bool active: root.islandActive && root.lyricsLines.length > 0 && !root.showOsd
 
@@ -1337,6 +1393,11 @@ ShellRoot {
             id: sysIslandClick
             anchors.fill: parent
             hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            // 點擊開關 btop（浮動視窗，位置／大小見 hypr/lua/windowrules.lua 的 qs-btop）
+            // exec 的 class 經由 $1 傳入，sh 自己的 cmdline 才不會被 pkill -f 比對到而自殺
+            onClicked: Quickshell.execDetached(["sh", "-c",
+                "pkill -f 'kitty --class [q]s-btop' || exec kitty --class \"$1\" -e btop", "sh", "qs-btop"])
 
             RowLayout {
                 id: sysRow
@@ -1348,6 +1409,10 @@ ShellRoot {
                 // CPU
                 RowLayout {
                     spacing: 6
+                    RunCat {
+                        Layout.alignment: Qt.AlignVCenter
+                        cpu: parseFloat(root.sysCpu) || 0
+                    }
                     Text {
                         text: "CPU"
                         color: root.colMuted
