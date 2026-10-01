@@ -24,6 +24,12 @@ PanelWindow {
     
     visible: show || animRect.opacity > 0
     
+    // 鎖螢幕用 execDetached：hyprlock（caffeine 模式）解鎖後 Process 常停在 running，
+    // 第二次 running = true 會被忽略；detached 不追蹤狀態，每次都會真的執行
+    function lock() {
+        Quickshell.execDetached(["/home/miles/.local/bin/smart_lock.sh"]);
+    }
+
     onShowChanged: {
         if (show) focusTimer.start();
     }
@@ -45,7 +51,7 @@ PanelWindow {
             show = false;
             if (selectedIndex === 0) pShutdown.running = true;
             else if (selectedIndex === 1) pReboot.running = true;
-            else if (selectedIndex === 2) pLock.running = true;
+            else if (selectedIndex === 2) rootWindow.lock();
             else if (selectedIndex === 3) pSuspend.running = true;
             else if (selectedIndex === 4) pLogout.running = true;
             else if (selectedIndex === 5) pTextMode.running = true;
@@ -127,7 +133,7 @@ PanelWindow {
                     scale: (lkMouse.containsMouse || selectedIndex === 2) ? 1.1 : 1.0
                     Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150 } }
                     Text { anchors.centerIn: parent; text: "LOCK"; color: shellRoot ? shellRoot.colFg : "white"; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"; font.pixelSize: 10; font.bold: true; font.letterSpacing: 1 }
-                    MouseArea { id: lkMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; pLock.running = true } }
+                    MouseArea { id: lkMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { show = false; rootWindow.lock() } }
                 }
                 // Suspend
                 Rectangle {
@@ -166,7 +172,6 @@ PanelWindow {
     
     Process { id: pShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pReboot; command: ["systemctl", "reboot"] }
-    Process { id: pLock; command: ["/home/miles/.local/bin/smart_lock.sh"] }
     Process { id: pSuspend; command: ["systemctl", "suspend"] }
     Process { id: pLogout; command: ["pkill", "-x", "Hyprland"] }
     Process { id: pTextMode; command: ["/home/miles/.local/bin/qs-textmode"] }

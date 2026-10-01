@@ -433,7 +433,6 @@ ShellRoot {
     Process { id: pPowerShutdown; command: ["systemctl", "poweroff"] }
     Process { id: pPowerReboot;   command: ["systemctl", "reboot"] }
 
-    Process { id: pPowerLock;     command: ["/home/miles/.local/bin/smart_lock.sh"] }
     Process { id: pPowerSuspend;  command: ["systemctl", "suspend"] }
     Process { id: pPowerLogout;   command: ["pkill", "-x", "Hyprland"] }
 
@@ -3257,7 +3256,7 @@ PopupWindow {
                             accent: "#cc9900"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
-                            onClicked: pPowerLock.running = true
+                            onClicked: Quickshell.execDetached(["/home/miles/.local/bin/smart_lock.sh"])
                         }
                         ModernButton {
                             iconText: "ZZZ"
