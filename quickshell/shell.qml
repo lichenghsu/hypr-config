@@ -61,8 +61,7 @@ ShellRoot {
     property string sysCpu: "0%"
     property string sysRam: "0%"
     property string sysSwap: "0%"
-    property string webdavSync: "OK"
-    property bool webdavSyncing: false
+    property var vpnActive: [] // 目前已連線的 VPN 名稱（由 pVpnPoll 更新）
 
     property string k8sContext: ""
     property int k8sReady: 0
@@ -112,32 +111,6 @@ ShellRoot {
                     root.sysCpu = p[0];
                     root.sysRam = p[1];
                     root.sysSwap = p[2];
-                }
-            }
-        }
-    }
-
-    // 2. monitor of Obsidian vault backup (obsidian-git 外掛每 5 分鐘 auto-commit/push 到 Gitea)
-    Process {
-        command: ["sh", "-c", "cd /home/miles/Lab/obsidian-sync || exit 1; \
-            while true; do \
-                dirty=$(git status --porcelain 2>/dev/null | wc -l); \
-                ahead=$(git rev-list --count '@{u}..HEAD' 2>/dev/null); \
-                ahead=${ahead:-0}; \
-                if [ \"$dirty\" -gt 0 ] || [ \"$ahead\" -gt 0 ]; then \
-                    echo \"syncing|PENDING\"; \
-                else \
-                    echo \"idle|OK\"; \
-                fi; \
-                sleep 5; \
-            done"]
-        running: true
-        stdout: SplitParser {
-            onRead: data => {
-                var p = data.trim().split("|");
-                if (p.length === 2) {
-                    root.webdavSyncing = (p[0] === "syncing");
-                    root.webdavSync = p[1];
                 }
             }
         }
@@ -694,6 +667,8 @@ ShellRoot {
                         var n = vpnModel.get(i).name;
                         root.vpnSetActive(n, pVpnPoll.activeBatch.indexOf(n) !== -1);
                     }
+                    if (pVpnPoll.activeBatch.join("\n") !== root.vpnActive.join("\n"))
+                        root.vpnActive = pVpnPoll.activeBatch;
                     pVpnPoll.activeBatch = [];
                 } else if (line !== "") {
                     pVpnPoll.activeBatch = pVpnPoll.activeBatch.concat([line]);
@@ -1302,11 +1277,24 @@ ShellRoot {
                     color: Qt.rgba(1, 1, 1, 0.15)
                 }
 
-                // Vault 備份狀態（obsidian-git 是否已 commit/push 乾淨）
+                // CPU 溫度（>=80° 轉紅、>=65° 轉黃）
                 Text {
-                    text: "SYNC | " + root.webdavSync
-                    color: root.webdavSyncing ? "#FFCC00" : "#76B900"
+                    property int t: parseInt(root.temperature) || 0
+                    text: "TEMP " + t + "°"
+                    color: t >= 80 ? root.colCrit : t >= 65 ? "#FFCC00" : root.colFg
                     font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+                }
+
+                // VPN 狀態：顯示目前連線的 VPN 名稱，點擊開啟控制中心切換
+                Text {
+                    text: "VPN | " + (root.vpnActive.length > 0 ? root.vpnActive.join("+") : "OFF")
+                    color: root.vpnActive.length > 0 ? "#76B900" : root.colMuted
+                    font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: controlCenter.show = !controlCenter.show
+                    }
                 }
 
                 // 分隔線
