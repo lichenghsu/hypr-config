@@ -312,6 +312,39 @@ ShellRoot {
     property int    mprisLength: 0
     property int    mprisPosition: 0
     property real   mprisProgress: 0.0
+    property string mprisAlbum: ""
+
+    // 歌詞島：曲目一換就丟 lyrics_fetch.py 去 LRCLIB 抓同步歌詞，
+    // 播放位置用「最近一次 playerctl 取樣 + 經過時間」內插，每 100ms 對一次行
+    readonly property string trackKey: mprisStatus === "offline" || mprisTitle === "" ? "" : mprisPlayer + "\u001f" + mprisTitle + "\u001f" + mprisArtist
+    property var    lyricsLines: []   // [{ t: 秒, text }]
+    property int    lyricsIndex: -1
+    property real   lyricsPosBase: 0  // 最近一次取樣的播放位置（秒）
+    property real   lyricsPosStamp: 0 // 取樣當下的 Date.now()
+    readonly property string lyricsText: lyricsIndex >= 0 && lyricsIndex < lyricsLines.length
+        ? (lyricsLines[lyricsIndex].text || "♪") : (lyricsLines.length > 0 ? "♪" : "")
+    onTrackKeyChanged: {
+        lyricsLines = []; lyricsIndex = -1;
+        lyricsPosBase = 0; lyricsPosStamp = Date.now();
+        lyricsDebounce.restart();
+    }
+    onMprisStatusChanged: lyricsPosStamp = Date.now() // 暫停→播放時從暫停位置重新起算
+    function lyricsPos() {
+        return lyricsPosBase + (mprisStatus === "Playing" ? (Date.now() - lyricsPosStamp) / 1000 : 0);
+    }
+    function updateLyricsIndex() {
+        var pos = lyricsPos() + 0.15; // 稍微提早換行，抵銷取樣延遲
+        var i = -1;
+        while (i + 1 < lyricsLines.length && lyricsLines[i + 1].t <= pos) i++;
+        if (i !== lyricsIndex) lyricsIndex = i;
+    }
+    function startLyricsFetch() {
+        if (pLyricsFetch.running) { pLyricsFetch.rerun = true; return; }
+        if (trackKey === "") return;
+        pLyricsFetch.command = ["/home/miles/.config/quickshell/lyrics_fetch.py",
+            trackKey, mprisTitle, mprisArtist, mprisAlbum, String(mprisLength)];
+        pLyricsFetch.running = true;
+    }
 
     property string wifiIcon: "WIFI"
     property string wifiText: "Disconnected"
@@ -701,7 +734,7 @@ ShellRoot {
                 var p = data.split("|");
                 if (p[0].trim() === "offline" || p.length < 5) {
                     root.mprisStatus = "offline"; root.spotifyStatus = "offline";
-                    root.mprisPlayer = root.mprisTitle = root.mprisArtist = root.mprisArtUrl = root.mprisUrl = "";
+                    root.mprisPlayer = root.mprisTitle = root.mprisArtist = root.mprisArtUrl = root.mprisUrl = root.mprisAlbum = "";
                     root.mprisLength = 0;
                     return;
                 }
@@ -712,6 +745,7 @@ ShellRoot {
                 root.mprisArtUrl   = p[4].trim();
                 root.mprisLength   = parseInt(p[5].trim()) || 0;
                 root.mprisUrl      = (p[6] || "").trim();
+                root.mprisAlbum    = (p[7] || "").trim();
                 if (root.mprisPlayer === "spotify") {
                     root.spotifyStatus = root.mprisStatus;
                     root.spotifyText   = root.mprisTitle + (root.mprisArtist ? " — " + root.mprisArtist : "");
@@ -742,6 +776,46 @@ ShellRoot {
                 }
             }
         }
+    }
+
+    // 歌詞：標題穩定一下再查（瀏覽器切影片時 metadata 會連跳好幾次）
+    Timer { id: lyricsDebounce; interval: 700; onTriggered: root.startLyricsFetch() }
+    Process {
+        id: pLyricsFetch
+        property bool rerun: false
+        property var buf: []
+        stdout: SplitParser {
+            onRead: data => {
+                var f = data.split("\t");
+                if (f[0] === "BEGIN") pLyricsFetch.buf = [];
+                else if (f[0] === "L") pLyricsFetch.buf.push({ t: parseFloat(f[1]), text: f.slice(2).join("\t") });
+                // 只收目前曲目的結果，查詢途中切歌的舊結果丟掉
+                else if (f[0] === "END" && f.slice(1).join("\t") === root.trackKey) {
+                    root.lyricsLines = pLyricsFetch.buf;
+                    root.updateLyricsIndex();
+                }
+            }
+        }
+        onExited: if (rerun) { rerun = false; root.startLyricsFetch(); }
+    }
+    // 有歌詞時每秒校正一次播放位置，拖進度條也能在 1 秒內跟上
+    Process {
+        command: ["sh", "-c", "while true; do playerctl position 2>/dev/null || echo x; sleep 1; done"]
+        running: root.lyricsLines.length > 0
+        stdout: SplitParser {
+            onRead: data => {
+                var pos = parseFloat(data.trim());
+                if (isNaN(pos)) return;
+                root.lyricsPosBase = pos;
+                root.lyricsPosStamp = Date.now();
+                root.updateLyricsIndex();
+            }
+        }
+    }
+    Timer {
+        interval: 100; repeat: true
+        running: root.lyricsLines.length > 0 && root.mprisStatus === "Playing"
+        onTriggered: root.updateLyricsIndex()
     }
 
     Process {
@@ -1181,6 +1255,58 @@ ShellRoot {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: k8sPopup.show = !k8sPopup.show
+        }
+    }
+
+    // ── 歌詞動態島：緊貼中央 cava 島右側，播放中且查得到同步歌詞才展開 ──
+    Rectangle {
+        id: lyricsIsland
+        readonly property real leftEdge: parent.width / 2 + 100 + 8 // cava 島寬 200、置中
+        readonly property real maxW: Math.max(0, sysIsland.x - 8 - leftEdge)
+        readonly property bool active: root.islandActive && root.lyricsLines.length > 0 && !root.showOsd
+
+        x: leftEdge
+        anchors.top: parent.top
+        anchors.topMargin: root.isBarMode ? 0 : 4
+        z: 2
+        height: 32
+        width: active ? Math.min(maxW, lyricsLabel.implicitWidth + 28) : 0
+        visible: width > 1
+        clip: true
+        opacity: (!root.isAnyPopupAnimActive) || root.isBarMode ? 1.0 : 0.0
+        radius: root.isBarMode ? 0 : 16
+        color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
+        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.width: root.isBarMode ? 0 : 1
+
+        Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutExpo } }
+
+        Text {
+            id: lyricsLabel
+            anchors.left: parent.left
+            anchors.leftMargin: 14
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.max(0, Math.min(implicitWidth, lyricsIsland.maxW - 28))
+            elide: Text.ElideRight
+            text: root.lyricsText
+            color: root.mprisStatus === "Playing" ? root.colFg : root.colMuted
+            font { family: root.fontFamily; pixelSize: root.fontSize + 1; bold: true }
+
+            // 換行時淡出 → 換字 → 淡入
+            Behavior on text {
+                enabled: !root.batteryMode
+                SequentialAnimation {
+                    NumberAnimation { target: lyricsLabel; property: "opacity"; to: 0; duration: 100 }
+                    PropertyAction {}
+                    NumberAnimation { target: lyricsLabel; property: "opacity"; to: 1; duration: 160 }
+                }
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: musicPopup.show = !musicPopup.show
         }
     }
 
