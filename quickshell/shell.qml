@@ -836,7 +836,7 @@ ShellRoot {
     Process {
         id: pCava
         command: ["cava", "-p", "/home/miles/.config/quickshell/cava_bar.ini"]
-        running: root.islandActive && !musicPopup.show
+        running: root.islandActive // popup 開著也跑：party mode 拿來打節拍
         stdout: SplitParser {
             onRead: data => {
                 // cava 每個值後面都帶 ';'（含最後一個），要濾掉尾端空字串，否則會多出一根永遠 0 的 bar
@@ -3861,4 +3861,9 @@ PopupWindow {
     }
 
     LockScreen { id: lockScreen }
+
+    PartyMode {
+        shellRoot: root
+        show: musicPopup.show && !lockScreen.active
+    }
     }

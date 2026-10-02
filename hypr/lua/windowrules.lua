@@ -12,6 +12,15 @@ hl.layer_rule({
 	ignore_alpha = 0.0,
 })
 
+-- blur behind the party mode overlay (quickshell PartyMode.qml, namespace "qs-party");
+-- global blur itself is switched on by PartyMode via `hyprctl eval` only while it's open
+hl.layer_rule({
+	name = "party-blur",
+	match = { namespace = "qs-party" },
+	blur = true,
+	ignore_alpha = 0.0,
+})
+
 hl.window_rule({
 	name = "default-float",
 	match = { class = ".*" },
