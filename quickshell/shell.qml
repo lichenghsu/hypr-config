@@ -246,7 +246,6 @@ ShellRoot {
     property bool micMuted: false
     property string bluetoothStatus: "off"
     property string vpnDisconnectTarget: ""
-    property string vpnChoiceTarget: "" // 有多種連線方式的 VPN（LIA_ROC），點擊後先選方式
     property bool audioSinkExpanded: false
     property bool audioSourceExpanded: false
     property string defaultSink: ""
@@ -2526,7 +2525,6 @@ PopupWindow {
             if (show) focusTimerCc.start();
             else {
                 root.vpnDisconnectTarget = "";
-                root.vpnChoiceTarget = "";
                 root.remminaExpanded = false;
                 root.audioSinkExpanded = false;
                 root.audioSourceExpanded = false;
@@ -3052,94 +3050,21 @@ PopupWindow {
                                 accent: "#FF9500"
                                 onIconClicked: {
                                     if (model.active) {
-                                        root.vpnChoiceTarget = "";
                                         root.vpnDisconnectTarget = model.name;
                                     } else {
                                         root.vpnDisconnectTarget = "";
                                         if (model.name === "LIA_ROC") {
-                                            root.vpnChoiceTarget = (root.vpnChoiceTarget === model.name) ? "" : model.name;
+                                            // LIA_ROC 可走原本 SSL 或 FortiClient，跳選單讓使用者選
+                                            vpnChooserPopup.target = model.name;
+                                            vpnChooserPopup.show = true;
+                                            controlCenter.show = false;
                                         } else {
-                                            root.vpnChoiceTarget = "";
                                             root.vpnConnectNm(model.name);
                                         }
                                     }
                                 }
                                 onMainClicked: iconClicked()
                                 onRightIconClicked: iconClicked()
-                            }
-                        }
-                    }
-
-                    // VPN Connect Method Chooser (LIA_ROC: NetworkManager or FortiClient)
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 48
-                        visible: root.vpnChoiceTarget !== ""
-                        radius: 0
-                        color: Qt.rgba(1, 0.58, 0, 0.12)
-                        border.color: Qt.rgba(1, 0.58, 0, 0.3)
-                        border.width: 1
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 12
-                            spacing: 8
-
-                            Text {
-                                text: "Connect " + root.vpnChoiceTarget + " via"
-                                color: root.colFg
-                                font.family: root.fontFamily
-                                font.pixelSize: 13
-                                font.bold: true
-                                Layout.fillWidth: true
-                                elide: Text.ElideRight
-                            }
-
-                            MouseArea {
-                                Layout.preferredWidth: 84
-                                Layout.preferredHeight: 32
-                                hoverEnabled: true
-                                onClicked: {
-                                    var n = root.vpnChoiceTarget;
-                                    root.vpnChoiceTarget = "";
-                                    root.vpnConnectNm(n);
-                                }
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: 0
-                                    color: parent.containsMouse ? Qt.rgba(1,1,1,0.15) : Qt.rgba(1,1,1,0.08)
-                                }
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "Original"
-                                    color: root.colFg
-                                    font.family: root.fontFamily
-                                    font.pixelSize: 12
-                                }
-                            }
-
-                            MouseArea {
-                                Layout.preferredWidth: 84
-                                Layout.preferredHeight: 32
-                                hoverEnabled: true
-                                onClicked: {
-                                    root.vpnChoiceTarget = "";
-                                    root.vpnConnectForti();
-                                    controlCenter.show = false;
-                                }
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: 0
-                                    color: parent.containsMouse ? Qt.rgba(1, 0.58, 0, 0.5) : Qt.rgba(1, 0.58, 0, 0.3)
-                                }
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "FortiClient"
-                                    color: "#ffffff"
-                                    font.family: root.fontFamily
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                }
                             }
                         }
                     }
@@ -3851,6 +3776,11 @@ PopupWindow {
 
     WallpaperPicker {
         id: wallpaperPickerPopup
+        shellRoot: root
+    }
+
+    VpnChooser {
+        id: vpnChooserPopup
         shellRoot: root
     }
 
