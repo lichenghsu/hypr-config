@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 
-// LIA_ROC 連線方式選單：NetworkManager-openconnect（protocol=fortinet）或 Fortinet 官方 FortiClient 8.0
+// LIA_ROC 連線方式選單：NetworkManager-openconnect（protocol=fortinet）或 Fortinet 官方 FortiClient
 PanelWindow {
     id: rootWindow
 
@@ -113,7 +113,7 @@ PanelWindow {
                         Repeater {
                             model: [
                                 { label: "OPENCONNECT", sub: "NM plugin · Fortinet SSL VPN" },
-                                { label: "FORTICLIENT", sub: "Fortinet official client 8.0" }
+                                { label: "FORTICLIENT", sub: "Fortinet official client" }
                             ]
                             delegate: Rectangle {
                                 width: 200; height: 56; radius: 0

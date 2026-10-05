@@ -269,9 +269,10 @@ ShellRoot {
 
     // FortiClient 官方 GUI，自己管連線，nmcli 看不到狀態
     function vpnConnectForti() {
+        // /usr/bin/forticlient 是 forticlient-cli，不是 GUI
         Quickshell.execDetached(["sh", "-c",
-            "if command -v forticlient >/dev/null; then exec forticlient; "
-            + "else exec /opt/forticlient/gui/FortiClient-linux-x64/FortiClient; fi"]);
+            "for p in /opt/forticlient/gui/FortiClient /opt/forticlient/gui/FortiClient-linux-x64/FortiClient; do "
+            + "[ -x \"$p\" ] && exec \"$p\"; done"]);
     }
 
     function vpnSetActive(name, active) {
