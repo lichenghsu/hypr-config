@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 
-// LIA_ROC 連線方式選單：原本 NetworkManager SSL (openconnect) 或 FortiClient 官方 F44 版
+// LIA_ROC 連線方式選單：NetworkManager-openconnect（protocol=fortinet）或 Fortinet 官方 FortiClient 7.4
 PanelWindow {
     id: rootWindow
 
@@ -112,11 +112,11 @@ PanelWindow {
 
                         Repeater {
                             model: [
-                                { label: "SSL", sub: "NetworkManager" },
-                                { label: "FORTICLIENT", sub: "F44" }
+                                { label: "OPENCONNECT", sub: "NM plugin · Fortinet SSL VPN" },
+                                { label: "FORTICLIENT", sub: "Fortinet official client 7.4" }
                             ]
                             delegate: Rectangle {
-                                width: 140; height: 56; radius: 0
+                                width: 200; height: 56; radius: 0
                                 border.color: Qt.rgba(1, 0.42, 0, 0.5); border.width: 1
                                 color: (optMouse.containsMouse || selectedIndex === index) ? Qt.rgba(1, 0.42, 0, 0.7) : Qt.rgba(1, 1, 1, 0.1)
                                 scale: (optMouse.containsMouse || selectedIndex === index) ? 1.1 : 1.0
