@@ -66,6 +66,7 @@ Scope {
                 Behavior on opacity { NumberAnimation { duration: 450; easing.type: Easing.OutCubic } }
 
                 ShaderEffect {
+                    id: fx
                     anchors.fill: parent
                     property real time: 0
                     property real aspect: width / Math.max(1, height)
@@ -81,7 +82,8 @@ Scope {
 
                     FrameAnimation {
                         running: win.visible
-                        onTriggered: parent.time += frameTime
+                        // FrameAnimation 不是 Item，沒有 parent，要用 id
+                        onTriggered: fx.time += frameTime
                     }
                 }
 
