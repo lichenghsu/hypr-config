@@ -246,6 +246,7 @@ ShellRoot {
     property bool micMuted: false
     property string bluetoothStatus: "off"
     property string vpnDisconnectTarget: ""
+    property string vpnChoiceTarget: "" // 有多種連線方式的 VPN（LIA_ROC），點擊後先選方式
     property bool audioSinkExpanded: false
     property bool audioSourceExpanded: false
     property string defaultSink: ""
@@ -254,6 +255,25 @@ ShellRoot {
     ListModel { id: vpnModel }
     ListModel { id: audioSinkModel }
     ListModel { id: audioSourceModel }
+
+    // Fortinet VPN 用動態表單登入，NetworkManager 每次連線
+    // 都得即時跟 secret agent 要新的表單欄位，預存的值沒用，
+    // 所以一律走終端機彈窗互動輸入 (nmcli --ask)
+    function vpnConnectNm(name) {
+        for (var i = 0; i < vpnModel.count; i++)
+            if (vpnModel.get(i).name === name) vpnModel.setProperty(i, "connecting", true);
+        var vpnName = name.replace(/'/g, "'\\''");
+        pVpnAsk.command = ["kitty", "--class", "wl-vpn-auth", "-e", "sh", "-c",
+            "nmcli --ask connection up '" + vpnName + "'; echo; read -p 'Press Enter to close...'"];
+        pVpnAsk.running = true;
+    }
+
+    // FortiClient 官方 GUI，自己管連線，nmcli 看不到狀態
+    function vpnConnectForti() {
+        Quickshell.execDetached(["sh", "-c",
+            "if command -v forticlient >/dev/null; then exec forticlient; "
+            + "else exec /opt/forticlient/gui/FortiClient-linux-x64/FortiClient; fi"]);
+    }
 
     function vpnSetActive(name, active) {
         for (var i = 0; i < vpnModel.count; i++) {
@@ -2506,6 +2526,7 @@ PopupWindow {
             if (show) focusTimerCc.start();
             else {
                 root.vpnDisconnectTarget = "";
+                root.vpnChoiceTarget = "";
                 root.remminaExpanded = false;
                 root.audioSinkExpanded = false;
                 root.audioSourceExpanded = false;
@@ -3031,22 +3052,94 @@ PopupWindow {
                                 accent: "#FF9500"
                                 onIconClicked: {
                                     if (model.active) {
+                                        root.vpnChoiceTarget = "";
                                         root.vpnDisconnectTarget = model.name;
                                     } else {
                                         root.vpnDisconnectTarget = "";
-
-                                        // Fortinet VPN 用動態表單登入，NetworkManager 每次連線
-                                        // 都得即時跟 secret agent 要新的表單欄位，預存的值沒用，
-                                        // 所以一律走終端機彈窗互動輸入 (nmcli --ask)
-                                        var vpnName = model.name.replace(/'/g, "'\\''");
-                                        vpnModel.setProperty(index, "connecting", true);
-                                        pVpnAsk.command = ["kitty", "--class", "wl-vpn-auth", "-e", "sh", "-c",
-                                            "nmcli --ask connection up '" + vpnName + "'; echo; read -p 'Press Enter to close...'"];
-                                        pVpnAsk.running = true;
+                                        if (model.name === "LIA_ROC") {
+                                            root.vpnChoiceTarget = (root.vpnChoiceTarget === model.name) ? "" : model.name;
+                                        } else {
+                                            root.vpnChoiceTarget = "";
+                                            root.vpnConnectNm(model.name);
+                                        }
                                     }
                                 }
                                 onMainClicked: iconClicked()
                                 onRightIconClicked: iconClicked()
+                            }
+                        }
+                    }
+
+                    // VPN Connect Method Chooser (LIA_ROC: NetworkManager or FortiClient)
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 48
+                        visible: root.vpnChoiceTarget !== ""
+                        radius: 0
+                        color: Qt.rgba(1, 0.58, 0, 0.12)
+                        border.color: Qt.rgba(1, 0.58, 0, 0.3)
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 8
+
+                            Text {
+                                text: "Connect " + root.vpnChoiceTarget + " via"
+                                color: root.colFg
+                                font.family: root.fontFamily
+                                font.pixelSize: 13
+                                font.bold: true
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                            }
+
+                            MouseArea {
+                                Layout.preferredWidth: 84
+                                Layout.preferredHeight: 32
+                                hoverEnabled: true
+                                onClicked: {
+                                    var n = root.vpnChoiceTarget;
+                                    root.vpnChoiceTarget = "";
+                                    root.vpnConnectNm(n);
+                                }
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: 0
+                                    color: parent.containsMouse ? Qt.rgba(1,1,1,0.15) : Qt.rgba(1,1,1,0.08)
+                                }
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "Original"
+                                    color: root.colFg
+                                    font.family: root.fontFamily
+                                    font.pixelSize: 12
+                                }
+                            }
+
+                            MouseArea {
+                                Layout.preferredWidth: 84
+                                Layout.preferredHeight: 32
+                                hoverEnabled: true
+                                onClicked: {
+                                    root.vpnChoiceTarget = "";
+                                    root.vpnConnectForti();
+                                    controlCenter.show = false;
+                                }
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: 0
+                                    color: parent.containsMouse ? Qt.rgba(1, 0.58, 0, 0.5) : Qt.rgba(1, 0.58, 0, 0.3)
+                                }
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "FortiClient"
+                                    color: "#ffffff"
+                                    font.family: root.fontFamily
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                }
                             }
                         }
                     }
