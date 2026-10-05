@@ -283,7 +283,6 @@ ShellRoot {
             }
         }
     }
-    property bool remminaExpanded: false
     property bool batteryMode: false
 
     property bool showBatteryModeIndicator: false
@@ -503,7 +502,6 @@ ShellRoot {
         }
     }
 
-    Process { id: pRemmina }
 
     ListModel { id: remminaModel }
 
@@ -2554,7 +2552,7 @@ PopupWindow {
             if (show) focusTimerCc.start();
             else {
                 root.vpnDisconnectTarget = "";
-                root.remminaExpanded = false;
+                remminaPopup.show = false;
                 root.audioSinkExpanded = false;
                 root.audioSourceExpanded = false;
             }
@@ -2575,6 +2573,7 @@ PopupWindow {
                 timerPopup.show = false;
                 gpuPopup.show = false;
                 notesPopup.show = false;
+                remminaPopup.show = false;
             }
 
             MouseArea {
@@ -2585,6 +2584,7 @@ PopupWindow {
                     timerPopup.show = false;
                     gpuPopup.show = false;
                     notesPopup.show = false;
+                    remminaPopup.show = false;
                 }
             }
 
@@ -3179,7 +3179,16 @@ PopupWindow {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 36
                         hoverEnabled: true
-                        onClicked: root.remminaExpanded = !root.remminaExpanded
+                        onClicked: {
+                            if (!remminaPopup.show) {
+                                var pos = mapToItem(null, 0, 0);
+                                remminaPopup.anchorRect = Qt.rect(pos.x, pos.y, width, height);
+                            }
+                            remminaPopup.show = !remminaPopup.show;
+                            gpuPopup.show = false;
+                            notesPopup.show = false;
+                            timerPopup.show = false;
+                        }
 
                         Rectangle {
                             anchors.fill: parent
@@ -3216,102 +3225,13 @@ PopupWindow {
                                 font.pixelSize: 11
                             }
                             Text {
-                                text: root.remminaExpanded ? "v" : ">"
+                                text: remminaPopup.show ? "<" : ">"
                                 color: root.colMuted
                                 font.family: root.fontFamily
                                 font.pixelSize: 13
                                 font.bold: true
                             }
                         }
-                    }
-
-                    // Remmina connection list
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
-                        visible: root.remminaExpanded
-                        clip: true
-
-                        Repeater {
-                            model: remminaModel
-                            delegate: Item {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: (index === 0 || remminaModel.get(index - 1).group !== model.group) ? 50 : 34
-
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    spacing: 0
-
-                                    // Group header
-                                    Text {
-                                        visible: index === 0 || remminaModel.get(index - 1).group !== model.group
-                                        text: model.group
-                                        color: root.colMuted
-                                        font.family: root.fontFamily
-                                        font.pixelSize: 10
-                                        font.bold: true
-                                        leftPadding: 8
-                                        topPadding: 6
-                                        Layout.fillWidth: true
-                                    }
-
-                                    MouseArea {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 32
-                                        hoverEnabled: true
-                                        onClicked: {
-                                            onClicked: {
-                                                // 1. 先強制停止/重置上一次的行程狀態（依據 QuickShell API，通常是 terminate() 或 stop()）
-                                                if (pRemmina.running) {
-                                                    pRemmina.terminate();
-                                                }
-
-                                                // 2. 重新指派指令並啟動
-                                                pRemmina.command = ["remmina", "--connect", model.filePath];
-                                                pRemmina.running = true;
-                                                root.remminaExpanded = false;
-                                            }
-                                        }
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            radius: 0
-                                            color: parent.containsMouse ? Qt.rgba(0.29, 0.56, 0.85, 0.2) : Qt.rgba(1,1,1,0.04)
-                                        }
-
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 10
-                                            anchors.rightMargin: 10
-                                            spacing: 8
-
-                                            Text {
-                                                text: model.name
-                                                color: root.colFg
-                                                font.family: root.fontFamily
-                                                font.pixelSize: 12
-                                                Layout.fillWidth: true
-                                                elide: Text.ElideRight
-                                            }
-                                            Text {
-                                                text: model.proto
-                                                color: model.proto === "RDP" ? "#4A90D9" : "#5CB85C"
-                                                font.family: root.fontFamily
-                                                font.pixelSize: 10
-                                                font.bold: true
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 1
-                        color: Qt.rgba(1, 0.42, 0, 0.2)
-                        visible: root.remminaExpanded
                     }
 
                     // Toggles Row 3 (Timer and Stopwatch)
@@ -3375,6 +3295,7 @@ PopupWindow {
                                     timerPopup.anchorRect = Qt.rect(pos.x, pos.y, btnTimer.width, btnTimer.height);
                                 }
                                 timerPopup.show = !timerPopup.show;
+                                remminaPopup.show = false;
                                 gpuPopup.show = false;
                                 notesPopup.show = false;
                             }
@@ -3411,6 +3332,7 @@ PopupWindow {
                                     gpuPopup.anchorRect = Qt.rect(pos.x, pos.y, width, height);
                                 }
                                 gpuPopup.show = !gpuPopup.show;
+                                remminaPopup.show = false;
                                 notesPopup.show = false;
                                 timerPopup.show = false;
                             }
@@ -3425,6 +3347,7 @@ PopupWindow {
                                     notesPopup.anchorRect = Qt.rect(pos.x, pos.y, width, height);
                                 }
                                 notesPopup.show = !notesPopup.show;
+                                remminaPopup.show = false;
                                 gpuPopup.show = false;
                                 timerPopup.show = false;
                             }
@@ -3668,6 +3591,124 @@ PopupWindow {
 
                     ModernButton { text: "Integrated"; iconText: ""; onClicked: { pGpuInt.running = true; gpuPopup.show = false; controlCenter.show = false } }
                     ModernButton { text: "Hybrid"; iconText: ""; onClicked: { pGpuHyb.running = true; gpuPopup.show = false; controlCenter.show = false } }
+                }
+            }
+        }
+    }
+
+    PopupWindow {
+        id: remminaPopup
+        anchor {
+            window: controlCenter
+            rect: remminaPopup.anchorRect
+            edges: Edges.Left | Edges.Top
+            gravity: Edges.Left | Edges.Bottom
+        }
+
+        property rect anchorRect: Qt.rect(0, 0, 40, 40)
+        property bool show: false
+        visible: show || animRectRemmina.opacity > 0
+
+        implicitWidth: 300
+        implicitHeight: Math.min(layoutRemmina.implicitHeight + 32, 600)
+        color: "transparent"
+
+        Item {
+            anchors.fill: parent
+
+            Rectangle {
+                id: animRectRemmina
+                anchors.fill: parent
+
+                anchors.rightMargin: 12
+
+                color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
+                radius: 0
+                border.color: Qt.rgba(0.29, 0.56, 0.85, 0.5)
+                border.width: 1
+
+                opacity: remminaPopup.show ? 1.0 : 0.0
+                scale: remminaPopup.show ? 1.0 : 0.95
+                x: remminaPopup.show ? 0 : 20
+                Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 200 } }
+                Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack } }
+                Behavior on x { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack } }
+
+                Flickable {
+                    anchors.fill: parent
+                    anchors.margins: 16
+                    contentHeight: layoutRemmina.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    ColumnLayout {
+                        id: layoutRemmina
+                        width: parent.width
+                        spacing: 2
+
+                        Text { text: "REMMINA"; color: "#4A90D9"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true; font.letterSpacing: 1 }
+
+                        Repeater {
+                            model: remminaModel
+                            delegate: ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 0
+
+                                // Group header
+                                Text {
+                                    visible: index === 0 || remminaModel.get(index - 1).group !== model.group
+                                    text: model.group
+                                    color: root.colMuted
+                                    font.family: root.fontFamily
+                                    font.pixelSize: 10
+                                    font.bold: true
+                                    topPadding: 8
+                                    bottomPadding: 2
+                                    Layout.fillWidth: true
+                                }
+
+                                MouseArea {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 32
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        Quickshell.execDetached(["remmina", "--connect", model.filePath]);
+                                        remminaPopup.show = false;
+                                        controlCenter.show = false;
+                                    }
+
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius: 0
+                                        color: parent.containsMouse ? Qt.rgba(0.29, 0.56, 0.85, 0.2) : Qt.rgba(1,1,1,0.04)
+                                    }
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 8
+
+                                        Text {
+                                            text: model.name
+                                            color: root.colFg
+                                            font.family: root.fontFamily
+                                            font.pixelSize: 12
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                        }
+                                        Text {
+                                            text: model.proto
+                                            color: model.proto === "RDP" ? "#4A90D9" : "#5CB85C"
+                                            font.family: root.fontFamily
+                                            font.pixelSize: 10
+                                            font.bold: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
