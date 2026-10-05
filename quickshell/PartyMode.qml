@@ -88,6 +88,46 @@ Scope {
                     }
                 }
 
+                // ── cava 頻譜：貼底、左右鏡像（低音在中間），彩虹漸層混 playerColor ──
+                Row {
+                    id: spectrum
+                    readonly property var bars: party.shellRoot ? party.shellRoot.cavaBars : []
+                    readonly property int half: bars.length
+                    readonly property real maxH: parent.height * 0.22
+                    anchors.bottom: parent.bottom
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width * 0.9
+                    height: maxH
+                    spacing: 6
+
+                    Repeater {
+                        model: spectrum.half * 2
+                        Item {
+                            required property int index
+                            // 0..half-1 反向，half..2half-1 正向 → 中間是低音
+                            readonly property int k: index < spectrum.half ? spectrum.half - 1 - index : index - spectrum.half
+                            readonly property real level: Math.min(1, (spectrum.bars[k] || 0) / 20)
+                            width: (spectrum.width - spectrum.spacing * (spectrum.half * 2 - 1)) / Math.max(1, spectrum.half * 2)
+                            height: spectrum.height
+
+                            Rectangle {
+                                id: bar
+                                anchors.bottom: parent.bottom
+                                width: parent.width
+                                height: Math.max(3, spectrum.maxH * parent.level)
+                                Behavior on height { NumberAnimation { duration: 80 } }
+                                readonly property color c: Qt.tint(
+                                    Qt.hsva((parent.k / Math.max(1, spectrum.half) * 0.8 + fx.time * 0.05) % 1, 0.75, 1, 1),
+                                    Qt.rgba(fx.tint.r, fx.tint.g, fx.tint.b, 0.35))
+                                gradient: Gradient {
+                                    GradientStop { position: 0; color: Qt.rgba(bar.c.r, bar.c.g, bar.c.b, 0.9) }
+                                    GradientStop { position: 1; color: Qt.rgba(bar.c.r, bar.c.g, bar.c.b, 0.15) }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // ── 歌詞：上一行 / 目前 / 下一行，目前那行放大發光 ──
                 Column {
                     anchors.horizontalCenter: parent.horizontalCenter
