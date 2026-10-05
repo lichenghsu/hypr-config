@@ -2552,7 +2552,6 @@ PopupWindow {
             if (show) focusTimerCc.start();
             else {
                 root.vpnDisconnectTarget = "";
-                remminaPopup.show = false;
                 root.audioSinkExpanded = false;
                 root.audioSourceExpanded = false;
             }
@@ -2573,7 +2572,6 @@ PopupWindow {
                 timerPopup.show = false;
                 gpuPopup.show = false;
                 notesPopup.show = false;
-                remminaPopup.show = false;
             }
 
             MouseArea {
@@ -2584,7 +2582,6 @@ PopupWindow {
                     timerPopup.show = false;
                     gpuPopup.show = false;
                     notesPopup.show = false;
-                    remminaPopup.show = false;
                 }
             }
 
@@ -3180,11 +3177,8 @@ PopupWindow {
                         Layout.preferredHeight: 36
                         hoverEnabled: true
                         onClicked: {
-                            if (!remminaPopup.show) {
-                                var pos = mapToItem(null, 0, 0);
-                                remminaPopup.anchorRect = Qt.rect(pos.x, pos.y, width, height);
-                            }
-                            remminaPopup.show = !remminaPopup.show;
+                            remminaPopup.show = true;
+                            controlCenter.show = false;
                             gpuPopup.show = false;
                             notesPopup.show = false;
                             timerPopup.show = false;
@@ -3225,7 +3219,7 @@ PopupWindow {
                                 font.pixelSize: 11
                             }
                             Text {
-                                text: remminaPopup.show ? "<" : ">"
+                                text: ">"
                                 color: root.colMuted
                                 font.family: root.fontFamily
                                 font.pixelSize: 13
@@ -3295,7 +3289,6 @@ PopupWindow {
                                     timerPopup.anchorRect = Qt.rect(pos.x, pos.y, btnTimer.width, btnTimer.height);
                                 }
                                 timerPopup.show = !timerPopup.show;
-                                remminaPopup.show = false;
                                 gpuPopup.show = false;
                                 notesPopup.show = false;
                             }
@@ -3332,7 +3325,6 @@ PopupWindow {
                                     gpuPopup.anchorRect = Qt.rect(pos.x, pos.y, width, height);
                                 }
                                 gpuPopup.show = !gpuPopup.show;
-                                remminaPopup.show = false;
                                 notesPopup.show = false;
                                 timerPopup.show = false;
                             }
@@ -3347,7 +3339,6 @@ PopupWindow {
                                     notesPopup.anchorRect = Qt.rect(pos.x, pos.y, width, height);
                                 }
                                 notesPopup.show = !notesPopup.show;
-                                remminaPopup.show = false;
                                 gpuPopup.show = false;
                                 timerPopup.show = false;
                             }
@@ -3596,31 +3587,48 @@ PopupWindow {
         }
     }
 
-    PopupWindow {
+    PanelWindow {
         id: remminaPopup
-        anchor {
-            window: controlCenter
-            rect: remminaPopup.anchorRect
-            edges: Edges.Left | Edges.Top
-            gravity: Edges.Left | Edges.Bottom
-        }
 
-        property rect anchorRect: Qt.rect(0, 0, 40, 40)
         property bool show: false
+
+        WlrLayershell.keyboardFocus: show ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+
+        anchors {
+            top: true
+            left: true
+            right: true
+            bottom: true
+        }
+        exclusionMode: ExclusionMode.Ignore
+        color: "transparent"
         visible: show || animRectRemmina.opacity > 0
 
-        implicitWidth: 300
-        implicitHeight: Math.min(layoutRemmina.implicitHeight + 32, 600)
-        color: "transparent"
+        onShowChanged: if (show) focusTimerRemmina.start()
+
+        Timer {
+            id: focusTimerRemmina
+            interval: 50
+            onTriggered: remminaContent.forceActiveFocus()
+        }
 
         Item {
+            id: remminaContent
             anchors.fill: parent
+            focus: remminaPopup.show
+            Keys.onEscapePressed: remminaPopup.show = false
+
+            MouseArea {
+                anchors.fill: parent
+                enabled: remminaPopup.show
+                onClicked: remminaPopup.show = false
+            }
 
             Rectangle {
                 id: animRectRemmina
-                anchors.fill: parent
-
-                anchors.rightMargin: 12
+                anchors.centerIn: parent
+                width: 340
+                height: Math.min(layoutRemmina.implicitHeight + 32, parent.height * 0.7)
 
                 color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
                 radius: 0
@@ -3629,10 +3637,11 @@ PopupWindow {
 
                 opacity: remminaPopup.show ? 1.0 : 0.0
                 scale: remminaPopup.show ? 1.0 : 0.95
-                x: remminaPopup.show ? 0 : 20
                 Behavior on opacity { NumberAnimation { duration: root.batteryMode ? 0 : 200 } }
                 Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack } }
-                Behavior on x { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutBack } }
+
+                // 吃掉點擊，避免點到選單本身就關閉
+                MouseArea { anchors.fill: parent; enabled: remminaPopup.show }
 
                 Flickable {
                     anchors.fill: parent
@@ -3646,7 +3655,11 @@ PopupWindow {
                         width: parent.width
                         spacing: 2
 
-                        Text { text: "REMMINA"; color: "#4A90D9"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true; font.letterSpacing: 1 }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text { text: "REMMINA"; color: "#4A90D9"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true; font.letterSpacing: 1; Layout.fillWidth: true }
+                            Text { text: remminaModel.count + " connections"; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 11 }
+                        }
 
                         Repeater {
                             model: remminaModel
@@ -3674,7 +3687,6 @@ PopupWindow {
                                     onClicked: {
                                         Quickshell.execDetached(["remmina", "--connect", model.filePath]);
                                         remminaPopup.show = false;
-                                        controlCenter.show = false;
                                     }
 
                                     Rectangle {
