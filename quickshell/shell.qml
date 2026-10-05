@@ -315,6 +315,9 @@ ShellRoot {
     }
 
     property bool islandActive: root.mprisStatus !== "offline" && root.mprisTitle !== ""
+    // party mode（mirror ball 特效）：music popup 右上角 icon 手動開關，音樂停了自動關
+    property bool partyMode: false
+    onIslandActiveChanged: if (!islandActive) partyMode = false
     property var cavaBars: []
     property string barClock: Qt.formatDateTime(new Date(), "HH:mm")
     property bool caffeineOn: false
@@ -2073,6 +2076,32 @@ PopupWindow {
         border.width: 1
 
         Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
+
+        // party mode 開關（disco ball icon）
+        MouseArea {
+            id: btnParty
+            anchors.top: parent.top; anchors.right: parent.right
+            anchors.margins: 10
+            width: 32; height: 32
+            z: 1
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.partyMode = !root.partyMode
+            Rectangle {
+                anchors.fill: parent
+                radius: 0
+                color: root.partyMode ? root.playerColor : (parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent")
+                border.color: Qt.rgba(1, 0.42, 0, 0.3); border.width: 1
+                Behavior on color { ColorAnimation { duration: 150 } }
+            }
+            Text {
+                anchors.centerIn: parent
+                text: "\ue271"
+                color: root.partyMode ? "#000000" : "#FFFFFF"
+                font.family: root.fontFamily
+                font.pixelSize: 16
+            }
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -3887,6 +3916,6 @@ PopupWindow {
 
     PartyMode {
         shellRoot: root
-        show: musicPopup.show && !lockScreen.active
+        show: root.partyMode && !lockScreen.active
     }
     }

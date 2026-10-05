@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 
-// ── Party mode：音樂 popup 展開時，每個螢幕蓋一層 mirror ball 特效，歌詞放大置中 ──
+// ── Party mode：music popup 的 disco icon 開啟後，每個螢幕蓋一層 mirror ball 特效，歌詞放大置中 ──
 // 純視覺層：不吃滑鼠、不搶鍵盤，popup 本身仍在最上面可操作
 Scope {
     id: party
