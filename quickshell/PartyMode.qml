@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 
-// ── Party mode：music popup 的 disco icon 開啟後，每個螢幕蓋一層 mirror ball 特效，歌詞放大置中 ──
+// ── Party mode：music popup 的 disco icon 開啟後，在 popup 所在螢幕蓋一層 mirror ball 特效，歌詞放大置中 ──
 // 純視覺層：不吃滑鼠、不搶鍵盤，popup 本身仍在最上面可操作
 Scope {
     id: party
@@ -48,7 +48,8 @@ Scope {
             // popup 所在的螢幕把球移到左邊，避免被 popup 擋住
             readonly property bool popupScreen: party.shellRoot && modelData === party.shellRoot.screen
 
-            visible: party.show || stage.opacity > 0
+            // 只在 music popup 所在的螢幕顯示，其他螢幕不畫（省 GPU）
+            visible: popupScreen && (party.show || stage.opacity > 0)
             color: "transparent"
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.layer: WlrLayer.Overlay
