@@ -3958,7 +3958,7 @@ PopupWindow {
             root.colAccent = accent;
         }
         function lock() {
-            lockScreen.activate()
+            foldLock.play()
         }
         // id card
         function toggleIdCard() {
@@ -3967,6 +3967,12 @@ PopupWindow {
     }
 
     LockScreen { id: lockScreen }
+
+    FoldLock {
+        id: foldLock
+        lockScreen: lockScreen
+        onFinished: lockScreen.activate()
+    }
 
     PartyMode {
         shellRoot: root
