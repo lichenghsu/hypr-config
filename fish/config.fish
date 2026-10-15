@@ -44,4 +44,32 @@ set -gx PATH "/home/miles/.local/bin" $PATH
 
 # Krew 
 set -gx PATH $PATH $HOME/.krew/bin
+
+# Kind update
+# 更新 kind binary 到最新的函式
+function kind_update
+    set -l target_version $argv[1]
+    if test -z "$target_version"
+        set url "https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64"
+        echo "⬇️ 正在下載最新版 kind..."
+    else
+        set url "https://kind.sigs.k8s.io/dl/$target_version/kind-linux-amd64"
+        echo "⬇️ 正在下載指定版本 kind ($target_version)..."
+    end
+
+    curl -Lo /tmp/kind $url
+    and chmod +x /tmp/kind
+    and sudo mv /tmp/kind /usr/local/bin/kind
+    and echo "✅ kind 更新成功！"
+    and kind version
+end
+
+# Alias
+alias kupdate="kind_update"
+alias kind-update="kind_update"
+
 fish_add_path ~/Apps/termagotchi
+
+### MANAGED BY RANCHER DESKTOP START (DO NOT EDIT)
+set --export --prepend PATH "/home/miles/.rd/bin"
+### MANAGED BY RANCHER DESKTOP END (DO NOT EDIT)

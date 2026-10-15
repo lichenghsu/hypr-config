@@ -17,12 +17,17 @@ PanelWindow {
         { name: "Chromium", exec: "chromium-browser", icon: "org.chromium.Chromium.BaseApp"},
         { name: "Firefox", exec: "firefox", icon: "org.mozilla.FirefoxDevEdition" },
         { name: "Brave", exec: "/usr/bin/brave-browser-stable", icon: "brave-browser" },
+        { name: "Bruno", exec: "flatpak run com.usebruno.Bruno", icon: "com.usebruno.Bruno"},
+        { name: "Zaku", exec: "/home/miles/.local/bin/zaku", icon: "/home/miles/.local/zaku.app/share/icons/hicolor/1024x1024/apps/zaku.png"},
         { name: "Tabularis", exec: "/usr/bin/tabularis", icon: "tabularis" },
         { name: "Discord", exec: "/usr/bin/discord", icon: "discord" },
         { name: "Zed", exec: "/home/miles/.local/zed.app/bin/zed", icon: "/home/miles/.local/zed.app/share/icons/hicolor/512x512/apps/zed.png" },
+        { name: "VSCode", exec: "code", icon: "vscode"},
+        { name: "VSCodium", exec: "codium", icon: "/home/miles/Pictures/Icons/01_code_oss/codium_cnl.svg"},
         { name: "Virtual Machine Manager", exec: "virt-manager", icon: "virt-manager" },
         { name: "Dolphin", exec: "dolphin", icon: "org.kde.dolphin"},
         { name: "Remmina", exec: "remmina", icon: "remmina"},
+        { name: "MissionCenter", exec:"flatpak run io.missioncenter.MissionCenter", icon:"io.missioncenter.MissionCenter"},
     ]
 
     function iconSource(icon) {
