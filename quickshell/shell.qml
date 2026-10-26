@@ -6,6 +6,7 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell.Io
 import Quickshell.Services.Notifications
+import "toeic_words.js" as Toeic
 
 ShellRoot {
     PanelWindow {
@@ -69,6 +70,61 @@ ShellRoot {
     property bool k8sReachable: false
     property var k8sContexts: []
     property var k8sExpanded: ({})
+
+    // TOEIC 單字島：以 seed 洗牌後依序輪播，PREV 可往回看；小卡開著時暫停輪播
+    // seed 與目前位置存在 ~/.cache/quickshell/toeic_state，重啟後接著上次的字繼續
+    property var toeicOrder: []
+    property int toeicPos: 0
+    property int toeicSeed: 0
+    readonly property var toeicWord: toeicOrder.length > 0 ? Toeic.words[toeicOrder[toeicPos]] : null
+    function toeicShuffle(seed, pos) {
+        // mulberry32：同一個 seed 每次洗出同樣順序
+        var st = seed >>> 0;
+        function rand() {
+            st = (st + 0x6D2B79F5) >>> 0;
+            var t = st;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        }
+        var a = [];
+        for (var i = 0; i < Toeic.words.length; i++) a.push(i);
+        for (var j = a.length - 1; j > 0; j--) {
+            var k = Math.floor(rand() * (j + 1));
+            var t = a[j]; a[j] = a[k]; a[k] = t;
+        }
+        toeicSeed = seed;
+        toeicOrder = a;
+        toeicPos = pos >= 0 && pos < a.length ? pos : 0;
+    }
+    function toeicStep(d) {
+        if (toeicOrder.length === 0) return;
+        toeicPos = (toeicPos + d + toeicOrder.length) % toeicOrder.length;
+        Quickshell.execDetached(["sh", "-c",
+            "mkdir -p \"$HOME/.cache/quickshell\" && printf '%s %s\\n' \"$1\" \"$2\" > \"$HOME/.cache/quickshell/toeic_state\"",
+            "sh", String(toeicSeed), String(toeicPos)]);
+    }
+    Process {
+        id: pToeicLoad
+        command: ["sh", "-c", "cat \"$HOME/.cache/quickshell/toeic_state\" 2>/dev/null"]
+        running: true
+        property string buf: ""
+        stdout: SplitParser { onRead: data => pToeicLoad.buf = data.trim() }
+        onExited: {
+            var p = buf.split(" ");
+            if (p.length === 2 && !isNaN(parseInt(p[0])))
+                root.toeicShuffle(parseInt(p[0]), parseInt(p[1]));
+            else {
+                root.toeicShuffle(Math.floor(Math.random() * 2147483647), 0);
+                root.toeicStep(0); // 寫入新 seed
+            }
+        }
+    }
+    Timer {
+        interval: 90000; repeat: true
+        running: !toeicCardPopup.show
+        onTriggered: root.toeicStep(1)
+    }
 
     property var notificationHistory: []
     property int unreadCount: 0
@@ -1328,6 +1384,65 @@ ShellRoot {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: k8sPopup.show = !k8sPopup.show
+        }
+    }
+
+    // ── TOEIC 單字島：緊貼 k8s 島右側，點擊展開小卡，滾輪切換上一個／下一個 ──
+    Rectangle {
+        id: toeicIsland
+        readonly property real leftEdge: k8sIsland.x + k8sIsland.width + 8
+        // 右界：島模式到中央島左緣；bar 模式到置中的 cava／狀態列
+        readonly property real rightEdge: root.isBarMode
+            ? (root.islandActive ? parent.width / 2 - 96 : notchLayout.x - 16)
+            : notchRect.x - 8
+        readonly property real maxW: Math.max(0, rightEdge - leftEdge)
+        readonly property string meaning: root.toeicWord ? root.toeicWord.zh.split("；")[0] : ""
+
+        x: leftEdge
+        anchors.top: parent.top
+        anchors.topMargin: root.isBarMode ? 0 : 4
+        z: 2
+        height: 32
+        width: root.toeicWord && maxW >= 80 && !root.showOsd ? Math.min(maxW, toeicRow.implicitWidth + 28) : 0
+        visible: width > 1
+        clip: true
+        opacity: (!root.isAnyPopupAnimActive) || root.isBarMode ? 1.0 : 0.0
+        radius: root.isBarMode ? 0 : 16
+        color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
+        border.color: toeicCardPopup.show ? Qt.rgba(1, 0.42, 0, 0.9) : Qt.rgba(1, 0.42, 0, 0.5)
+        border.width: root.isBarMode ? 0 : 1
+
+        Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutExpo } }
+
+        Row {
+            id: toeicRow
+            anchors.left: parent.left
+            anchors.leftMargin: 14
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 8
+
+            Text {
+                text: "TOEIC"
+                color: "#FF6A00"
+                font { family: root.fontFamily; pixelSize: root.fontSize; bold: true; letterSpacing: 1 }
+            }
+            Text {
+                text: root.toeicWord ? root.toeicWord.w : ""
+                color: root.colFg
+                font { family: root.fontFamily; pixelSize: root.fontSize + 1; bold: true }
+            }
+            Text {
+                text: toeicIsland.meaning
+                color: root.colMuted
+                font { family: root.fontFamily; pixelSize: root.fontSize + 1; bold: true }
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: toeicCardPopup.show = !toeicCardPopup.show
+            onWheel: wheel => root.toeicStep(wheel.angleDelta.y > 0 ? -1 : 1)
         }
     }
 
@@ -3831,6 +3946,12 @@ PopupWindow {
     WallpaperPicker {
         id: wallpaperPickerPopup
         shellRoot: root
+    }
+
+    ToeicCard {
+        id: toeicCardPopup
+        shellRoot: root
+        island: toeicIsland
     }
 
     VpnChooser {
