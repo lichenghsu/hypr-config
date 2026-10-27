@@ -379,6 +379,7 @@ ShellRoot {
     property string spotifyText: ""
 
     property string mprisPlayer: ""
+    property string mprisInstance: "" // playerctl -p 用的完整名稱（例：firefox.instance_1_582），mpris_watch.sh 選的那個
     property string mprisStatus: "offline"
     property string mprisTitle: ""
     property string mprisArtist: ""
@@ -583,7 +584,7 @@ ShellRoot {
         command: ["/home/miles/.local/bin/battery_mode.sh"]
     }
 
-    Process { id: pSpotPrev; command: ["playerctl", "previous"] }
+    Process { id: pSpotPrev; command: root.mprisInstance ? ["playerctl", "-p", root.mprisInstance, "previous"] : ["playerctl", "previous"] }
     Process {
         id: pCheckCaffeine
         command: ["sh", "-c", "[ -e \"$XDG_RUNTIME_DIR/caffeine\" ] && echo on || echo off"]
@@ -667,8 +668,8 @@ ShellRoot {
 
 
 
-    Process { id: pSpotPlay; command: ["playerctl", "play-pause"] }
-    Process { id: pSpotNext; command: ["playerctl", "next"] }
+    Process { id: pSpotPlay; command: root.mprisInstance ? ["playerctl", "-p", root.mprisInstance, "play-pause"] : ["playerctl", "play-pause"] }
+    Process { id: pSpotNext; command: root.mprisInstance ? ["playerctl", "-p", root.mprisInstance, "next"] : ["playerctl", "next"] }
     Process { id: pGpu; command: ["sh", "-c", "supergfxctl -m Hybrid; hyprctl dispatch \"hl.dsp.exit()\""] }
 
     Process { id: pGpuInt; command: ["sh", "-c", "supergfxctl -m Integrated; hyprctl dispatch \"hl.dsp.exit()\""] }
@@ -808,7 +809,7 @@ ShellRoot {
                 var p = data.split("|");
                 if (p[0].trim() === "offline" || p.length < 5) {
                     root.mprisStatus = "offline"; root.spotifyStatus = "offline";
-                    root.mprisPlayer = root.mprisTitle = root.mprisArtist = root.mprisArtUrl = root.mprisUrl = root.mprisAlbum = "";
+                    root.mprisPlayer = root.mprisInstance = root.mprisTitle = root.mprisArtist = root.mprisArtUrl = root.mprisUrl = root.mprisAlbum = "";
                     root.mprisLength = 0;
                     return;
                 }
@@ -820,6 +821,7 @@ ShellRoot {
                 root.mprisLength   = parseInt(p[5].trim()) || 0;
                 root.mprisUrl      = (p[6] || "").trim();
                 root.mprisAlbum    = (p[7] || "").trim();
+                root.mprisInstance = p.length > 8 ? p[p.length - 1].trim() : ""; // 放最後一欄：標題含 | 時前面欄位會錯位
                 if (root.mprisPlayer === "spotify") {
                     root.spotifyStatus = root.mprisStatus;
                     root.spotifyText   = root.mprisTitle + (root.mprisArtist ? " — " + root.mprisArtist : "");
@@ -839,7 +841,7 @@ ShellRoot {
         }
     }
     Process {
-        command: ["sh", "-c", "while true; do playerctl position 2>/dev/null || echo 0; sleep 5; done"]
+        command: ["sh", "-c", "while true; do playerctl -p \"$(cat \"${XDG_RUNTIME_DIR:-/tmp}/qs-mpris-player\" 2>/dev/null)\" position 2>/dev/null || echo 0; sleep 5; done"]
         running: true
         stdout: SplitParser {
             onRead: data => {
@@ -874,7 +876,7 @@ ShellRoot {
     }
     // 有歌詞時每秒校正一次播放位置，拖進度條也能在 1 秒內跟上
     Process {
-        command: ["sh", "-c", "while true; do playerctl position 2>/dev/null || echo x; sleep 1; done"]
+        command: ["sh", "-c", "while true; do playerctl -p \"$(cat \"${XDG_RUNTIME_DIR:-/tmp}/qs-mpris-player\" 2>/dev/null)\" position 2>/dev/null || echo x; sleep 1; done"]
         running: root.lyricsLines.length > 0
         stdout: SplitParser {
             onRead: data => {
@@ -2298,7 +2300,7 @@ PopupWindow {
                         function seek(mx) {
                             if (root.mprisLength > 0) {
                                 var sec = Math.max(0, Math.min(1, mx / width)) * root.mprisLength / 1000000
-                                pSeek.command = ["playerctl", "position", String(Math.round(sec))]
+                                pSeek.command = (root.mprisInstance ? ["playerctl", "-p", root.mprisInstance] : ["playerctl"]).concat(["position", String(Math.round(sec))])
                                 pSeek.running = true
                             }
                         }
