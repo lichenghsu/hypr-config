@@ -45,8 +45,12 @@ PanelWindow {
                 return iconOverrides[key]
             }
 
-            // 否則使用系統預設圖示搜尋
-            return Quickshell.iconPath(appId, "application-x-executable")
+            // 優先用 .desktop 的 Icon=（同 launcher/dock），否則 appId 可能撞到主題的通用圖示（如 code）
+            const entry = DesktopEntries.heuristicLookup(appId)
+            const icon = (entry && entry.icon) ? entry.icon : appId
+            if (icon.startsWith("/")) return "file://" + icon
+
+            return Quickshell.iconPath(icon, "application-x-executable")
     }
 
     // 1. Helper to filter out helper/stray windows (like LINE's "explorer.exe")
@@ -93,29 +97,70 @@ PanelWindow {
         )
     }
 
-    // 4. Splits a list of windows into rows that dynamically scale and stretch
-    function buildThumbRows(windows, cellW, cellH, maxItemH) {
-        const n = windows.length
-        if (n === 0 || cellW <= 0 || cellH <= 0) return []
+    // Special windows grouped by their special workspace (special:term, special:note...)
+    readonly property var specialGroups: {
+        const groups = {}
+        for (const w of rootWindow.specialWindows) {
+            const name = (w.workspace.name || "special").replace(/^special:/, "")
+            if (!groups[name]) groups[name] = []
+            groups[name].push(w)
+        }
+        return Object.keys(groups).sort().map(name => ({ name: name, windows: groups[name] }))
+    }
 
-            const targetRows = Math.min(n, Math.max(1, Math.ceil(cellH / maxItemH)))
-            const itemH = Math.min(maxItemH, cellH / targetRows)
-            const rows = []
+    // 4. Maps a workspace's monitor (logical px) into a cell, keeping its aspect ratio.
+    // Window rects come from lastIpcObject (at/size in global logical px), so
+    // thumbnails sit where the windows really are. Falls back to the windows'
+    // bounding box when the monitor is unknown.
+    function wsLayout(windows, cellW, cellH) {
+        if (windows.length === 0 || cellW <= 0 || cellH <= 0) return null
 
-            let remaining = n
-            let idx = 0
-            for (let r = 0; r < targetRows; r++) {
-                const rowsLeft = targetRows - r
-                const countInRow = Math.ceil(remaining / rowsLeft)
-                rows.push({
-                    items: windows.slice(idx, idx + countInRow),
-                          itemW: cellW / countInRow,
-                          itemH: itemH
-                })
-                idx += countInRow
-                remaining -= countInRow
+            const ws = windows[0].workspace
+            const mon = ws ? ws.monitor : null
+            let mx = 0, my = 0, mw = 0, mh = 0
+            if (mon && mon.width > 0 && mon.scale > 0) {
+                const rotated = mon.lastIpcObject && mon.lastIpcObject.transform % 2 === 1
+                mx = mon.x
+                my = mon.y
+                mw = (rotated ? mon.height : mon.width) / mon.scale
+                mh = (rotated ? mon.width : mon.height) / mon.scale
+            } else {
+                let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+                for (const w of windows) {
+                    const r = rootWindow.winRect(w, null)
+                    if (!r) continue
+                    x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y)
+                    x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h)
+                }
+                if (x0 === Infinity) { x0 = 0; y0 = 0; x1 = 16; y1 = 10 }
+                mx = x0; my = y0; mw = x1 - x0; mh = y1 - y0
             }
-            return rows
+
+            const s = Math.min(cellW / mw, cellH / mh)
+            return { s: s, mx: mx, my: my, mw: mw, mh: mh,
+                ox: (cellW - mw * s) / 2, oy: (cellH - mh * s) / 2 }
+    }
+
+    // Window rect in global logical px; covers the whole monitor until IPC data arrives.
+    function winRect(w, layout) {
+        const ipc = w.lastIpcObject
+        if (ipc && ipc.at && ipc.size)
+            return { x: ipc.at[0], y: ipc.at[1], w: ipc.size[0], h: ipc.size[1] }
+        return layout ? { x: layout.mx, y: layout.my, w: layout.mw, h: layout.mh } : null
+    }
+
+    // lastIpcObject is only a snapshot, so refetch while the overview is open
+    // and Hyprland reports changes (window moved, opened, resized...).
+    Timer {
+        id: refreshTimer
+        interval: 80
+        onTriggered: Hyprland.refreshToplevels()
+    }
+    Connections {
+        target: Hyprland
+        function onRawEvent(event) {
+            if (rootWindow.show) refreshTimer.restart()
+        }
     }
 
     // 5. IPC Processes to safely dispatch commands to Hyprland via hyprctl.
@@ -156,6 +201,8 @@ PanelWindow {
     // 6. Resetting state and tracking focus when the overview window opens or closes
     onShowChanged: {
         if (show) {
+            Hyprland.refreshMonitors()
+            Hyprland.refreshToplevels()
             showSpecial = false
             const fw = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1
             selCell = Math.max(0, Math.min(9, fw - 1))
@@ -247,8 +294,10 @@ PanelWindow {
         Rectangle {
             id: gridPanel
             anchors.centerIn: parent
-            width: 1680
-            height: 560
+            // Scale with the screen: cells keep a 16:10 aspect (margins 32*2, spacing 20)
+            readonly property real cellW: (width - 64 - 80) / 5
+            width: Math.min(parent.width * 0.94, (parent.height * 0.9 - 84) / 2 * 1.6 * 5 + 144)
+            height: cellW / 1.6 * 2 + 84
             radius: 2
             color: Qt.rgba(0.07, 0.07, 0.07, 0.55)
             border.color: Qt.rgba(1, 0.42, 0, 0.5)
@@ -360,123 +409,126 @@ PanelWindow {
                             anchors.fill: parent
                             anchors.margins: 8
 
-                            property var rows: rootWindow.buildThumbRows(wsCell.modelData.windows, width, height, height)
+                            property var layout: rootWindow.wsLayout(wsCell.modelData.windows, width, height)
 
-                            Column {
-                                anchors.top: parent.top
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                spacing: 6
+                            // Monitor outline
+                            Rectangle {
+                                visible: thumbArea.layout !== null
+                                x: thumbArea.layout ? thumbArea.layout.ox : 0
+                                y: thumbArea.layout ? thumbArea.layout.oy : 0
+                                width: thumbArea.layout ? thumbArea.layout.mw * thumbArea.layout.s : 0
+                                height: thumbArea.layout ? thumbArea.layout.mh * thumbArea.layout.s : 0
+                                color: "transparent"
+                                border.color: Qt.rgba(1, 1, 1, 0.08)
+                                border.width: 1
+                            }
+
+                            Item {
+                                anchors.fill: parent
 
                                 Repeater {
-                                    model: thumbArea.rows
+                                    model: wsCell.modelData.windows
 
-                                    delegate: Row {
-                                        id: rowItem
+                                    delegate: Rectangle {
+                                        id: thumb
                                         required property var modelData
-                                        width: thumbArea.width
-                                        height: rowItem.modelData.itemH
-                                        spacing: 6
+                                        readonly property var lay: thumbArea.layout
+                                        readonly property var rect: lay ? rootWindow.winRect(modelData, lay) : null
+                                        readonly property bool floating: !!(modelData.lastIpcObject && modelData.lastIpcObject.floating)
+                                        x: rect ? lay.ox + (rect.x - lay.mx) * lay.s : 0
+                                        y: rect ? lay.oy + (rect.y - lay.my) * lay.s : 0
+                                        width: rect ? Math.max(8, rect.w * lay.s) : 0
+                                        height: rect ? Math.max(8, rect.h * lay.s) : 0
+                                        z: modelData.activated ? 3 : floating ? 2 : 1
+                                        radius: 0
+                                        clip: true
+                                        color: Qt.rgba(0.02, 0.02, 0.02, 0.9)
+                                        border.color: modelData.activated
+                                        ? (shellRoot ? shellRoot.colAccent : "#FF6A00")
+                                        : Qt.rgba(1, 1, 1, 0.16)
+                                        border.width: modelData.activated ? 2 : 1
 
-                                        Repeater {
-                                            model: rowItem.modelData.items
+                                        // 效能優化：僅在面板顯示時啟用 live 擷取
+                                        ScreencopyView {
+                                            id: scv
+                                            captureSource: modelData.wayland
+                                            live: rootWindow.show
+                                            enabled: rootWindow.show
 
-                                            delegate: Rectangle {
-                                                id: thumb
-                                                required property var modelData
-                                                width: rowItem.modelData.itemW - 6
-                                                height: rowItem.modelData.itemH
-                                                radius: 0
-                                                clip: true
-                                                color: Qt.rgba(0.02, 0.02, 0.02, 0.9)
-                                                border.color: modelData.activated
-                                                ? (shellRoot ? shellRoot.colAccent : "#FF6A00")
-                                                : Qt.rgba(1, 1, 1, 0.16)
-                                                border.width: modelData.activated ? 2 : 1
+                                            readonly property real srcAspect: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : (thumb.width / thumb.height)
+                                            readonly property real dstAspect: thumb.width / thumb.height
 
-                                                // 效能優化：僅在面板顯示時啟用 live 擷取
-                                                ScreencopyView {
-                                                    id: scv
-                                                    captureSource: modelData.wayland
-                                                    live: rootWindow.show
-                                                    enabled: rootWindow.show
+                                            anchors.centerIn: parent
+                                            width: srcAspect > dstAspect ? thumb.height * srcAspect : thumb.width
+                                            height: srcAspect > dstAspect ? thumb.height : thumb.width / srcAspect
+                                        }
 
-                                                    readonly property real srcAspect: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : (thumb.width / thumb.height)
-                                                    readonly property real dstAspect: thumb.width / thumb.height
+                                        Rectangle {
+                                            z: 5
+                                            visible: thumb.width > 60 && thumb.height > 44
+                                            width: iconImg.implicitSize + 8
+                                            height: iconImg.implicitSize + 8
+                                            radius: 0
+                                            anchors.left: parent.left
+                                            anchors.bottom: parent.bottom
+                                            anchors.margins: 5
+                                            color: Qt.rgba(0, 0, 0, 0.55)
 
-                                                    anchors.centerIn: parent
-                                                    width: srcAspect > dstAspect ? thumb.height * srcAspect : thumb.width
-                                                    height: srcAspect > dstAspect ? thumb.height : thumb.width / srcAspect
+                                            IconImage {
+                                                id: iconImg
+                                                anchors.centerIn: parent
+                                                implicitSize: 20
+                                                // 使用剛才建立的 resolveIcon 函式
+                                                source: rootWindow.resolveIcon(modelData.wayland ? modelData.wayland.appId : "")
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            id: thumbMa
+                                            anchors.fill: parent
+                                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                            property real pressX: 0
+                                            property real pressY: 0
+                                            property bool didDrag: false
+
+                                            onPressed: (mouse) => {
+                                                pressX = mouse.x
+                                                pressY = mouse.y
+                                                didDrag = false
+                                            }
+                                            onPositionChanged: (mouse) => {
+                                                if (mouse.buttons !== Qt.LeftButton) return
+                                                    const dx = mouse.x - pressX
+                                                    const dy = mouse.y - pressY
+                                                    if (!didDrag && Math.sqrt(dx * dx + dy * dy) > 8) {
+                                                        didDrag = true
+                                                        rootWindow.dragSnapshot = rootWindow.wsGroups
+                                                        rootWindow.dragging = true
+                                                        rootWindow.dragWin = modelData
+                                                    }
+                                                    if (rootWindow.dragging) {
+                                                        const gp = thumbMa.mapToItem(overviewRoot, mouse.x, mouse.y)
+                                                        rootWindow.dragGhostX = gp.x
+                                                        rootWindow.dragGhostY = gp.y
+                                                    }
+                                            }
+                                            onReleased: (mouse) => {
+                                                if (rootWindow.dragging) {
+                                                    dragGhost.Drag.drop()
+                                                    rootWindow.dragging = false
+                                                    rootWindow.dragWin = null
+                                                    rootWindow.dragSnapshot = null
                                                 }
-
-                                                Rectangle {
-                                                    z: 5
-                                                    visible: thumb.width > 60 && thumb.height > 44
-                                                    width: iconImg.implicitSize + 8
-                                                    height: iconImg.implicitSize + 8
-                                                    radius: 0
-                                                    anchors.left: parent.left
-                                                    anchors.bottom: parent.bottom
-                                                    anchors.margins: 5
-                                                    color: Qt.rgba(0, 0, 0, 0.55)
-
-                                                    IconImage {
-                                                        id: iconImg
-                                                        anchors.centerIn: parent
-                                                        implicitSize: 20
-                                                        // 使用剛才建立的 resolveIcon 函式
-                                                        source: rootWindow.resolveIcon(modelData.wayland ? modelData.wayland.appId : "")
-                                                    }
-                                                }
-
-                                                MouseArea {
-                                                    id: thumbMa
-                                                    anchors.fill: parent
-                                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                                    property real pressX: 0
-                                                    property real pressY: 0
-                                                    property bool didDrag: false
-
-                                                    onPressed: (mouse) => {
-                                                        pressX = mouse.x
-                                                        pressY = mouse.y
-                                                        didDrag = false
-                                                    }
-                                                    onPositionChanged: (mouse) => {
-                                                        if (mouse.buttons !== Qt.LeftButton) return
-                                                            const dx = mouse.x - pressX
-                                                            const dy = mouse.y - pressY
-                                                            if (!didDrag && Math.sqrt(dx * dx + dy * dy) > 8) {
-                                                                didDrag = true
-                                                                rootWindow.dragSnapshot = rootWindow.wsGroups
-                                                                rootWindow.dragging = true
-                                                                rootWindow.dragWin = modelData
-                                                            }
-                                                            if (rootWindow.dragging) {
-                                                                const gp = thumbMa.mapToItem(overviewRoot, mouse.x, mouse.y)
-                                                                rootWindow.dragGhostX = gp.x
-                                                                rootWindow.dragGhostY = gp.y
-                                                            }
-                                                    }
-                                                    onReleased: (mouse) => {
-                                                        if (rootWindow.dragging) {
-                                                            dragGhost.Drag.drop()
-                                                            rootWindow.dragging = false
-                                                            rootWindow.dragWin = null
-                                                            rootWindow.dragSnapshot = null
-                                                        }
-                                                    }
-                                                    onClicked: (mouse) => {
-                                                        if (didDrag) { didDrag = false; return }
-                                                        if (mouse.button === Qt.RightButton) {
-                                                            const pos = thumb.mapToItem(overviewRoot, mouse.x, mouse.y)
-                                                            contextMenu.openFor(modelData, pos)
-                                                        } else {
-                                                            rootWindow.prevFocusAddr = ""
-                                                            rootWindow.show = false
-                                                            rootWindow.activateWindow(modelData)
-                                                        }
-                                                    }
+                                            }
+                                            onClicked: (mouse) => {
+                                                if (didDrag) { didDrag = false; return }
+                                                if (mouse.button === Qt.RightButton) {
+                                                    const pos = thumb.mapToItem(overviewRoot, mouse.x, mouse.y)
+                                                    contextMenu.openFor(modelData, pos)
+                                                } else {
+                                                    rootWindow.prevFocusAddr = ""
+                                                    rootWindow.show = false
+                                                    rootWindow.activateWindow(modelData)
                                                 }
                                             }
                                         }
@@ -509,53 +561,129 @@ PanelWindow {
                 anchors.fill: parent
                 anchors.margins: 32
 
-                Flow {
+                // One card per special workspace, same 16:10 cells as the main grid
+                GridLayout {
+                    id: specialGrid
+                    readonly property int count: rootWindow.specialGroups.length
+                    readonly property real cardW: (specialArea.width - 20 * 4) / 5
                     anchors.centerIn: parent
-                    width: specialArea.width
-                    spacing: 12
+                    width: Math.max(1, Math.min(5, count)) * (cardW + 20) - 20
+                    columns: 5
+                    columnSpacing: 20
+                    rowSpacing: 20
 
                     Repeater {
-                        model: rootWindow.specialWindows
+                        model: rootWindow.specialGroups
 
                         delegate: Rectangle {
-                            id: specThumb
+                            id: specCell
                             required property var modelData
-                            width: 240
-                            height: 166
-                            radius: 0
-                            clip: true
-                            color: Qt.rgba(0.02, 0.02, 0.02, 0.9)
-                            border.color: modelData.activated
-                            ? (shellRoot ? shellRoot.colAccent : "#FF6A00")
-                            : Qt.rgba(1, 1, 1, 0.12)
+                            Layout.preferredWidth: specialGrid.cardW
+                            Layout.preferredHeight: specialGrid.cardW / 1.6 + 28
+                            color: Qt.rgba(1, 1, 1, 0.06)
+                            border.color: Qt.rgba(1, 1, 1, 0.10)
                             border.width: 1
 
-                            // 效能優化
-                            ScreencopyView {
-                                id: specScv
-                                captureSource: modelData.wayland
-                                live: rootWindow.show
-                                enabled: rootWindow.show
-
-                                readonly property real srcAspect: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : (specThumb.width / specThumb.height)
-                                readonly property real dstAspect: specThumb.width / specThumb.height
-
-                                anchors.centerIn: parent
-                                width: srcAspect > dstAspect ? specThumb.height * srcAspect : specThumb.width
-                                height: srcAspect > dstAspect ? specThumb.height : specThumb.width / srcAspect
+                            Text {
+                                id: specLabel
+                                anchors.top: parent.top
+                                anchors.left: parent.left
+                                anchors.margins: 8
+                                text: specCell.modelData.name.toUpperCase()
+                                color: shellRoot ? shellRoot.colAccent : "#FF6A00"
+                                font.family: shellRoot ? shellRoot.fontFamily : "monospace"
+                                font.pixelSize: 12
+                                font.bold: true
                             }
 
-                            MouseArea {
-                                anchors.fill: parent
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                onClicked: (mouse) => {
-                                    if (mouse.button === Qt.RightButton) {
-                                        const pos = specThumb.mapToItem(overviewRoot, mouse.x, mouse.y)
-                                        contextMenu.openFor(modelData, pos)
-                                    } else {
-                                        rootWindow.prevFocusAddr = ""
-                                        rootWindow.show = false
-                                        rootWindow.activateWindow(modelData)
+                            Item {
+                                id: specArea
+                                anchors.top: specLabel.bottom
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.margins: 8
+                                anchors.topMargin: 6
+
+                                property var layout: rootWindow.wsLayout(specCell.modelData.windows, width, height)
+
+                                Rectangle {
+                                    visible: specArea.layout !== null
+                                    x: specArea.layout ? specArea.layout.ox : 0
+                                    y: specArea.layout ? specArea.layout.oy : 0
+                                    width: specArea.layout ? specArea.layout.mw * specArea.layout.s : 0
+                                    height: specArea.layout ? specArea.layout.mh * specArea.layout.s : 0
+                                    color: "transparent"
+                                    border.color: Qt.rgba(1, 1, 1, 0.08)
+                                    border.width: 1
+                                }
+
+                                Repeater {
+                                    model: specCell.modelData.windows
+
+                                    delegate: Rectangle {
+                                        id: specThumb
+                                        required property var modelData
+                                        readonly property var lay: specArea.layout
+                                        readonly property var rect: lay ? rootWindow.winRect(modelData, lay) : null
+                                        readonly property bool floating: !!(modelData.lastIpcObject && modelData.lastIpcObject.floating)
+                                        x: rect ? lay.ox + (rect.x - lay.mx) * lay.s : 0
+                                        y: rect ? lay.oy + (rect.y - lay.my) * lay.s : 0
+                                        width: rect ? Math.max(8, rect.w * lay.s) : 0
+                                        height: rect ? Math.max(8, rect.h * lay.s) : 0
+                                        z: modelData.activated ? 3 : floating ? 2 : 1
+                                        clip: true
+                                        color: Qt.rgba(0.02, 0.02, 0.02, 0.9)
+                                        border.color: modelData.activated
+                                        ? (shellRoot ? shellRoot.colAccent : "#FF6A00")
+                                        : Qt.rgba(1, 1, 1, 0.16)
+                                        border.width: modelData.activated ? 2 : 1
+
+                                        ScreencopyView {
+                                            captureSource: modelData.wayland
+                                            live: rootWindow.show && rootWindow.showSpecial
+                                            enabled: rootWindow.show
+
+                                            readonly property real srcAspect: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : (specThumb.width / specThumb.height)
+                                            readonly property real dstAspect: specThumb.width / specThumb.height
+
+                                            anchors.centerIn: parent
+                                            width: srcAspect > dstAspect ? specThumb.height * srcAspect : specThumb.width
+                                            height: srcAspect > dstAspect ? specThumb.height : specThumb.width / srcAspect
+                                        }
+
+                                        Rectangle {
+                                            z: 5
+                                            visible: specThumb.width > 60 && specThumb.height > 44
+                                            width: specIcon.implicitSize + 8
+                                            height: specIcon.implicitSize + 8
+                                            anchors.left: parent.left
+                                            anchors.bottom: parent.bottom
+                                            anchors.margins: 5
+                                            color: Qt.rgba(0, 0, 0, 0.55)
+
+                                            IconImage {
+                                                id: specIcon
+                                                anchors.centerIn: parent
+                                                implicitSize: 20
+                                                source: rootWindow.resolveIcon(modelData.wayland ? modelData.wayland.appId : "")
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                            onClicked: (mouse) => {
+                                                if (mouse.button === Qt.RightButton) {
+                                                    const pos = specThumb.mapToItem(overviewRoot, mouse.x, mouse.y)
+                                                    contextMenu.openFor(modelData, pos)
+                                                } else {
+                                                    rootWindow.prevFocusAddr = ""
+                                                    rootWindow.show = false
+                                                    rootWindow.activateWindow(modelData)
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
