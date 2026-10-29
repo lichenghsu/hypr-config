@@ -4,3 +4,6 @@
 *.swp
 hypr/wallpaper/ml4w/
 __pycache__/
+
+# Docker CLI context state (machine-specific)
+contexts/
