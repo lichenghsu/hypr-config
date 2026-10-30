@@ -198,9 +198,41 @@ PanelWindow {
             win.wayland.activate()
     }
 
+    // Follow the cursor across monitors while open. The overview holds exclusive
+    // keyboard focus, so Hyprland's focused monitor can't be trusted to track the
+    // pointer; poll cursorpos (global logical px) and re-home the layer surface.
+    function screenAt(x, y) {
+        return Quickshell.screens.find(s => x >= s.x && x < s.x + s.width && y >= s.y && y < s.y + s.height) ?? null
+    }
+
+    Process {
+        id: pCursorPos
+        command: ["hyprctl", "cursorpos", "-j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const pos = JSON.parse(text)
+                    const s = rootWindow.screenAt(pos.x, pos.y)
+                    if (s && s !== rootWindow.screen) rootWindow.screen = s
+                } catch (e) {}
+            }
+        }
+    }
+
+    Timer {
+        interval: 150
+        repeat: true
+        running: rootWindow.show
+        triggeredOnStart: true
+        onTriggered: if (!pCursorPos.running) pCursorPos.running = true
+    }
+
     // 6. Resetting state and tracking focus when the overview window opens or closes
     onShowChanged: {
         if (show) {
+            const fm = Hyprland.focusedMonitor
+            const fs = fm ? Quickshell.screens.find(s => s.name === fm.name) : null
+            if (fs) rootWindow.screen = fs
             Hyprland.refreshMonitors()
             Hyprland.refreshToplevels()
             showSpecial = false
