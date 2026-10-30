@@ -11,6 +11,9 @@ PanelWindow {
     property var shellRoot
     readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
     function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
+    // 人類補完計畫開啟時 chip 改 NERV 終端風格（紅黑底、掃描線、橘→紅熱度、SUDO 變權限昇格警告）
+    readonly property bool eva: !!(shellRoot && shellRoot.evaMode)
+    readonly property bool noAnim: !!(shellRoot && shellRoot.batteryMode)
     property var history: []
     property double now: Date.now()
     property double lastPressAt: 0
@@ -287,6 +290,43 @@ PanelWindow {
         anchors.right: parent.right
         spacing: 12
 
+        // EVA 模式：輸入監視標頭
+        Row {
+            Layout.alignment: Qt.AlignRight
+            spacing: 6
+            visible: rootWindow.eva && rootWindow.history.length > 0
+            Rectangle {
+                width: nervTag.implicitWidth + 8; height: 12
+                anchors.verticalCenter: parent.verticalCenter
+                color: rootWindow.chrome
+                Text {
+                    id: nervTag
+                    anchors.centerIn: parent
+                    text: "NERV"
+                    color: "black"
+                    font { family: shellRoot ? shellRoot.fontFamily : "monospace"; pixelSize: 8; bold: true; letterSpacing: 1.5 }
+                }
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "INPUT MONITOR // PILOT-01"
+                color: rootWindow.chrome
+                font { family: shellRoot ? shellRoot.fontFamily : "monospace"; pixelSize: 9; bold: true; letterSpacing: 1.5 }
+                SequentialAnimation on opacity {
+                    running: rootWindow.eva && !rootWindow.noAnim && rootWindow.history.length > 0
+                    loops: Animation.Infinite
+                    NumberAnimation { to: 0.45; duration: 700 }
+                    NumberAnimation { to: 1.0; duration: 700 }
+                }
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "入力"
+                color: rootWindow.chrome
+                font { family: "Noto Serif CJK JP"; pixelSize: 12; weight: Font.Black; letterSpacing: 2 }
+            }
+        }
+
         Repeater {
             model: rootWindow.history
 
@@ -331,14 +371,19 @@ PanelWindow {
                          *                          Using the conditional ternary operator (condition ? ifTrue : ifFalse)
                          *                          allows us to swap colors immediately for specific custom keywords.
                          */
-                        color: chip.modelData.isSudo ? Qt.rgba(0.18, 0.14, 0.02, 0.55) : Qt.rgba(
+                        color: rootWindow.eva ? (chip.modelData.isSudo ? rootWindow.chromeA(0.85)
+                                                 : Qt.rgba(0.10 + chip.modelData.heat * 0.25, 0, 0, 0.65))
+                             : chip.modelData.isSudo ? Qt.rgba(0.18, 0.14, 0.02, 0.55) : Qt.rgba(
                             0.14 + (chip.modelData.heat * 0.20),
                                                                                                  0.09 - (chip.modelData.heat * 0.04),
                                                                                                  0.04,
                                                                                                  0.5
                         )
 
-                        border.color: chip.modelData.isSudo ? Qt.rgba(1.0, 0.85, 0.15, 0.85) : Qt.rgba(
+                        // EVA：熱度由 NERV 橘漸變到警報紅
+                        border.color: rootWindow.eva ? (chip.modelData.isSudo ? rootWindow.chrome
+                                                        : Qt.rgba(1.0, 0.42 - chip.modelData.heat * 0.32, chip.modelData.heat * 0.1, 0.75))
+                                    : chip.modelData.isSudo ? Qt.rgba(1.0, 0.85, 0.15, 0.85) : Qt.rgba(
                             1.0,
                             0.42 - (chip.modelData.heat * 0.42),
                                                                                                        0,
@@ -365,7 +410,22 @@ PanelWindow {
                         Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
                         Behavior on opacity { NumberAnimation { duration: 150 } }
 
+                        EvaFrame {
+                            shellRoot: rootWindow.shellRoot
+                            active: !chip.modelData.isSudo
+                            showStripes: false; showBrackets: false; showMagi: false
+                        }
+
+                        // EVA：右上角切角標記
                         Rectangle {
+                            visible: rootWindow.eva && !chip.modelData.isSudo
+                            anchors { top: parent.top; right: parent.right; topMargin: 2; rightMargin: 2 }
+                            width: 5; height: 5
+                            color: rootWindow.chrome
+                        }
+
+                        Rectangle {
+                            visible: !rootWindow.eva
                             anchors.fill: parent
                             radius: parent.radius
                             gradient: Gradient {
@@ -411,7 +471,7 @@ PanelWindow {
                             height: parent.height
                             radius: parent.radius
                             color: "transparent"
-                            border.color: "#FFD700"
+                            border.color: rootWindow.eva ? rootWindow.chrome : "#FFD700"
                             border.width: 2.5
                             visible: chip.modelData.isSudo
                             opacity: 0
@@ -432,6 +492,8 @@ PanelWindow {
                             radius: 0
 
                             color: {
+                                if (rootWindow.eva) return chip.modelData.isSudo ? "black"
+                                    : Qt.rgba(1.0, 0.42 - chip.modelData.heat * 0.32, chip.modelData.heat * 0.1, 0.9);
                                 if (chip.modelData.isSudo) return "#FFD700";
                                 var defaultColor = shellRoot ? shellRoot.colAccent : "#FF6A00";
                                 if (chip.modelData.heat <= 0.05) {
@@ -450,8 +512,11 @@ PanelWindow {
                         Text {
                             id: label
                             anchors.centerIn: parent
-                            text: chip.modelData.text
-                            color: chip.modelData.isSudo ? "#FFD700" : (shellRoot ? shellRoot.colFg : "#ffffff")
+                            text: !rootWindow.eva ? chip.modelData.text
+                                : chip.modelData.isSudo ? "権限昇格 SUDO"
+                                : chip.modelData.isEnter ? "実行 ENTER" : chip.modelData.text
+                            color: rootWindow.eva ? (chip.modelData.isSudo ? "black" : Qt.rgba(1, 0.85, 0.8, 1))
+                                 : chip.modelData.isSudo ? "#FFD700" : (shellRoot ? shellRoot.colFg : "#ffffff")
                             font.family: shellRoot ? shellRoot.fontFamily : "monospace"
 
                             font.pixelSize: chip.modelData.isSudo ? 16 : 13
