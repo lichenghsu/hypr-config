@@ -448,10 +448,11 @@ PanelWindow {
                                         : Qt.rgba(1, 1, 1, 0.16)
                                         border.width: modelData.activated ? 2 : 1
 
-                                        // 效能優化：僅在面板顯示時啟用 live 擷取
+                                        // 僅在面板顯示時才擷取：隱藏時若綁著 captureSource，每個新視窗都會被抓一次，
+                                        // 短命視窗（LibreOffice splash、KWrite 對話框）在擷取中關閉會讓 Hyprland 丟 protocol error 把 quickshell 踢掉
                                         ScreencopyView {
                                             id: scv
-                                            captureSource: modelData.wayland
+                                            captureSource: rootWindow.show ? modelData.wayland : null
                                             live: rootWindow.show
                                             enabled: rootWindow.show
 
@@ -640,7 +641,7 @@ PanelWindow {
                                         border.width: modelData.activated ? 2 : 1
 
                                         ScreencopyView {
-                                            captureSource: modelData.wayland
+                                            captureSource: rootWindow.show ? modelData.wayland : null
                                             live: rootWindow.show && rootWindow.showSpecial
                                             enabled: rootWindow.show
 
