@@ -12,6 +12,7 @@ Item {
     property string label: ""            // 例："POWER"
     property string labelJp: ""          // 例："電源"（可留空）
     property bool showStripes: true
+    property bool showBrackets: true
     property bool showMagi: true
 
     readonly property bool on: !!(shellRoot && shellRoot.evaMode) && active
@@ -46,7 +47,7 @@ Item {
 
     // 四角括號
     Repeater {
-        model: 4
+        model: evaFrame.showBrackets ? 4 : 0
         Item {
             readonly property bool isRight: index % 2 === 1
             readonly property bool isBottom: index >= 2

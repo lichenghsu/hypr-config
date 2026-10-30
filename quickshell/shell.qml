@@ -962,7 +962,7 @@ ShellRoot {
         Behavior on radius { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
         Behavior on anchors.topMargin { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
         border.color: root.chromeA(0.5)
-        border.width: root.isBarMode ? 0 : 1
+        border.width: root.isBarMode && !root.evaMode ? 0 : 1
 
         EvaFrame { shellRoot: root; showStripes: false; showMagi: false }
 
@@ -1313,7 +1313,9 @@ ShellRoot {
         radius: root.isBarMode || root.evaMode ? 0 : 16
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
         border.color: root.chromeA(0.5)
-        border.width: root.isBarMode ? 0 : 1
+        border.width: root.isBarMode && !root.evaMode ? 0 : 1
+
+        EvaFrame { shellRoot: root; showBrackets: false; showStripes: false; showMagi: false }
 
         RowLayout {
             id: k8sRow
@@ -1372,7 +1374,9 @@ ShellRoot {
         radius: root.isBarMode || root.evaMode ? 0 : 16
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
         border.color: root.chromeA(0.5)
-        border.width: root.isBarMode ? 0 : 1
+        border.width: root.isBarMode && !root.evaMode ? 0 : 1
+
+        EvaFrame { shellRoot: root; showBrackets: false; showStripes: false; showMagi: false }
 
         Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutExpo } }
 
@@ -1420,7 +1424,9 @@ ShellRoot {
         radius: root.isBarMode || root.evaMode ? 0 : 16
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
         border.color: root.chromeA(0.5)
-        border.width: root.isBarMode ? 0 : 1
+        border.width: root.isBarMode && !root.evaMode ? 0 : 1
+
+        EvaFrame { shellRoot: root; showBrackets: false; showStripes: false; showMagi: false }
 
         // 寬度平滑動態過渡動畫
         Behavior on width {
