@@ -2530,7 +2530,7 @@ PopupWindow {
         visible: show || animRect.opacity > 0
 
         // Increased size
-        implicitWidth: 380
+        implicitWidth: 440
         implicitHeight: mainLayout.implicitHeight + 48 + root.height + 8
         color: "transparent"
 
@@ -2582,7 +2582,7 @@ PopupWindow {
                     hoverEnabled: true
                 }
 
-                width: controlCenter.show ? 380 : notchLayout.implicitWidth + 32
+                width: controlCenter.show ? 440 : notchLayout.implicitWidth + 32
                 height: controlCenter.show ? (mainLayout.implicitHeight + 32) : 32
 
                 color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
