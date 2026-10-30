@@ -318,6 +318,8 @@ ShellRoot {
     property var cavaBars: []
     property string barClock: Qt.formatDateTime(new Date(), "HH:mm")
     property bool caffeineOn: false
+    // 人類補完計畫：EVA 炫砲功能總開關（預設關閉），狀態存在 flag 檔，重啟 quickshell 後保留
+    property bool evaMode: false
 
     property string spotifyStatus: "offline"
     property string spotifyText: ""
@@ -536,6 +538,16 @@ ShellRoot {
         stdout: SplitParser { onRead: data => { root.caffeineOn = (data.trim() === 'on'); } }
     }
     Timer { interval: 5000; running: true; repeat: true; onTriggered: pCheckCaffeine.running = true }
+    readonly property string evaModeFlag: Quickshell.env("HOME") + "/.local/state/quickshell/eva-mode"
+    Process {
+        command: ["sh", "-c", "[ -e \"$1\" ] && echo on || echo off", "sh", root.evaModeFlag]
+        running: true
+        stdout: SplitParser { onRead: data => { root.evaMode = (data.trim() === 'on'); } }
+    }
+    function toggleEvaMode() {
+        root.evaMode = !root.evaMode;
+        Quickshell.execDetached(["sh", "-c", root.evaMode ? "mkdir -p \"$(dirname \"$1\")\" && touch \"$1\"" : "rm -f \"$1\"", "sh", root.evaModeFlag]);
+    }
     // Caffeine = flag file; hypridle keeps running but locks with swaylock and skips dpms/suspend
     Process { id: pCaffeineOn; command: ["sh", "-c", "touch \"$XDG_RUNTIME_DIR/caffeine\"; pgrep -x hypridle >/dev/null || setsid -f hypridle"] }
     Process { id: pCaffeineOff; command: ["sh", "-c", "rm -f \"$XDG_RUNTIME_DIR/caffeine\"; pgrep -x hypridle >/dev/null || setsid -f hypridle"] }
@@ -3366,6 +3378,17 @@ PopupWindow {
                         }
                     }
 
+                    // 人類補完計畫：EVA 風格功能總開關
+                    ModernButton {
+                        id: btnEvaMode
+                        Layout.preferredHeight: 36
+                        iconText: "HIP"
+                        text: root.evaMode ? "HUMAN INSTRUMENTALITY // ACTIVE" : "HUMAN INSTRUMENTALITY PROJECT"
+                        isActive: root.evaMode
+                        accent: "#FF1A1A"
+                        onClicked: root.toggleEvaMode()
+                    }
+
                     // Power Row
                     Rectangle {
                         Layout.fillWidth: true
@@ -3932,6 +3955,9 @@ PopupWindow {
         }
         function confirmCloseWindow() {
             closeWarningPopup.request();
+        }
+        function toggleEvaMode() {
+            root.toggleEvaMode();
         }
         function updateColors(bg: string, fg: string, accent: string) {
             root.colBg     = bg;

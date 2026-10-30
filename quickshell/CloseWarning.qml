@@ -5,7 +5,8 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
 
-// SUPER+C 確認視窗（EVA / NERV 警告風格）
+// SUPER+C / 三指上滑 關閉確認視窗
+// 預設低調樣式；人類補完計畫（shellRoot.evaMode）開啟時改用 EVA / NERV 警告風格
 // 按下時先記住當下焦點視窗的 address，確認後只關那個視窗，
 // 避免對話框出現期間焦點移動而關錯。ENTER / Y 確認，ESC / N / 點外面取消。
 PanelWindow {
@@ -24,13 +25,14 @@ PanelWindow {
     readonly property color evaOrange: "#FF6A00"
     readonly property string evaFont: shellRoot ? shellRoot.fontFamily : "monospace"
     readonly property bool noAnim: !!(shellRoot && shellRoot.batteryMode)
+    readonly property bool eva: !!(shellRoot && shellRoot.evaMode)
 
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: show ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    visible: show || panel.opacity > 0
+    visible: show || panel.opacity > 0 || calmPanel.opacity > 0
 
     // 由 IPC 呼叫：抓目前焦點視窗後才顯示；已顯示時再按 SUPER+C 不做事，避免連按誤殺
     function request() {
@@ -89,14 +91,14 @@ PanelWindow {
             event.accepted = true
         }
 
-        // 暗幕 + 紅色掃描線
+        // 暗幕（EVA 模式加紅色掃描線）
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0.08, 0, 0, 0.55)
+            color: rootWindow.eva ? Qt.rgba(0.08, 0, 0, 0.55) : Qt.rgba(0, 0, 0, 0.25)
             opacity: rootWindow.show ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: rootWindow.noAnim ? 0 : 200 } }
             Repeater {
-                model: Math.ceil(parent.height / 4)
+                model: rootWindow.eva ? Math.ceil(parent.height / 4) : 0
                 Rectangle { y: index * 4; width: parent.width; height: 1; color: Qt.rgba(1, 0, 0, 0.06) }
             }
             MouseArea { anchors.fill: parent; enabled: rootWindow.show; onClicked: rootWindow.show = false }
@@ -110,7 +112,7 @@ PanelWindow {
             color: Qt.rgba(0.04, 0, 0, 0.96)
             border.color: rootWindow.evaRed
             border.width: 2
-            opacity: rootWindow.show ? 1 : 0
+            opacity: rootWindow.show && rootWindow.eva ? 1 : 0
             scale: rootWindow.show ? 1 : 1.08
             Behavior on opacity { NumberAnimation { duration: rootWindow.noAnim ? 0 : 160 } }
             Behavior on scale { NumberAnimation { duration: rootWindow.noAnim ? 0 : 220; easing.type: Easing.OutExpo } }
@@ -135,7 +137,7 @@ PanelWindow {
             property real stripeShift: 0
             NumberAnimation on stripeShift {
                 from: 0; to: 28; duration: 900; loops: Animation.Infinite
-                running: rootWindow.show && !rootWindow.noAnim
+                running: rootWindow.show && rootWindow.eva && !rootWindow.noAnim
             }
             Loader { id: stripeTop; sourceComponent: hazardStripe; anchors { top: parent.top; left: parent.left; right: parent.right; margins: 2 } height: 22 }
             Loader { sourceComponent: hazardStripe; anchors { bottom: parent.bottom; left: parent.left; right: parent.right; margins: 2 } height: 22 }
@@ -169,13 +171,13 @@ PanelWindow {
                             color: rootWindow.evaRed
                             font { family: rootWindow.evaFont; pixelSize: 54; bold: true; letterSpacing: 6 }
                             SequentialAnimation on opacity {
-                                running: rootWindow.show && !rootWindow.noAnim; loops: Animation.Infinite
+                                running: rootWindow.show && rootWindow.eva && !rootWindow.noAnim; loops: Animation.Infinite
                                 NumberAnimation { to: 0.25; duration: 420 }
                                 NumberAnimation { to: 1; duration: 420 }
                             }
                         }
                         Text {
-                            text: "PROCESS TERMINATION REQUESTED // CODE: SUPER+C"
+                            text: "PROCESS TERMINATION REQUESTED // AUTH: OPERATOR"
                             color: rootWindow.evaOrange
                             font { family: rootWindow.evaFont; pixelSize: 12; bold: true; letterSpacing: 1.5 }
                         }
@@ -226,6 +228,76 @@ PanelWindow {
                             }
                             MouseArea {
                                 id: btnMouse
+                                anchors.fill: parent; hoverEnabled: true
+                                onClicked: modelData.idx === 1 ? rootWindow.confirm() : (rootWindow.show = false)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 低調樣式（預設）：小卡片、沿用主題色，無動畫特效
+        Rectangle {
+            id: calmPanel
+            readonly property color fg: rootWindow.shellRoot ? rootWindow.shellRoot.colFg : "white"
+            readonly property color accent: rootWindow.shellRoot ? rootWindow.shellRoot.colAccent : "#FF6A00"
+            anchors.centerIn: parent
+            width: 380
+            height: calmCol.implicitHeight + 36
+            color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
+            border.color: Qt.rgba(1, 1, 1, 0.12)
+            border.width: 1
+            opacity: rootWindow.show && !rootWindow.eva ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: rootWindow.noAnim ? 0 : 120 } }
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: calmCol
+                anchors { left: parent.left; right: parent.right; top: parent.top; margins: 18 }
+                spacing: 6
+
+                Text {
+                    text: "Close " + rootWindow.targetClass + "?"
+                    color: calmPanel.fg
+                    font { family: rootWindow.evaFont; pixelSize: 15; bold: true }
+                    Layout.fillWidth: true; elide: Text.ElideRight
+                }
+                Text {
+                    text: rootWindow.targetTitle
+                    visible: text !== ""
+                    color: Qt.rgba(calmPanel.fg.r, calmPanel.fg.g, calmPanel.fg.b, 0.55)
+                    font { family: rootWindow.evaFont; pixelSize: 12 }
+                    Layout.fillWidth: true; elide: Text.ElideRight
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 10
+                    spacing: 8
+                    Item { Layout.fillWidth: true }
+                    Repeater {
+                        model: [
+                            { label: "Cancel", hint: "Esc", idx: 0 },
+                            { label: "Close", hint: "Y", idx: 1 }
+                        ]
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property bool active: rootWindow.selected === modelData.idx || calmMouse.containsMouse
+                            implicitWidth: calmLabel.implicitWidth + 24
+                            implicitHeight: 30
+                            color: active ? Qt.rgba(calmPanel.accent.r, calmPanel.accent.g, calmPanel.accent.b, 0.18) : "transparent"
+                            border.color: active ? calmPanel.accent : Qt.rgba(1, 1, 1, 0.15)
+                            border.width: 1
+                            Text {
+                                id: calmLabel
+                                anchors.centerIn: parent
+                                text: modelData.label + "  " + modelData.hint
+                                color: parent.active ? calmPanel.accent : calmPanel.fg
+                                font { family: rootWindow.evaFont; pixelSize: 12 }
+                            }
+                            MouseArea {
+                                id: calmMouse
                                 anchors.fill: parent; hoverEnabled: true
                                 onClicked: modelData.idx === 1 ? rootWindow.confirm() : (rootWindow.show = false)
                             }

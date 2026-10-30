@@ -20,7 +20,14 @@ hl.config({
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 hl.gesture({ fingers = 4, direction = "horizontal", action = "move" })
-hl.gesture({ fingers = 3, direction = "up", action = "close" })
+-- 跟 SUPER+C 一樣先跳 quickshell 關閉確認視窗
+hl.gesture({
+	fingers = 3,
+	direction = "up",
+	action = function()
+	hl.dispatch(hl.dsp.exec_cmd("quickshell msg qsIpc confirmCloseWindow"))
+	end,
+})
 hl.gesture({
 	fingers = 3,
 	direction = "down",
