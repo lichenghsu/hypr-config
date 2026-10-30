@@ -34,5 +34,5 @@ zsh/          # ~/.zshenv（QT_QPA_PLATFORMTHEME 等環境變數）
 重啟 quickshell 需從 Hyprland 內的終端機執行，不可從 SSH session 或外部 shell 啟動：
 
 ```bash
-pkill quickshell && quickshell &
+pkill quickshell && quickshell --log-rules "quickshell.desktopentry.warning=false" &
 ```
