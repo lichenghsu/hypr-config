@@ -14,11 +14,11 @@ ShellRoot {
 
     property color colBg: "#000000"
     property color colFg: "#ffffff"
-    property color themeAccent: root.colChrome
+    property color themeAccent: "#FF6A00"
     // 人類補完計畫開啟時，強調色與介面框線（chrome，平常固定橘）一律改成 EVA 紅
     readonly property color colEvaRed: "#FF1A1A"
     readonly property color colAccent: evaMode ? colEvaRed : themeAccent
-    readonly property color colChrome: evaMode ? colEvaRed : root.colChrome
+    readonly property color colChrome: evaMode ? colEvaRed : "#FF6A00"
     function chromeA(a) { return Qt.rgba(colChrome.r, colChrome.g, colChrome.b, a) }
     // 音樂播放器配色：依播放器 / 網站品牌色，偵測不到就用預設橘
     // 網站從 url 判斷；瀏覽器沒給 url 時退而用標題（例如 "... - YouTube"）
