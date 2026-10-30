@@ -3383,7 +3383,7 @@ PopupWindow {
                         id: btnEvaMode
                         Layout.preferredHeight: 36
                         iconText: "HIP"
-                        text: root.evaMode ? "HUMAN INSTRUMENTALITY // ACTIVE" : "HUMAN INSTRUMENTALITY PROJECT"
+                        text: root.evaMode ? "人類補完計画 // 発動中" : "人類補完計画"
                         isActive: root.evaMode
                         accent: "#FF1A1A"
                         onClicked: root.toggleEvaMode()
