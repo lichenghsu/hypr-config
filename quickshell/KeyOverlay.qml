@@ -9,6 +9,8 @@ PanelWindow {
 
     property bool show: true
     property var shellRoot
+    readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
+    function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
     property var history: []
     property double now: Date.now()
     property double lastPressAt: 0
@@ -231,12 +233,14 @@ PanelWindow {
             height: 48
             width: toastRow.implicitWidth + 32
             color: Qt.rgba(0.12, 0.12, 0.16, 0.55)
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: 1
             opacity: toast.visible ? 1 : 0
             scale: toast.visible ? 1 : 0.85
             Behavior on opacity { NumberAnimation { duration: 150 } }
             Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+
+            EvaFrame { shellRoot: rootWindow.shellRoot; showStripes: false; showMagi: false }
 
             Rectangle {
                 anchors.fill: parent

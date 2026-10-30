@@ -11,6 +11,9 @@ PanelWindow {
 
     property bool show: false
     property var shellRoot
+    readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
+    function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
+    readonly property bool eva: !!(shellRoot && shellRoot.evaMode)
     property bool showSpecial: false
     property int selCell: 0
     property string prevFocusAddr: ""
@@ -347,8 +350,10 @@ PanelWindow {
             height: cellW / 1.6 * 2 + 84
             radius: 2
             color: Qt.rgba(0.07, 0.07, 0.07, 0.55)
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: 1
+
+            EvaFrame { shellRoot: rootWindow.shellRoot; active: rootWindow.show; label: "OPERATION AREA OVERVIEW"; labelJp: "全作戦区域" }
 
             MouseArea { anchors.fill: parent }
 
@@ -411,7 +416,8 @@ PanelWindow {
                         : wsCell.modelData.windows.length > 0 ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(1, 1, 1, 0.03)
                         border.color: wsCell.dropHighlight
                         ? (shellRoot ? shellRoot.colAccent : "#FF6A00")
-                        : rootWindow.selCell === index ? "#ffffff" : Qt.rgba(1, 1, 1, 0.10)
+                        : rootWindow.selCell === index ? (rootWindow.eva ? rootWindow.chrome : "#ffffff")
+                        : rootWindow.eva ? rootWindow.chromeA(0.25) : Qt.rgba(1, 1, 1, 0.10)
                         border.width: wsCell.dropHighlight || rootWindow.selCell === index ? 2 : 1
 
                         MouseArea {
@@ -435,6 +441,16 @@ PanelWindow {
                             }
                         }
 
+                        // EVA 模式：每格左上角標作戰區域編號
+                        Text {
+                            z: 3
+                            visible: rootWindow.eva
+                            anchors { left: parent.left; top: parent.top; leftMargin: 4; topMargin: 2 }
+                            text: "AREA-" + (wsCell.modelData.wsId < 10 ? "0" : "") + wsCell.modelData.wsId
+                            color: rootWindow.selCell === wsCell.index ? rootWindow.chrome : rootWindow.chromeA(0.55)
+                            font { family: shellRoot ? shellRoot.fontFamily : "monospace"; pixelSize: 8; bold: true; letterSpacing: 1 }
+                        }
+
                         // Empty workspace state
                         Item {
                             anchors.fill: parent
@@ -442,9 +458,9 @@ PanelWindow {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: wsCell.modelData.wsId
-                                color: shellRoot ? shellRoot.colMuted : "#888"
-                                font.family: shellRoot ? shellRoot.fontFamily : "monospace"
+                                text: rootWindow.eva ? "空" : wsCell.modelData.wsId
+                                color: rootWindow.eva ? rootWindow.chromeA(0.35) : shellRoot ? shellRoot.colMuted : "#888"
+                                font.family: rootWindow.eva ? "Noto Serif CJK JP" : shellRoot ? shellRoot.fontFamily : "monospace"
                                 font.pixelSize: 30
                             }
                         }
@@ -779,7 +795,7 @@ PanelWindow {
             height: menuCol.implicitHeight + 16
             radius: 0
             color: Qt.rgba(0.08, 0.08, 0.08, 0.97)
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: 1
 
             property var targetWindow: null

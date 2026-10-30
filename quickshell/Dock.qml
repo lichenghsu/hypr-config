@@ -10,6 +10,8 @@ PanelWindow {
 
     property bool show: false
     property var shellRoot
+    readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
+    function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
     property real animHeight: animRect.height
     property int selectedIndex: 0
 
@@ -84,6 +86,7 @@ PanelWindow {
 
         Rectangle {
             id: animRect
+            EvaFrame { shellRoot: rootWindow.shellRoot; active: rootWindow.show; label: "DOCK"; labelJp: "" }
             anchors.top: parent.top
             anchors.topMargin: show ? 16 : (shellRoot && shellRoot.isBarMode ? 0 : 4)
             anchors.horizontalCenter: parent.horizontalCenter
@@ -93,7 +96,7 @@ PanelWindow {
 
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
             radius: 0
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: show ? 1 : 0
 
             opacity: (!show && height <= 36) ? 0.0 : 1.0
@@ -104,7 +107,7 @@ PanelWindow {
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
-                color: "#FF6A00"
+                color: rootWindow.chrome
             }
 
             Behavior on radius { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -131,8 +134,8 @@ PanelWindow {
                             required property int index
 
                             width: 64; height: 64; radius: 0
-                            border.color: Qt.rgba(1, 0.42, 0, 0.5); border.width: 1
-                            color: (dockMa.containsMouse || rootWindow.selectedIndex === index) ? Qt.rgba(1, 0.42, 0, 0.25) : Qt.rgba(1, 1, 1, 0.06)
+                            border.color: rootWindow.chromeA(0.5); border.width: 1
+                            color: (dockMa.containsMouse || rootWindow.selectedIndex === index) ? rootWindow.chromeA(0.25) : Qt.rgba(1, 1, 1, 0.06)
                             scale: (dockMa.containsMouse || rootWindow.selectedIndex === index) ? 1.12 : 1.0
                             Behavior on scale { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 150; easing.type: Easing.OutBack; easing.overshoot: 2.0 } }
 

@@ -11,6 +11,8 @@ PanelWindow {
 
     property bool show: false
     property var shellRoot
+    readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
+    function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
     property var allApps: []
     property string activeTab: "apps" // "apps" | "files"
     property real animHeight: animRect.height
@@ -144,6 +146,7 @@ PanelWindow {
 
         Rectangle {
             id: animRect
+            EvaFrame { shellRoot: rootWindow.shellRoot; active: rootWindow.show; label: "LAUNCH SEQUENCE"; labelJp: "起動" }
             anchors.top: parent.top
             anchors.topMargin: show ? 16 : (shellRoot && shellRoot.isBarMode ? 0 : 4)
             anchors.horizontalCenter: parent.horizontalCenter
@@ -153,7 +156,7 @@ PanelWindow {
 
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
             radius: 0
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: show ? 1 : 0
 
             opacity: (!show && height <= 36) ? 0.0 : 1.0
@@ -165,7 +168,7 @@ PanelWindow {
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
-                color: "#FF6A00"
+                color: rootWindow.chrome
             }
 
             Behavior on radius { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -190,7 +193,7 @@ PanelWindow {
                         Layout.preferredHeight: 42
                         radius: 0
                         color: Qt.rgba(1, 1, 1, 0.05)
-                        border.color: searchInput.activeFocus ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                        border.color: searchInput.activeFocus ? rootWindow.chromeA(0.5) : "transparent"
                         border.width: 1
 
                         RowLayout {
@@ -244,8 +247,8 @@ PanelWindow {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 32
                             radius: 0
-                            color: rootWindow.activeTab === "apps" ? Qt.rgba(1, 0.42, 0, 0.15) : "transparent"
-                            border.color: rootWindow.activeTab === "apps" ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                            color: rootWindow.activeTab === "apps" ? rootWindow.chromeA(0.15) : "transparent"
+                            border.color: rootWindow.activeTab === "apps" ? rootWindow.chromeA(0.5) : "transparent"
                             border.width: 1
 
                             RowLayout {
@@ -253,7 +256,7 @@ PanelWindow {
                                 spacing: 6
                                 Text {
                                     text: "APPS"
-                                    color: rootWindow.activeTab === "apps" ? "#FF6A00" : (shellRoot ? shellRoot.colFg : "white")
+                                    color: rootWindow.activeTab === "apps" ? rootWindow.chrome : (shellRoot ? shellRoot.colFg : "white")
                                     font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                                     font.pixelSize: 12
                                     font.bold: true
@@ -271,8 +274,8 @@ PanelWindow {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 32
                             radius: 0
-                            color: rootWindow.activeTab === "files" ? Qt.rgba(1, 0.42, 0, 0.15) : "transparent"
-                            border.color: rootWindow.activeTab === "files" ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                            color: rootWindow.activeTab === "files" ? rootWindow.chromeA(0.15) : "transparent"
+                            border.color: rootWindow.activeTab === "files" ? rootWindow.chromeA(0.5) : "transparent"
                             border.width: 1
 
                             RowLayout {
@@ -280,7 +283,7 @@ PanelWindow {
                                 spacing: 6
                                 Text {
                                     text: "FILES"
-                                    color: rootWindow.activeTab === "files" ? "#FF6A00" : (shellRoot ? shellRoot.colFg : "white")
+                                    color: rootWindow.activeTab === "files" ? rootWindow.chrome : (shellRoot ? shellRoot.colFg : "white")
                                     font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                                     font.pixelSize: 12
                                     font.bold: true
@@ -310,8 +313,8 @@ PanelWindow {
                             width: ListView.view.width
                             height: 48
                             radius: 0
-                            color: listView.currentIndex === index || ma.containsMouse ? Qt.rgba(1, 0.42, 0, 0.15) : "transparent"
-                            border.color: listView.currentIndex === index ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                            color: listView.currentIndex === index || ma.containsMouse ? rootWindow.chromeA(0.15) : "transparent"
+                            border.color: listView.currentIndex === index ? rootWindow.chromeA(0.5) : "transparent"
                             border.width: 1
 
                             RowLayout {

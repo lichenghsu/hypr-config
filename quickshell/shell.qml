@@ -14,7 +14,12 @@ ShellRoot {
 
     property color colBg: "#000000"
     property color colFg: "#ffffff"
-    property color colAccent: "#FF6A00"
+    property color themeAccent: root.colChrome
+    // 人類補完計畫開啟時，強調色與介面框線（chrome，平常固定橘）一律改成 EVA 紅
+    readonly property color colEvaRed: "#FF1A1A"
+    readonly property color colAccent: evaMode ? colEvaRed : themeAccent
+    readonly property color colChrome: evaMode ? colEvaRed : root.colChrome
+    function chromeA(a) { return Qt.rgba(colChrome.r, colChrome.g, colChrome.b, a) }
     // 音樂播放器配色：依播放器 / 網站品牌色，偵測不到就用預設橘
     // 網站從 url 判斷；瀏覽器沒給 url 時退而用標題（例如 "... - YouTube"）
     readonly property var playerSites: [
@@ -951,13 +956,15 @@ ShellRoot {
             : (root.islandActive ? 16 + wsLayout.implicitWidth + 12 + cavaCenter.width + 16
                                  : wsLayout.implicitWidth + notchLayout.implicitWidth + 40)
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
-        radius: root.isBarMode ? 0 : 16
+        radius: root.isBarMode || root.evaMode ? 0 : 16
 
         Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
         Behavior on radius { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
         Behavior on anchors.topMargin { NumberAnimation { duration: root.batteryMode ? 0 : 400; easing.type: Easing.OutExpo } }
-        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.color: root.chromeA(0.5)
         border.width: root.isBarMode ? 0 : 1
+
+        EvaFrame { shellRoot: root; showStripes: false; showMagi: false }
 
         // ── Left: clock ──────────────────────────────────────────────────
         MouseArea {
@@ -1139,7 +1146,7 @@ ShellRoot {
                                     height: parent.height
                                     width: parent.width * (root.osdValue / 100)
                                     radius: 0
-                                    color: "#FF6A00"
+                                    color: root.colChrome
                                 }
                             }
                         }
@@ -1303,9 +1310,9 @@ ShellRoot {
         // 避免拖著釘死在它右側的工作區數字一起被推擠
         width: 200
         height: 32
-        radius: root.isBarMode ? 0 : 16
+        radius: root.isBarMode || root.evaMode ? 0 : 16
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
-        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.color: root.chromeA(0.5)
         border.width: root.isBarMode ? 0 : 1
 
         RowLayout {
@@ -1362,9 +1369,9 @@ ShellRoot {
         visible: width > 1
         clip: true
         opacity: (!root.isAnyPopupAnimActive) || root.isBarMode ? 1.0 : 0.0
-        radius: root.isBarMode ? 0 : 16
+        radius: root.isBarMode || root.evaMode ? 0 : 16
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
-        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.color: root.chromeA(0.5)
         border.width: root.isBarMode ? 0 : 1
 
         Behavior on width { NumberAnimation { duration: root.batteryMode ? 0 : 350; easing.type: Easing.OutExpo } }
@@ -1410,9 +1417,9 @@ ShellRoot {
         // 寬度依內容自動撐開，避免文字被裁切或溢出動態島
         width: sysRow.implicitWidth + 24
         height: 32
-        radius: root.isBarMode ? 0 : 16
+        radius: root.isBarMode || root.evaMode ? 0 : 16
         color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
-        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.color: root.chromeA(0.5)
         border.width: root.isBarMode ? 0 : 1
 
         // 寬度平滑動態過渡動畫
@@ -1538,7 +1545,7 @@ ShellRoot {
                         id: bellLabel
                         anchors.centerIn: parent
                         text: "ALERT"
-                        color: root.unreadCount > 0 ? "#FF6A00" : root.colMuted
+                        color: root.unreadCount > 0 ? root.colChrome : root.colMuted
                         font { family: root.fontFamily; pixelSize: root.fontSize; bold: true; letterSpacing: 1 }
                     }
 
@@ -1648,15 +1655,17 @@ PopupWindow {
                 Layout.preferredHeight: notifContent.implicitHeight + 24
                 radius: 0
                 color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
-                border.color: Qt.rgba(1, 0.42, 0, 0.5)
+                border.color: root.chromeA(0.5)
                 border.width: 1
+
+                EvaFrame { shellRoot: root; showStripes: false; showMagi: false }
 
                 Rectangle {
                     width: 3
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
-                    color: "#FF6A00"
+                    color: root.colChrome
                 }
 
                 Timer {
@@ -1677,7 +1686,7 @@ PopupWindow {
                         spacing: 6
                         Text {
                             text: notifCard.modelData.appName.toUpperCase()
-                            color: "#FF6A00"
+                            color: root.colChrome
                             font { family: root.fontFamily; pixelSize: root.fontSize + 2; bold: true; letterSpacing: 1 }
                         }
                         Item { Layout.fillWidth: true }
@@ -1701,7 +1710,7 @@ PopupWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         height: 1
-                        color: Qt.rgba(1, 0.42, 0, 0.25)
+                        color: root.chromeA(0.25)
                     }
                     Text {
                         Layout.fillWidth: true
@@ -1754,8 +1763,10 @@ PopupWindow {
         implicitHeight: k8sColumn.implicitHeight + 24
         radius: 0
         color: Qt.rgba(0.02, 0.02, 0.02, 0.97)
-        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.color: root.chromeA(0.5)
         border.width: 1
+
+        EvaFrame { shellRoot: root; showStripes: false; showMagi: false }
 
         ColumnLayout {
             id: k8sColumn
@@ -1769,14 +1780,14 @@ PopupWindow {
                 Layout.fillWidth: true
                 Text {
                     text: "K8S CONTEXTS"
-                    color: "#FF6A00"
+                    color: root.colChrome
                     font { family: root.fontFamily; pixelSize: root.fontSize + 3; bold: true; letterSpacing: 1 }
                 }
             }
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
-                color: Qt.rgba(1, 0.42, 0, 0.25)
+                color: root.chromeA(0.25)
             }
 
             Text {
@@ -1801,7 +1812,7 @@ PopupWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 28
-                        color: k8sTreeItem.modelData.name === root.k8sContext ? Qt.rgba(1, 0.42, 0, 0.12) : "transparent"
+                        color: k8sTreeItem.modelData.name === root.k8sContext ? root.chromeA(0.12) : "transparent"
 
                         RowLayout {
                             anchors.fill: parent
@@ -1822,7 +1833,7 @@ PopupWindow {
                             Text {
                                 Layout.fillWidth: true
                                 text: k8sTreeItem.modelData.name
-                                color: k8sTreeItem.modelData.name === root.k8sContext ? "#FF6A00" : root.colFg
+                                color: k8sTreeItem.modelData.name === root.k8sContext ? root.colChrome : root.colFg
                                 elide: Text.ElideRight
                                 font { family: root.fontFamily; pixelSize: root.fontSize + 1; bold: true }
                             }
@@ -1937,8 +1948,10 @@ PopupWindow {
         implicitHeight: historyColumn.implicitHeight + 24
         radius: 0
         color: Qt.rgba(0.02, 0.02, 0.02, 0.97)
-        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.color: root.chromeA(0.5)
         border.width: 1
+
+        EvaFrame { shellRoot: root; showStripes: false; showMagi: false }
 
         ColumnLayout {
             id: historyColumn
@@ -1952,7 +1965,7 @@ PopupWindow {
                 Layout.fillWidth: true
                 Text {
                     text: "NOTIFICATIONS"
-                    color: "#FF6A00"
+                    color: root.colChrome
                     font { family: root.fontFamily; pixelSize: root.fontSize + 3; bold: true; letterSpacing: 1 }
                 }
                 Item { Layout.fillWidth: true }
@@ -1971,7 +1984,7 @@ PopupWindow {
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
-                color: Qt.rgba(1, 0.42, 0, 0.25)
+                color: root.chromeA(0.25)
             }
 
             Text {
@@ -1991,7 +2004,7 @@ PopupWindow {
                     Layout.preferredHeight: entryCol.implicitHeight + 16
                     radius: 0
                     color: Qt.rgba(1, 1, 1, 0.05)
-                    border.color: Qt.rgba(1, 0.42, 0, 0.2)
+                    border.color: root.chromeA(0.2)
                     border.width: 1
 
                     Rectangle {
@@ -1999,7 +2012,7 @@ PopupWindow {
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         anchors.left: parent.left
-                        color: "#FF6A00"
+                        color: root.colChrome
                     }
 
                     ColumnLayout {
@@ -2014,7 +2027,7 @@ PopupWindow {
                             Text {
                                 Layout.fillWidth: true
                                 text: modelData.appName.toUpperCase()
-                                color: "#FF6A00"
+                                color: root.colChrome
                                 elide: Text.ElideRight
                                 font { family: root.fontFamily; pixelSize: root.fontSize + 1; bold: true; letterSpacing: 1 }
                             }
@@ -2082,8 +2095,10 @@ PopupWindow {
         color: Qt.rgba(0.05, 0.05, 0.05, 0.88)
         radius: 0
         opacity: musicPopup.show ? 1 : 0
-        border.color: Qt.rgba(1, 0.42, 0, 0.5)
+        border.color: root.chromeA(0.5)
         border.width: 1
+
+        EvaFrame { shellRoot: root; active: musicPopup.show; label: "AUDIO CHANNEL"; labelJp: "音声" }
 
         Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
 
@@ -2096,7 +2111,7 @@ PopupWindow {
                 Layout.preferredWidth: 160
                 Layout.preferredHeight: 160
                 radius: 0
-                border.color: Qt.rgba(1, 0.42, 0, 0.3)
+                border.color: root.chromeA(0.3)
                 border.width: 1
                 color: "#161616"
                 clip: true
@@ -2172,7 +2187,7 @@ PopupWindow {
                             width: parent.width * root.mprisProgress
                             height: parent.height
                             radius: 0
-                            color: "#FF6A00"
+                            color: root.colChrome
                         }
                     }
 
@@ -2233,7 +2248,7 @@ PopupWindow {
                     Layout.preferredWidth: 40; Layout.preferredHeight: 40
                     hoverEnabled: true
                     onClicked: pSpotPrev.running = true
-                    Rectangle { anchors.fill: parent; radius: 0; border.color: Qt.rgba(1, 0.42, 0, 0.3); border.width: 1; color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent" }
+                    Rectangle { anchors.fill: parent; radius: 0; border.color: root.chromeA(0.3); border.width: 1; color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent" }
                     Text { anchors.centerIn: parent; text: "[<<]"; color: "#FFF"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
                 }
 
@@ -2263,7 +2278,7 @@ PopupWindow {
                     Layout.preferredWidth: 40; Layout.preferredHeight: 40
                     hoverEnabled: true
                     onClicked: pSpotNext.running = true
-                    Rectangle { anchors.fill: parent; radius: 0; border.color: Qt.rgba(1, 0.42, 0, 0.3); border.width: 1; color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent" }
+                    Rectangle { anchors.fill: parent; radius: 0; border.color: root.chromeA(0.3); border.width: 1; color: parent.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent" }
                     Text { anchors.centerIn: parent; text: "[>>]"; color: "#FFF"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
                 }
 
@@ -2352,7 +2367,7 @@ PopupWindow {
             anchors.fill: parent
             radius: 0
             color: mainMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.1)
-            border.color: Qt.rgba(1, 0.42, 0, 0.3)
+            border.color: root.chromeA(0.3)
             border.width: 1
             Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 150 } }
         }
@@ -2451,7 +2466,7 @@ PopupWindow {
             radius: 0
             color: mbtn.isActive ? Qt.rgba(mbtn.accent.r, mbtn.accent.g, mbtn.accent.b, 0.15)
                                  : (mbtn.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.1))
-            border.color: mbtn.isActive ? Qt.rgba(mbtn.accent.r, mbtn.accent.g, mbtn.accent.b, 0.3) : Qt.rgba(1, 0.42, 0, 0.25)
+            border.color: mbtn.isActive ? Qt.rgba(mbtn.accent.r, mbtn.accent.g, mbtn.accent.b, 0.3) : root.chromeA(0.25)
             border.width: 1
             Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 150 } }
         }
@@ -2481,12 +2496,12 @@ PopupWindow {
             height: implicitHeight
             radius: 0
             color: Qt.rgba(1, 1, 1, 0.1)
-            border.color: Qt.rgba(1, 0.42, 0, 0.25)
+            border.color: root.chromeA(0.25)
             border.width: 1
             Rectangle {
                 width: mSlider.visualPosition * parent.width
                 height: parent.height
-                color: "#FF6A00"
+                color: root.colChrome
                 radius: 0
             }
         }
@@ -2586,9 +2601,11 @@ PopupWindow {
                 height: controlCenter.show ? (mainLayout.implicitHeight + 32) : 32
 
                 color: Qt.rgba(0.02, 0.02, 0.02, 0.95)
-                radius: controlCenter.show ? 24 : (root.isBarMode ? 0 : 16)
-                border.color: Qt.rgba(1, 0.42, 0, 0.5)
+                radius: root.evaMode ? 0 : controlCenter.show ? 24 : (root.isBarMode ? 0 : 16)
+                border.color: root.chromeA(0.5)
                 border.width: (controlCenter.show || !root.isBarMode) ? 1 : 0
+
+                EvaFrame { shellRoot: root; active: controlCenter.show; label: "CENTRAL DOGMA"; labelJp: "中央管制" }
 
                 // DYNAMIC ISLAND FLUID ANIMATION
                 opacity: (!controlCenter.show && height <= 36) ? 0.0 : 1.0
@@ -2750,7 +2767,7 @@ PopupWindow {
                         Text { text: "UPD " + root.updates; color: root.colMuted; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; visible: parseInt(root.updates) > 0 }
                     }
 
-                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.rgba(1,0.42,0,0.25); visible: root.mprisStatus !== "offline" }
+                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: root.chromeA(0.25); visible: root.mprisStatus !== "offline" }
 
                     // Sliders
                     ColumnLayout {
@@ -2827,7 +2844,7 @@ PopupWindow {
                                         spacing: 6
                                         Text {
                                             text: model.name === root.defaultSink ? "*" : ""
-                                            color: model.name === root.defaultSink ? "#FF6A00" : root.colMuted
+                                            color: model.name === root.defaultSink ? root.colChrome : root.colMuted
                                             font.family: root.fontFamily
                                             font.pixelSize: 10
                                         }
@@ -2917,7 +2934,7 @@ PopupWindow {
                                         spacing: 6
                                         Text {
                                             text: model.name === root.defaultSource ? "*" : ""
-                                            color: model.name === root.defaultSource ? "#FF6A00" : root.colMuted
+                                            color: model.name === root.defaultSource ? root.colChrome : root.colMuted
                                             font.family: root.fontFamily
                                             font.pixelSize: 10
                                         }
@@ -3155,7 +3172,7 @@ PopupWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 1
-                        color: Qt.rgba(1, 0.42, 0, 0.2)
+                        color: root.chromeA(0.2)
                     }
 
                     MouseArea {
@@ -3502,7 +3519,7 @@ PopupWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 1
-                        color: Qt.rgba(1, 0.42, 0, 0.2)
+                        color: root.chromeA(0.2)
                     }
 
                     RowLayout {
@@ -3589,8 +3606,10 @@ PopupWindow {
 
                 color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
                 radius: 0
-                border.color: Qt.rgba(1, 0.42, 0, 0.5)
+                border.color: root.chromeA(0.5)
                 border.width: 1
+
+                EvaFrame { shellRoot: root; showStripes: false; showMagi: false }
 
                 opacity: timerPopup.show ? 1.0 : 0.0
                 scale: timerPopup.show ? 1.0 : 0.95
@@ -3606,7 +3625,7 @@ PopupWindow {
                     anchors.right: parent.right
                     anchors.margins: 16
                     spacing: 8
-                    Text { text: "TIMER MINUTES"; color: "#FF6A00"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true; font.letterSpacing: 1 }
+                    Text { text: "TIMER MINUTES"; color: root.colChrome; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true; font.letterSpacing: 1 }
 
                     TextField {
                         id: timerInput
@@ -3616,7 +3635,7 @@ PopupWindow {
                         background: Rectangle {
                             color: Qt.rgba(1, 1, 1, 0.1)
                             radius: 0
-                            border.color: timerInput.activeFocus ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                            border.color: timerInput.activeFocus ? root.chromeA(0.5) : "transparent"
                             border.width: 1
                         }
                         font.family: root.fontFamily
@@ -3667,8 +3686,10 @@ PopupWindow {
 
                 color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
                 radius: 0
-                border.color: Qt.rgba(1, 0.42, 0, 0.5)
+                border.color: root.chromeA(0.5)
                 border.width: 1
+
+                EvaFrame { shellRoot: root; showStripes: false; showMagi: false }
 
                 opacity: gpuPopup.show ? 1.0 : 0.0
                 scale: gpuPopup.show ? 1.0 : 0.95
@@ -3740,6 +3761,8 @@ PopupWindow {
                 radius: 0
                 border.color: Qt.rgba(0.29, 0.56, 0.85, 0.5)
                 border.width: 1
+
+                EvaFrame { shellRoot: root; active: remminaPopup.show; label: "REMOTE LINK"; labelJp: "遠隔接続" }
 
                 opacity: remminaPopup.show ? 1.0 : 0.0
                 scale: remminaPopup.show ? 1.0 : 0.95
@@ -3861,8 +3884,10 @@ PopupWindow {
 
                 color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
                 radius: 0
-                border.color: Qt.rgba(1, 0.42, 0, 0.5)
+                border.color: root.chromeA(0.5)
                 border.width: 1
+
+                EvaFrame { shellRoot: root; showStripes: false; showMagi: false }
 
                 opacity: notesPopup.show ? 1.0 : 0.0
                 scale: notesPopup.show ? 1.0 : 0.95
@@ -3929,6 +3954,7 @@ PopupWindow {
 
         IdCard {
             anchors.fill: parent
+            shellRoot: root
         }
     }
 
@@ -4071,7 +4097,7 @@ PopupWindow {
         function updateColors(bg: string, fg: string, accent: string) {
             root.colBg     = bg;
             root.colFg     = fg;
-            root.colAccent = accent;
+            root.themeAccent = accent;
         }
         function lock() {
             foldLock.play()
@@ -4082,7 +4108,7 @@ PopupWindow {
         }
     }
 
-    LockScreen { id: lockScreen }
+    LockScreen { id: lockScreen; evaMode: root.evaMode }
 
     FoldLock {
         id: foldLock

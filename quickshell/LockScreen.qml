@@ -13,11 +13,14 @@ Scope {
     property int  intrusionPhase: 0
     property bool errorVisible: false
 
-    // 平常維持綠色主題，偶爾（約 3% 機率）短暫閃成橘色的彩蛋事件
+    // 平常維持綠色主題，偶爾（約 3% 機率）短暫閃成橘色的彩蛋事件；
+    // 人類補完計畫（evaMode）開啟時固定為 MAGI 橘
+    property bool evaMode: false
     property bool glitchOrange: false
-    readonly property color primaryBright: glitchOrange ? "#FF6A00" : "#00ff41"
-    readonly property color primaryMed: glitchOrange ? "#CC5500" : "#00cc44"
-    readonly property color primaryDark: glitchOrange ? "#994000" : "#009920"
+    readonly property bool magiOrange: glitchOrange || evaMode
+    readonly property color primaryBright: magiOrange ? "#FF6A00" : "#00ff41"
+    readonly property color primaryMed: magiOrange ? "#CC5500" : "#00cc44"
+    readonly property color primaryDark: magiOrange ? "#994000" : "#009920"
 
     Timer {
         id: glitchOrangeCheckTimer

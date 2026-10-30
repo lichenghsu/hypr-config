@@ -10,6 +10,8 @@ PanelWindow {
     
     property bool show: false
     property var shellRoot
+    readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
+    function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
     property var clipItems: []
     property real animHeight: animRect.height
     
@@ -108,6 +110,7 @@ PanelWindow {
         
         Rectangle {
             id: animRect
+            EvaFrame { shellRoot: rootWindow.shellRoot; active: rootWindow.show; label: "DATA BUFFER"; labelJp: "記録" }
             anchors.top: parent.top
             anchors.topMargin: show ? 16 : (shellRoot && shellRoot.isBarMode ? 0 : 4)
             anchors.horizontalCenter: parent.horizontalCenter
@@ -117,7 +120,7 @@ PanelWindow {
             
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
             radius: 0
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: show ? 1 : 0
 
             opacity: (!show && height <= 36) ? 0.0 : 1.0
@@ -129,7 +132,7 @@ PanelWindow {
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
-                color: "#FF6A00"
+                color: rootWindow.chrome
             }
             
             Behavior on radius { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -167,7 +170,7 @@ PanelWindow {
                                 color: Qt.rgba(1, 1, 1, 0.05)
                                 radius: 0
                                 border.color: searchInput.activeFocus
-                                ? Qt.rgba(1, 0.42, 0, 0.5)
+                                ? rootWindow.chromeA(0.5)
                                 : "transparent"
                                 border.width: 1
                             }
@@ -203,7 +206,7 @@ PanelWindow {
 
                             contentItem: Text {
                                 text: clearButton.text
-                                color: clearButton.hovered ? "#080808" : "#FF6A00"
+                                color: clearButton.hovered ? "#080808" : rootWindow.chrome
                                 font.family: shellRoot ? shellRoot.fontFamily : "monospace"
                                 font.pixelSize: 11
                                 font.bold: true
@@ -213,9 +216,9 @@ PanelWindow {
 
                             background: Rectangle {
                                 color: clearButton.hovered
-                                ? "#FF6A00"
-                                : Qt.rgba(1, 0.42, 0, 0.08)
-                                border.color: "#FF6A00"
+                                ? rootWindow.chrome
+                                : rootWindow.chromeA(0.08)
+                                border.color: rootWindow.chrome
                                 border.width: 1
                                 radius: 0
                             }
@@ -237,11 +240,11 @@ PanelWindow {
                             radius: 0
 
                             color: listView.currentIndex === index || ma.containsMouse
-                            ? Qt.rgba(1, 0.42, 0, 0.15)
+                            ? rootWindow.chromeA(0.15)
                             : "transparent"
 
                             border.color: listView.currentIndex === index
-                            ? Qt.rgba(1, 0.42, 0, 0.5)
+                            ? rootWindow.chromeA(0.5)
                             : "transparent"
                             border.width: 1
 
@@ -251,7 +254,7 @@ PanelWindow {
                                 anchors.top: parent.top
                                 anchors.bottom: parent.bottom
                                 anchors.left: parent.left
-                                color: "#FF6A00"
+                                color: rootWindow.chrome
                             }
 
                             RowLayout {

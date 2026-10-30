@@ -5,10 +5,47 @@ Rectangle {
     id: idCard
     width: 680
     height: 1080
-    radius: 32
-    color: "#121214"
-    border.color: "#27272a"
-    border.width: 2
+
+    property var shellRoot
+    // 人類補完計畫開啟時改成 NERV 職員證樣式（條碼維持白底黑條，載具仍可掃）
+    readonly property bool eva: !!(shellRoot && shellRoot.evaMode)
+    readonly property color evaRed: "#FF1A1A"
+    readonly property color evaOrange: "#FF6A00"
+    readonly property string serif: "Noto Serif CJK JP"
+    readonly property bool noAnim: !!(shellRoot && shellRoot.batteryMode)
+
+    radius: eva ? 0 : 32
+    color: eva ? "#0a0202" : "#121214"
+    border.color: eva ? evaRed : "#27272a"
+    border.width: eva ? 3 : 2
+
+    // EVA：浮水印大葉片 + 外框（掃描線 / 四角括號 / NERV 標籤）
+    Canvas {
+        id: watermark
+        visible: idCard.eva
+        width: 520; height: 640
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: 40
+        opacity: 0.06
+        onVisibleChanged: requestPaint()
+        onPaint: idCard.paintLeaf(getContext("2d"), width, height, idCard.evaRed)
+    }
+    EvaFrame { shellRoot: idCard.shellRoot; label: "PERSONNEL IDENTIFICATION"; labelJp: "職員証" }
+
+    // NERV 風格半邊無花果葉：中軸在左，右側三段葉緣
+    function paintLeaf(c, w, h, col) {
+        c.reset()
+        c.beginPath()
+        c.moveTo(w * 0.12, h * 0.98)                       // 葉柄底
+        c.lineTo(w * 0.12, h * 0.04)                       // 中軸
+        c.bezierCurveTo(w * 0.55, h * 0.02, w * 0.80, h * 0.14, w * 0.66, h * 0.28)
+        c.bezierCurveTo(w * 0.98, h * 0.30, w * 1.00, h * 0.50, w * 0.72, h * 0.56)
+        c.bezierCurveTo(w * 0.94, h * 0.66, w * 0.80, h * 0.86, w * 0.40, h * 0.80)
+        c.lineTo(w * 0.22, h * 0.86)
+        c.lineTo(w * 0.22, h * 0.98)
+        c.closePath()
+        c.fillStyle = col; c.fill()
+    }
 
     // -------------------------------------------------------------------------
     // Code 39 條碼動態生成函式
@@ -60,9 +97,9 @@ Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         width: 100
         height: 20
-        radius: 10
+        radius: idCard.eva ? 0 : 10
         color: "#09090b"
-        border.color: "#27272a"
+        border.color: idCard.eva ? idCard.evaRed : "#27272a"
         border.width: 2
     }
 
@@ -82,6 +119,7 @@ Rectangle {
             spacing: 16
 
             Rectangle {
+                visible: !idCard.eva
                 width: 48
                 height: 48
                 radius: 12
@@ -95,29 +133,76 @@ Rectangle {
                 }
             }
 
-            Text {
-                text: "SKYGATE CORP."
-                color: "#f4f4f5"
-                font.pixelSize: 28
-                font.bold: true
-                font.letterSpacing: 4
+            Canvas {
+                visible: idCard.eva
+                Layout.preferredWidth: 44
+                Layout.preferredHeight: 56
+                onVisibleChanged: requestPaint()
+                onPaint: idCard.paintLeaf(getContext("2d"), width, height, idCard.evaRed)
+            }
+
+            ColumnLayout {
+                spacing: -4
+                Text {
+                    text: idCard.eva ? "NERV" : "SKYGATE CORP."
+                    color: idCard.eva ? idCard.evaRed : "#f4f4f5"
+                    font.pixelSize: idCard.eva ? 40 : 28
+                    font.family: idCard.eva ? idCard.serif : Qt.application.font.family
+                    font.weight: idCard.eva ? Font.Black : Font.Bold
+                    font.letterSpacing: idCard.eva ? 8 : 4
+                }
+                Text {
+                    visible: idCard.eva
+                    text: "特務機関ネルフ  //  SKYGATE BRANCH"
+                    color: idCard.evaOrange
+                    font.pixelSize: 15
+                    font.family: idCard.serif
+                    font.bold: true
+                    font.letterSpacing: 2
+                }
             }
 
             Item { Layout.fillWidth: true }
 
-            Text {
-                text: "STAFF"
-                color: "#ff6a00"
-                font.pixelSize: 20
-                font.bold: true
-                font.letterSpacing: 2
+            Rectangle {
+                color: idCard.eva ? idCard.evaRed : "transparent"
+                implicitWidth: staffTxt.implicitWidth + (idCard.eva ? 16 : 0)
+                implicitHeight: staffTxt.implicitHeight + (idCard.eva ? 6 : 0)
+                Text {
+                    id: staffTxt
+                    anchors.centerIn: parent
+                    text: idCard.eva ? "職員" : "STAFF"
+                    color: idCard.eva ? "black" : "#ff6a00"
+                    font.pixelSize: idCard.eva ? 24 : 20
+                    font.bold: true
+                    font.family: idCard.eva ? idCard.serif : Qt.application.font.family
+                    font.letterSpacing: 2
+                }
             }
         }
 
         Rectangle {
+            visible: !idCard.eva
             Layout.fillWidth: true
             height: 2
             color: "#27272a"
+        }
+
+        Canvas {
+            visible: idCard.eva
+            Layout.fillWidth: true
+            Layout.preferredHeight: 12
+            onVisibleChanged: requestPaint()
+            onWidthChanged: requestPaint()
+            onPaint: {
+                const c = getContext("2d"); c.reset()
+                c.fillStyle = idCard.evaOrange
+                for (let x = -height; x < width; x += 20) {
+                    c.beginPath()
+                    c.moveTo(x, height); c.lineTo(x + height, 0); c.lineTo(x + height + 10, 0); c.lineTo(x + 10, height)
+                    c.closePath(); c.fill()
+                }
+            }
         }
 
         // ---------------------------------------------------------------------
@@ -128,16 +213,48 @@ Rectangle {
             Layout.alignment: Qt.AlignHCenter
             width: 260
             height: 320
-            radius: 24
+            radius: idCard.eva ? 0 : 24
             color: "#18181b"
-            border.color: "#3f3f46"
+            border.color: idCard.eva ? idCard.evaRed : "#3f3f46"
             border.width: 2
             clip: true
 
             Image {
                 anchors.fill: parent
+                anchors.margins: idCard.eva ? 2 : 0
                 source: "file:///home/miles/Pictures/Memes/WHAT_EVER/DORA.jpg"
                 fillMode: Image.PreserveAspectCrop
+            }
+
+            // EVA：照片紅色濾鏡 + 上下掃描線 + 準星 + 標籤
+            Item {
+                anchors.fill: parent
+                visible: idCard.eva
+                Rectangle { anchors.fill: parent; color: Qt.rgba(0.6, 0, 0, 0.18) }
+                Rectangle {
+                    id: photoScan
+                    width: parent.width; height: 2
+                    color: idCard.evaRed
+                    opacity: 0.7
+                    NumberAnimation on y {
+                        running: idCard.eva && !idCard.noAnim
+                        from: 0; to: avatarFrame.height; duration: 2600; loops: Animation.Infinite
+                    }
+                }
+                Rectangle { anchors.centerIn: parent; width: 36; height: 1; color: idCard.evaRed; opacity: 0.6 }
+                Rectangle { anchors.centerIn: parent; width: 1; height: 36; color: idCard.evaRed; opacity: 0.6 }
+                Rectangle {
+                    anchors { left: parent.left; bottom: parent.bottom; margins: 2 }
+                    width: subjTxt.implicitWidth + 12; height: 20
+                    color: idCard.evaRed
+                    Text {
+                        id: subjTxt
+                        anchors.centerIn: parent
+                        text: "IDENTITY CONFIRMED"
+                        color: "black"
+                        font { family: "monospace"; pixelSize: 11; bold: true; letterSpacing: 1 }
+                    }
+                }
             }
         }
 
@@ -153,13 +270,14 @@ Rectangle {
                 text: "麥爾斯 / MILES HSU"
                 color: "#ffffff"
                 font.pixelSize: 40
-                font.bold: true
+                font.family: idCard.eva ? idCard.serif : Qt.application.font.family
+                font.weight: idCard.eva ? Font.Black : Font.Bold
             }
 
             Text {
                 Layout.alignment: Qt.AlignHCenter
                 text: "Full Stack Software Engernior"
-                color: "#a1a1aa"
+                color: idCard.eva ? idCard.evaOrange : "#a1a1aa"
                 font.pixelSize: 24
             }
         }
@@ -170,14 +288,14 @@ Rectangle {
             rowSpacing: 16
             columnSpacing: 32
 
-            Text { text: "DEPARTMENT"; color: "#71717a"; font.pixelSize: 18; font.bold: true }
-            Text { text: "JAVA TEAM"; color: "#71717a"; font.pixelSize: 18; font.bold: true }
+            Text { text: "DEPARTMENT"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
+            Text { text: "JAVA TEAM"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
 
             Text { text: "Java 程式開發組"; color: "#e4e4e7"; font.pixelSize: 22; font.bold: true }
-            Text { text: "LEVEL 67"; color: "#ff6a00"; font.pixelSize: 22; font.bold: true }
+            Text { text: idCard.eva ? "SECURITY LEVEL 67" : "LEVEL 67"; color: idCard.eva ? idCard.evaRed : "#ff6a00"; font.pixelSize: 22; font.bold: true }
 
-            Text { text: "EMPLOYEE ID"; color: "#71717a"; font.pixelSize: 18; font.bold: true }
-            Text { text: "EXPIRY DATE"; color: "#71717a"; font.pixelSize: 18; font.bold: true }
+            Text { text: "EMPLOYEE ID"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
+            Text { text: "EXPIRY DATE"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
 
             Text { text: "EMP-2025-0804"; color: "#e4e4e7"; font.pixelSize: 22; font.family: "monospace" }
             Text { text: "2077 / 06 / 07"; color: "#e4e4e7"; font.pixelSize: 22; font.family: "monospace" }
@@ -192,7 +310,9 @@ Rectangle {
             Layout.fillWidth: true
             height: 116
             color: "#ffffff"
-            radius: 16
+            radius: idCard.eva ? 0 : 16
+            border.color: idCard.eva ? idCard.evaRed : "transparent"
+            border.width: idCard.eva ? 3 : 0
 
             ColumnLayout {
                 anchors.centerIn: parent
@@ -222,6 +342,14 @@ Rectangle {
                     font.letterSpacing: 4
                 }
             }
+        }
+
+        Text {
+            visible: idCard.eva
+            Layout.alignment: Qt.AlignHCenter
+            text: "GOD'S IN HIS HEAVEN. ALL'S RIGHT WITH THE WORLD."
+            color: idCard.evaRed
+            font { family: idCard.serif; pixelSize: 14; bold: true; letterSpacing: 2 }
         }
     }
 }

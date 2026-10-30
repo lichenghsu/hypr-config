@@ -10,6 +10,8 @@ PanelWindow {
 
     property bool show: false
     property var shellRoot
+    readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
+    function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
     property real animHeight: animRect.height
     property bool matugenMode: false
 
@@ -69,6 +71,7 @@ PanelWindow {
 
         Rectangle {
             id: animRect
+            EvaFrame { shellRoot: rootWindow.shellRoot; active: rootWindow.show; label: "WALLPAPER"; labelJp: "背景" }
             anchors.top: parent.top
             anchors.topMargin: show ? 24 : (shellRoot && shellRoot.isBarMode ? 0 : 4)
             anchors.horizontalCenter: parent.horizontalCenter
@@ -79,7 +82,7 @@ PanelWindow {
 
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
             radius: 0
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: show ? 1 : 0
 
             opacity: (!show && height <= 36) ? 0.0 : 1.0
@@ -91,7 +94,7 @@ PanelWindow {
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
-                color: "#FF6A00"
+                color: rootWindow.chrome
             }
 
             Behavior on radius    { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -115,7 +118,7 @@ PanelWindow {
 
                         Text {
                             text: "WALLPAPERS"
-                            color: "#FF6A00"
+                            color: rootWindow.chrome
                             font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                             font.pixelSize: 21
                             font.bold: true
@@ -125,15 +128,15 @@ PanelWindow {
 
                         Rectangle {
                             width: 135; height: 33; radius: 0
-                            color: rootWindow.matugenMode ? Qt.rgba(1, 0.42, 0, 0.18) : Qt.rgba(1, 1, 1, 0.08)
-                            border.color: rootWindow.matugenMode ? "#FF6A00" : Qt.rgba(1, 1, 1, 0.15)
+                            color: rootWindow.matugenMode ? rootWindow.chromeA(0.18) : Qt.rgba(1, 1, 1, 0.08)
+                            border.color: rootWindow.matugenMode ? rootWindow.chrome : Qt.rgba(1, 1, 1, 0.15)
                             border.width: 1
                             Behavior on color { ColorAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : 200 } }
 
                             Text {
                                 anchors.centerIn: parent
                                 text: rootWindow.matugenMode ? "MATUGEN" : "STATIC"
-                                color: rootWindow.matugenMode ? "#FF6A00" : (shellRoot ? shellRoot.colMuted : "#888")
+                                color: rootWindow.matugenMode ? rootWindow.chrome : (shellRoot ? shellRoot.colMuted : "#888")
                                 font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                                 font.pixelSize: 14
                                 font.bold: true
@@ -167,7 +170,7 @@ PanelWindow {
                                 anchors.margins: 6
                                 radius: 0
                                 color: ma.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.05)
-                                border.color: ma.containsMouse ? Qt.rgba(1, 0.42, 0, 0.6) : Qt.rgba(1, 0.42, 0, 0.2)
+                                border.color: ma.containsMouse ? rootWindow.chromeA(0.6) : rootWindow.chromeA(0.2)
                                 border.width: 1
                                 clip: true
 

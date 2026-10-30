@@ -10,6 +10,8 @@ PanelWindow {
     
     property bool show: false
     property var shellRoot
+    readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
+    function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
     property var themes: []
     property real animHeight: animRect.height
     
@@ -84,6 +86,7 @@ PanelWindow {
         
         Rectangle {
             id: animRect
+            EvaFrame { shellRoot: rootWindow.shellRoot; active: rootWindow.show; label: "THEME"; labelJp: "配色" }
             anchors.top: parent.top
             anchors.topMargin: show ? 16 : (shellRoot && shellRoot.isBarMode ? 0 : 4)
             anchors.horizontalCenter: parent.horizontalCenter
@@ -93,7 +96,7 @@ PanelWindow {
             
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
             radius: 0
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: show ? 1 : 0
 
             opacity: (!show && height <= 36) ? 0.0 : 1.0
@@ -105,7 +108,7 @@ PanelWindow {
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
-                color: "#FF6A00"
+                color: rootWindow.chrome
             }
             
             Behavior on radius { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -135,7 +138,7 @@ PanelWindow {
                     background: Rectangle {
                         color: Qt.rgba(1,1,1,0.05)
                         radius: 0
-                        border.color: searchInput.activeFocus ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                        border.color: searchInput.activeFocus ? rootWindow.chromeA(0.5) : "transparent"
                         border.width: 1
                     }
                     onTextEdited: filterThemes(text)
@@ -164,8 +167,8 @@ PanelWindow {
                         width: ListView.view.width
                         height: 48
                         radius: 0
-                        color: listView.currentIndex === index || ma.containsMouse ? Qt.rgba(1, 0.42, 0, 0.15) : "transparent"
-                        border.color: listView.currentIndex === index ? Qt.rgba(1, 0.42, 0, 0.5) : "transparent"
+                        color: listView.currentIndex === index || ma.containsMouse ? rootWindow.chromeA(0.15) : "transparent"
+                        border.color: listView.currentIndex === index ? rootWindow.chromeA(0.5) : "transparent"
                         border.width: 1
 
                         Rectangle {
@@ -174,7 +177,7 @@ PanelWindow {
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
                             anchors.left: parent.left
-                            color: "#FF6A00"
+                            color: rootWindow.chrome
                         }
 
                         RowLayout {

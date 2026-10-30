@@ -10,6 +10,8 @@ PanelWindow {
     
     property bool show: false
     property var shellRoot
+    readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
+    function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
     property var btItems: []
     property real animHeight: animRect.height
     
@@ -99,6 +101,7 @@ PanelWindow {
         
         Rectangle {
             id: animRect
+            EvaFrame { shellRoot: rootWindow.shellRoot; active: rootWindow.show; label: "BLUETOOTH LINK"; labelJp: "接続" }
             anchors.top: parent.top
             anchors.topMargin: show ? 16 : (shellRoot && shellRoot.isBarMode ? 0 : 4)
             anchors.horizontalCenter: parent.horizontalCenter
@@ -108,7 +111,7 @@ PanelWindow {
             
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
             radius: 0
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: show ? 1 : 0
 
             opacity: (!show && height <= 36) ? 0.0 : 1.0
@@ -120,7 +123,7 @@ PanelWindow {
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
-                color: "#FF6A00"
+                color: rootWindow.chrome
             }
             
             Behavior on radius { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -141,7 +144,7 @@ PanelWindow {
                     
                     Text {
                         text: "BLUETOOTH DEVICES"
-                        color: "#FF6A00"
+                        color: rootWindow.chrome
                         font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                         font.pixelSize: 14
                         font.bold: true
@@ -161,7 +164,7 @@ PanelWindow {
                             width: ListView.view.width
                             height: 48
                             radius: 0
-                            color: listView.currentIndex === index || ma.containsMouse ? Qt.rgba(1, 0.42, 0, 0.15) : "transparent"
+                            color: listView.currentIndex === index || ma.containsMouse ? rootWindow.chromeA(0.15) : "transparent"
                             border.color: model.connected ? Qt.rgba(0.11, 0.7, 0.33, 0.5) : "transparent"
                             border.width: 1
 
@@ -180,7 +183,7 @@ PanelWindow {
                                 spacing: 12
                                 Text {
                                     text: "BT"
-                                    color: model.connected ? "#1DB954" : "#FF6A00"
+                                    color: model.connected ? "#1DB954" : rootWindow.chrome
                                     font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
                                     font.pixelSize: 11
                                     font.bold: true

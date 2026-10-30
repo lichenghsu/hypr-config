@@ -9,6 +9,8 @@ PanelWindow {
 
     property bool show: false
     property var shellRoot
+    readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
+    function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
     property real animHeight: canvasBox.height
     property var monitors: []
     readonly property real canvasW: 700
@@ -185,15 +187,18 @@ PanelWindow {
             width: show ? (canvasW + 48) : 0
             height: show ? (popupContent.implicitHeight + 48) : 0
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: show ? 1 : 0
             opacity: show ? 1.0 : 0.0
             Behavior on opacity { NumberAnimation { duration: 200 } }
+
+            EvaFrame { shellRoot: rootWindow.shellRoot; active: rootWindow.show; label: "DISPLAY ARRAY"; labelJp: "表示装置" }
 
             MouseArea {
                 anchors.fill: parent
                 onClicked: {} // swallow clicks so they don't close the popup
             }
+
 
             ColumnLayout {
                 id: popupContent
@@ -236,10 +241,10 @@ PanelWindow {
                             width: modelData.w * rootWindow.miniScaleActual
                             height: modelData.h * rootWindow.miniScaleActual
                             radius: 0
-                            color: dragMa.drag.active ? Qt.rgba(1, 0.42, 0, 0.35)
-                                : rootWindow.editingIndex === index ? Qt.rgba(1, 0.42, 0, 0.2)
+                            color: dragMa.drag.active ? rootWindow.chromeA(0.35)
+                                : rootWindow.editingIndex === index ? rootWindow.chromeA(0.2)
                                 : Qt.rgba(1, 1, 1, 0.08)
-                            border.color: Qt.rgba(1, 0.42, 0, 0.7)
+                            border.color: rootWindow.chromeA(0.7)
                             border.width: 2
 
                             ColumnLayout {
@@ -283,7 +288,7 @@ PanelWindow {
                     implicitHeight: editorCol.implicitHeight + 16
                     visible: rootWindow.editingIndex >= 0 && rootWindow.editingIndex < rootWindow.monitors.length
                     color: Qt.rgba(1, 1, 1, 0.05)
-                    border.color: Qt.rgba(1, 0.42, 0, 0.4)
+                    border.color: rootWindow.chromeA(0.4)
                     border.width: 1
 
                     ColumnLayout {
@@ -307,7 +312,7 @@ PanelWindow {
                                     required property string modelData
                                     width: label.implicitWidth + 12; height: 22
                                     color: (rootWindow.editingIndex >= 0 && rootWindow.monitors[rootWindow.editingIndex].mode === modelData)
-                                        ? Qt.rgba(1, 0.42, 0, 0.5) : Qt.rgba(1, 1, 1, 0.08)
+                                        ? rootWindow.chromeA(0.5) : Qt.rgba(1, 1, 1, 0.08)
                                     border.color: Qt.rgba(1, 1, 1, 0.3); border.width: 1
                                     Text { id: label; anchors.centerIn: parent; text: parent.modelData; color: "white"; font.pixelSize: 9 }
                                     MouseArea { anchors.fill: parent; onClicked: rootWindow.setMode(rootWindow.editingIndex, parent.modelData) }
@@ -323,7 +328,7 @@ PanelWindow {
                                     required property string modelData
                                     width: 36; height: 22
                                     color: (rootWindow.editingIndex >= 0 && rootWindow.monitors[rootWindow.editingIndex].scale === modelData)
-                                        ? Qt.rgba(1, 0.42, 0, 0.5) : Qt.rgba(1, 1, 1, 0.08)
+                                        ? rootWindow.chromeA(0.5) : Qt.rgba(1, 1, 1, 0.08)
                                     border.color: Qt.rgba(1, 1, 1, 0.3); border.width: 1
                                     Text { anchors.centerIn: parent; text: parent.modelData; color: "white"; font.pixelSize: 9 }
                                     MouseArea { anchors.fill: parent; onClicked: rootWindow.setScale(rootWindow.editingIndex, parent.modelData) }
@@ -347,15 +352,15 @@ PanelWindow {
 
                     Rectangle {
                         width: 140; height: 36
-                        color: applyMa.containsMouse ? Qt.rgba(1, 0.42, 0, 0.35) : Qt.rgba(1, 1, 1, 0.08)
-                        border.color: Qt.rgba(1, 0.42, 0, 0.7); border.width: 1
+                        color: applyMa.containsMouse ? rootWindow.chromeA(0.35) : Qt.rgba(1, 1, 1, 0.08)
+                        border.color: rootWindow.chromeA(0.7); border.width: 1
                         Text { anchors.centerIn: parent; text: "Apply (temporary)"; color: "white"; font.pixelSize: 12 }
                         MouseArea { id: applyMa; anchors.fill: parent; hoverEnabled: true; onClicked: rootWindow.applyAll(false) }
                     }
                     Rectangle {
                         width: 160; height: 36
-                        color: saveMa.containsMouse ? Qt.rgba(1, 0.42, 0, 0.35) : Qt.rgba(1, 1, 1, 0.08)
-                        border.color: Qt.rgba(1, 0.42, 0, 0.7); border.width: 1
+                        color: saveMa.containsMouse ? rootWindow.chromeA(0.35) : Qt.rgba(1, 1, 1, 0.08)
+                        border.color: rootWindow.chromeA(0.7); border.width: 1
                         Text { anchors.centerIn: parent; text: "Apply & Save"; color: "white"; font.pixelSize: 12 }
                         MouseArea { id: saveMa; anchors.fill: parent; hoverEnabled: true; onClicked: rootWindow.applyAll(true) }
                     }

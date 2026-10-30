@@ -10,6 +10,8 @@ PanelWindow {
 
     property bool show: false
     property var shellRoot
+    readonly property color chrome: shellRoot ? shellRoot.colChrome : "#FF6A00"
+    function chromeA(a) { return Qt.rgba(chrome.r, chrome.g, chrome.b, a) }
     property var wifiItems: []
     property string selectedSsid: ""
     property var seenSsids: ({})
@@ -112,6 +114,7 @@ PanelWindow {
 
         Rectangle {
             id: animRect
+            EvaFrame { shellRoot: rootWindow.shellRoot; active: rootWindow.show; label: "WIRELESS"; labelJp: "通信" }
             anchors.top: parent.top
             anchors.topMargin: show ? 16 : (shellRoot && shellRoot.isBarMode ? 0 : 4)
             anchors.horizontalCenter: parent.horizontalCenter
@@ -121,7 +124,7 @@ PanelWindow {
 
             color: Qt.rgba(0.08, 0.08, 0.08, 0.95)
             radius: 0
-            border.color: Qt.rgba(1, 0.42, 0, 0.5)
+            border.color: rootWindow.chromeA(0.5)
             border.width: show ? 1 : 0
             opacity: (!show && height <= 36) ? 0.0 : 1.0
 
@@ -132,7 +135,7 @@ PanelWindow {
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
-                color: "#FF6A00"
+                color: rootWindow.chrome
             }
 
             Behavior on radius   { NumberAnimation { duration: (shellRoot && shellRoot.batteryMode) ? 0 : show ? 450 : 300; easing.type: show ? Easing.OutBack : Easing.OutExpo; easing.overshoot: show ? 1.2 : 0 } }
@@ -168,7 +171,7 @@ PanelWindow {
                             visible: selectedSsid === ""
                             width: 60; height: 28
                             radius: 0
-                            border.color: Qt.rgba(1, 0.42, 0, 0.3)
+                            border.color: rootWindow.chromeA(0.3)
                             border.width: 1
                             color: refreshMa.containsMouse ? Qt.rgba(1,1,1,0.12) : "transparent"
                             Text {
@@ -213,7 +216,7 @@ PanelWindow {
                             background: Rectangle {
                                 color: Qt.rgba(1,1,1,0.07)
                                 radius: 0
-                                border.color: passInput.activeFocus ? Qt.rgba(1, 0.42, 0, 0.5) : Qt.rgba(1,1,1,0.1)
+                                border.color: passInput.activeFocus ? rootWindow.chromeA(0.5) : Qt.rgba(1,1,1,0.1)
                                 border.width: 1
                             }
                             Keys.onReturnPressed: doConnect()
@@ -249,7 +252,7 @@ PanelWindow {
 
                             Rectangle {
                                 Layout.fillWidth: true; height: 38; radius: 0
-                                color: connectMa.containsMouse ? Qt.rgba(1, 0.5, 0.1, 0.9) : Qt.rgba(1, 0.42, 0, 0.8)
+                                color: connectMa.containsMouse ? Qt.rgba(1, 0.5, 0.1, 0.9) : rootWindow.chromeA(0.8)
                                 Text { anchors.centerIn: parent; text: "CONNECT"; color: "white"; font.pixelSize: 13; font.bold: true; font.letterSpacing: 1; font.family: shellRoot ? shellRoot.fontFamily : "sans-serif" }
                                 MouseArea { id: connectMa; anchors.fill: parent; hoverEnabled: true; onClicked: doConnect() }
                             }
