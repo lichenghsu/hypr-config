@@ -8,3 +8,7 @@ hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("MOZ_ENABLE_WAYLAND", "1")
 hl.env("QT_IM_MODULE", "fcitx")
 hl.env("XMODIFIERS", "@im=fcitx")
+
+-- Fedora's swappy.desktop Exec has "\\$", which quickshell's DesktopEntries scan warns about on every launch.
+-- Quickshell has no per-file ignore, so mute the category here (covers manual `quickshell` restarts too).
+hl.env("QT_LOGGING_RULES", "quickshell.desktopentry.warning=false")
