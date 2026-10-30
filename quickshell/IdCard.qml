@@ -32,19 +32,29 @@ Rectangle {
     }
     EvaFrame { shellRoot: idCard.shellRoot; label: "PERSONNEL IDENTIFICATION"; labelJp: "職員証" }
 
-    // NERV 風格半邊無花果葉：中軸在左，右側三段葉緣
+    // NERV 風格半邊無花果葉：中軸在左、右側三片葉瓣、底部葉柄，再挖出三條葉脈
     function paintLeaf(c, w, h, col) {
         c.reset()
+        const P = (x, y) => [x * w, y * h]
+        const bz = (a, b, d) => c.bezierCurveTo(...P(...a), ...P(...b), ...P(...d))
         c.beginPath()
-        c.moveTo(w * 0.12, h * 0.98)                       // 葉柄底
-        c.lineTo(w * 0.12, h * 0.04)                       // 中軸
-        c.bezierCurveTo(w * 0.55, h * 0.02, w * 0.80, h * 0.14, w * 0.66, h * 0.28)
-        c.bezierCurveTo(w * 0.98, h * 0.30, w * 1.00, h * 0.50, w * 0.72, h * 0.56)
-        c.bezierCurveTo(w * 0.94, h * 0.66, w * 0.80, h * 0.86, w * 0.40, h * 0.80)
-        c.lineTo(w * 0.22, h * 0.86)
-        c.lineTo(w * 0.22, h * 0.98)
+        c.moveTo(...P(0.12, 0.02))
+        bz([0.45, 0.00], [0.80, 0.08], [0.70, 0.21])   // 第一葉瓣
+        bz([0.66, 0.26], [0.54, 0.28], [0.46, 0.31])   // 缺刻
+        bz([0.82, 0.28], [1.00, 0.42], [0.88, 0.53])   // 第二葉瓣
+        bz([0.82, 0.59], [0.66, 0.60], [0.56, 0.61])   // 缺刻
+        bz([0.88, 0.66], [0.92, 0.82], [0.70, 0.85])   // 第三葉瓣
+        bz([0.55, 0.88], [0.36, 0.85], [0.27, 0.85])
+        c.lineTo(...P(0.27, 0.99)); c.lineTo(...P(0.12, 0.99))
         c.closePath()
         c.fillStyle = col; c.fill()
+        // 葉脈：用目的地挖空，背景色透出來
+        c.globalCompositeOperation = "destination-out"
+        c.lineWidth = Math.max(1.5, w * 0.035); c.lineCap = "round"
+        for (const v of [[0.60, 0.17], [0.76, 0.46], [0.70, 0.76]]) {
+            c.beginPath(); c.moveTo(...P(0.14, 0.92)); c.lineTo(...P(v[0], v[1])); c.stroke()
+        }
+        c.globalCompositeOperation = "source-over"
     }
 
     // -------------------------------------------------------------------------
@@ -135,8 +145,8 @@ Rectangle {
 
             Canvas {
                 visible: idCard.eva
-                Layout.preferredWidth: 44
-                Layout.preferredHeight: 56
+                Layout.preferredWidth: 54
+                Layout.preferredHeight: 68
                 onVisibleChanged: requestPaint()
                 onPaint: idCard.paintLeaf(getContext("2d"), width, height, idCard.evaRed)
             }
@@ -153,7 +163,7 @@ Rectangle {
                 }
                 Text {
                     visible: idCard.eva
-                    text: "特務機関ネルフ  //  SKYGATE BRANCH"
+                    text: "特務機関ネルフ  //  TOKYO-3 HQ"
                     color: idCard.evaOrange
                     font.pixelSize: 15
                     font.family: idCard.serif
@@ -171,7 +181,7 @@ Rectangle {
                 Text {
                     id: staffTxt
                     anchors.centerIn: parent
-                    text: idCard.eva ? "職員" : "STAFF"
+                    text: idCard.eva ? "適格者" : "STAFF"
                     color: idCard.eva ? "black" : "#ff6a00"
                     font.pixelSize: idCard.eva ? 24 : 20
                     font.bold: true
@@ -222,7 +232,7 @@ Rectangle {
             Image {
                 anchors.fill: parent
                 anchors.margins: idCard.eva ? 2 : 0
-                source: "file:///home/miles/Pictures/Memes/WHAT_EVER/DORA.jpg"
+                source: idCard.eva ? Qt.resolvedUrl("assets/shinji_ikari.jpeg") : "file:///home/miles/Pictures/Memes/WHAT_EVER/DORA.jpg"
                 fillMode: Image.PreserveAspectCrop
             }
 
@@ -250,7 +260,7 @@ Rectangle {
                     Text {
                         id: subjTxt
                         anchors.centerIn: parent
-                        text: "IDENTITY CONFIRMED"
+                        text: "SYNC RATIO 41.3%"
                         color: "black"
                         font { family: "monospace"; pixelSize: 11; bold: true; letterSpacing: 1 }
                     }
@@ -267,7 +277,7 @@ Rectangle {
 
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: "麥爾斯 / MILES HSU"
+                text: idCard.eva ? "碇シンジ / SHINJI IKARI" : "麥爾斯 / MILES HSU"
                 color: "#ffffff"
                 font.pixelSize: 40
                 font.family: idCard.eva ? idCard.serif : Qt.application.font.family
@@ -276,7 +286,7 @@ Rectangle {
 
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: "Full Stack Software Engernior"
+                text: idCard.eva ? "EVANGELION UNIT-01 PILOT" : "Full Stack Software Engernior"
                 color: idCard.eva ? idCard.evaOrange : "#a1a1aa"
                 font.pixelSize: 24
             }
@@ -288,17 +298,17 @@ Rectangle {
             rowSpacing: 16
             columnSpacing: 32
 
-            Text { text: "DEPARTMENT"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
-            Text { text: "JAVA TEAM"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
+            Text { text: idCard.eva ? "SECTION" : "DEPARTMENT"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
+            Text { text: idCard.eva ? "DESIGNATION" : "JAVA TEAM"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
 
-            Text { text: "Java 程式開發組"; color: "#e4e4e7"; font.pixelSize: 22; font.bold: true }
-            Text { text: idCard.eva ? "SECURITY LEVEL 67" : "LEVEL 67"; color: idCard.eva ? idCard.evaRed : "#ff6a00"; font.pixelSize: 22; font.bold: true }
+            Text { text: idCard.eva ? "作戦部 特務" : "Java 程式開發組"; color: "#e4e4e7"; font.pixelSize: 22; font.bold: true }
+            Text { text: idCard.eva ? "THE THIRD CHILD" : "LEVEL 67"; color: idCard.eva ? idCard.evaRed : "#ff6a00"; font.pixelSize: 22; font.bold: true }
 
-            Text { text: "EMPLOYEE ID"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
-            Text { text: "EXPIRY DATE"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
+            Text { text: idCard.eva ? "DATE OF BIRTH" : "EMPLOYEE ID"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
+            Text { text: idCard.eva ? "AGE" : "EXPIRY DATE"; color: idCard.eva ? idCard.evaOrange : "#71717a"; font.pixelSize: 18; font.bold: true }
 
-            Text { text: "EMP-2025-0804"; color: "#e4e4e7"; font.pixelSize: 22; font.family: "monospace" }
-            Text { text: "2077 / 06 / 07"; color: "#e4e4e7"; font.pixelSize: 22; font.family: "monospace" }
+            Text { text: idCard.eva ? "2001 / 06 / 06" : "EMP-2025-0804"; color: "#e4e4e7"; font.pixelSize: 22; font.family: "monospace" }
+            Text { text: idCard.eva ? "14" : "2077 / 06 / 07"; color: "#e4e4e7"; font.pixelSize: 22; font.family: "monospace" }
         }
 
         Item { Layout.fillHeight: true }
