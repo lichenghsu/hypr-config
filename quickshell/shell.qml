@@ -3860,6 +3860,11 @@ PopupWindow {
         shellRoot: root
     }
 
+    CloseWarning {
+        id: closeWarningPopup
+        shellRoot: root
+    }
+
     IpcHandler {
         id: qsIpc
         target: "qsIpc"
@@ -3924,6 +3929,9 @@ PopupWindow {
         }
         function toggleCaffeine() {
             root.toggleCaffeine();
+        }
+        function confirmCloseWindow() {
+            closeWarningPopup.request();
         }
         function updateColors(bg: string, fg: string, accent: string) {
             root.colBg     = bg;

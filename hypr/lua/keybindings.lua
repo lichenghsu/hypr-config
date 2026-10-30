@@ -3,7 +3,8 @@ local mainMod = "SUPER"
 
 -- Basic binds
 hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(p.terminal))
-hl.bind(mainMod .. " + C", hl.dsp.window.close())
+-- 先跳 EVA 風格確認視窗，避免誤關（確認後由 quickshell 依 address 關閉）
+hl.bind(mainMod .. " + C", hl.dsp.exec_cmd("quickshell msg qsIpc confirmCloseWindow"))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
 hl.bind(mainMod .. " + SHIFT + Space", function()
     hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
