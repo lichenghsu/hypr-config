@@ -201,6 +201,11 @@ PanelWindow {
     // Follow the cursor across monitors while open. The overview holds exclusive
     // keyboard focus, so Hyprland's focused monitor can't be trusted to track the
     // pointer; poll cursorpos (global logical px) and re-home the layer surface.
+    // Swapping screen on a mapped surface leaves the old size and stale
+    // thumbnail geometry behind, so unmap first, move, then map again.
+    property bool rehoming: false
+    readonly property bool mapped: show && !rehoming
+
     function screenAt(x, y) {
         return Quickshell.screens.find(s => x >= s.x && x < s.x + s.width && y >= s.y && y < s.y + s.height) ?? null
     }
@@ -213,10 +218,20 @@ PanelWindow {
                 try {
                     const pos = JSON.parse(text)
                     const s = rootWindow.screenAt(pos.x, pos.y)
-                    if (s && s !== rootWindow.screen) rootWindow.screen = s
+                    if (s && s !== rootWindow.screen) {
+                        rootWindow.rehoming = true
+                        rootWindow.screen = s
+                        remapTimer.restart()
+                    }
                 } catch (e) {}
             }
         }
+    }
+
+    Timer {
+        id: remapTimer
+        interval: 30
+        onTriggered: rootWindow.rehoming = false
     }
 
     Timer {
@@ -224,7 +239,7 @@ PanelWindow {
         repeat: true
         running: rootWindow.show
         triggeredOnStart: true
-        onTriggered: if (!pCursorPos.running) pCursorPos.running = true
+        onTriggered: if (!pCursorPos.running && !rootWindow.rehoming) pCursorPos.running = true
     }
 
     // 6. Resetting state and tracking focus when the overview window opens or closes
@@ -291,7 +306,7 @@ PanelWindow {
     anchors.right: true
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    visible: show
+    visible: mapped
 
     Item {
         id: overviewRoot
@@ -484,9 +499,9 @@ PanelWindow {
                                         // 短命視窗（LibreOffice splash、KWrite 對話框）在擷取中關閉會讓 Hyprland 丟 protocol error 把 quickshell 踢掉
                                         ScreencopyView {
                                             id: scv
-                                            captureSource: rootWindow.show ? modelData.wayland : null
-                                            live: rootWindow.show
-                                            enabled: rootWindow.show
+                                            captureSource: rootWindow.mapped ? modelData.wayland : null
+                                            live: rootWindow.mapped
+                                            enabled: rootWindow.mapped
 
                                             readonly property real srcAspect: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : (thumb.width / thumb.height)
                                             readonly property real dstAspect: thumb.width / thumb.height
@@ -673,9 +688,9 @@ PanelWindow {
                                         border.width: modelData.activated ? 2 : 1
 
                                         ScreencopyView {
-                                            captureSource: rootWindow.show ? modelData.wayland : null
-                                            live: rootWindow.show && rootWindow.showSpecial
-                                            enabled: rootWindow.show
+                                            captureSource: rootWindow.mapped ? modelData.wayland : null
+                                            live: rootWindow.mapped && rootWindow.showSpecial
+                                            enabled: rootWindow.mapped
 
                                             readonly property real srcAspect: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : (specThumb.width / specThumb.height)
                                             readonly property real dstAspect: specThumb.width / specThumb.height
