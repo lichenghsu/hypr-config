@@ -3378,15 +3378,124 @@ PopupWindow {
                         }
                     }
 
-                    // 人類補完計畫：EVA 風格功能總開關
-                    ModernButton {
+                    // 人類補完計畫：EVA 風格功能總開關（EVA 標題卡風：粗明朝大字 + 右側狀態格）
+                    MouseArea {
                         id: btnEvaMode
-                        Layout.preferredHeight: 36
-                        iconText: "HIP"
-                        text: root.evaMode ? "人類補完計画 // 発動中" : "人類補完計画"
-                        isActive: root.evaMode
-                        accent: "#FF1A1A"
+                        readonly property color evaRed: "#FF1A1A"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 64
+                        hoverEnabled: true
                         onClicked: root.toggleEvaMode()
+                        scale: containsPress ? 0.97 : 1.0
+                        Behavior on scale { NumberAnimation { duration: root.batteryMode ? 0 : 120 } }
+
+                        Rectangle {
+                            id: evaBtnBg
+                            anchors.fill: parent
+                            color: root.evaMode ? Qt.rgba(0.35, 0, 0, 0.55) : Qt.rgba(0, 0, 0, 0.55)
+                            border.width: root.evaMode ? 2 : 1
+                            border.color: root.evaMode ? btnEvaMode.evaRed
+                                        : Qt.rgba(1, 0.1, 0.1, btnEvaMode.containsMouse ? 0.8 : 0.35)
+                            Behavior on color { ColorAnimation { duration: root.batteryMode ? 0 : 200 } }
+                            SequentialAnimation on opacity {
+                                running: root.evaMode && !root.batteryMode
+                                loops: Animation.Infinite
+                                onRunningChanged: if (!running) evaBtnBg.opacity = 1
+                                NumberAnimation { to: 0.7; duration: 900; easing.type: Easing.InOutSine }
+                                NumberAnimation { to: 1.0; duration: 900; easing.type: Easing.InOutSine }
+                            }
+                        }
+
+                        // 左側紅條
+                        Rectangle {
+                            width: 4
+                            anchors { top: parent.top; bottom: parent.bottom; left: parent.left }
+                            color: btnEvaMode.evaRed
+                            opacity: root.evaMode ? 1 : 0.5
+                        }
+
+                        RowLayout {
+                            anchors { fill: parent; leftMargin: 16; rightMargin: 8 }
+                            spacing: 10
+
+                            // SEELE 風格倒三角 + 七隻眼（簡化圖示）
+                            Canvas {
+                                id: seeleIcon
+                                Layout.preferredWidth: 46
+                                Layout.preferredHeight: 46
+                                readonly property bool on: root.evaMode
+                                onOnChanged: requestPaint()
+                                onPaint: {
+                                    const c = getContext("2d"); c.reset()
+                                    const w = width, h = height, red = "#FF1A1A"
+                                    // 倒三角
+                                    c.beginPath(); c.moveTo(2, 4); c.lineTo(w - 2, 4); c.lineTo(w / 2, h - 2); c.closePath()
+                                    c.fillStyle = on ? red : "rgba(255,26,26,0.12)"; c.fill()
+                                    c.lineWidth = 2; c.strokeStyle = red; c.stroke()
+                                    // 七隻眼：上排 3、中排 2、下排 2（越往下越窄）
+                                    const eyes = [[0.28, 0.24], [0.5, 0.24], [0.72, 0.24],
+                                                  [0.38, 0.43], [0.62, 0.43],
+                                                  [0.44, 0.61], [0.56, 0.61]]
+                                    const ink = on ? "black" : red
+                                    for (const e of eyes) {
+                                        const x = e[0] * w, y = e[1] * h
+                                        c.beginPath()
+                                        c.moveTo(x - 4, y)
+                                        c.quadraticCurveTo(x, y - 3.2, x + 4, y)
+                                        c.quadraticCurveTo(x, y + 3.2, x - 4, y)
+                                        c.fillStyle = ink; c.fill()
+                                    }
+                                }
+                                SequentialAnimation on opacity {
+                                    running: root.evaMode && !root.batteryMode
+                                    loops: Animation.Infinite
+                                    onRunningChanged: if (!running) seeleIcon.opacity = 1
+                                    NumberAnimation { to: 0.55; duration: 600; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: -2
+                                Text {
+                                    text: "人類補完計画"
+                                    color: root.evaMode ? btnEvaMode.evaRed : Qt.rgba(1, 1, 1, 0.92)
+                                    font { family: "Noto Serif CJK JP"; weight: Font.Black; pixelSize: 26; letterSpacing: 3 }
+                                }
+                                Text {
+                                    text: "HUMAN INSTRUMENTALITY PROJECT"
+                                    color: Qt.rgba(1, 0.35, 0.2, root.evaMode ? 0.9 : 0.55)
+                                    font { family: root.fontFamily; pixelSize: 9; bold: true; letterSpacing: 2 }
+                                }
+                            }
+
+                            // 右側狀態格：封印 / 発動
+                            Rectangle {
+                                Layout.preferredWidth: 58
+                                Layout.preferredHeight: 44
+                                color: root.evaMode ? btnEvaMode.evaRed : "transparent"
+                                border.color: btnEvaMode.evaRed
+                                border.width: 1
+                                opacity: root.evaMode ? 1 : 0.6
+                                ColumnLayout {
+                                    anchors.centerIn: parent
+                                    spacing: -1
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: root.evaMode ? "発動" : "封印"
+                                        color: root.evaMode ? "black" : btnEvaMode.evaRed
+                                        font { family: "Noto Serif CJK JP"; weight: Font.Black; pixelSize: 17 }
+                                    }
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: root.evaMode ? "ACTIVE" : "SEALED"
+                                        color: root.evaMode ? "black" : btnEvaMode.evaRed
+                                        font { family: root.fontFamily; pixelSize: 8; bold: true; letterSpacing: 1 }
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     // Power Row
