@@ -32,7 +32,7 @@ Rectangle {
         fillMode: Image.PreserveAspectFit
         smooth: true
     }
-    EvaFrame { shellRoot: idCard.shellRoot; label: "PERSONNEL IDENTIFICATION"; labelJp: "職員証" }
+    EvaFrame { shellRoot: idCard.shellRoot; showLogo: false; label: "PERSONNEL IDENTIFICATION"; labelJp: "職員証" }
 
     // -------------------------------------------------------------------------
     // Code 39 條碼動態生成函式

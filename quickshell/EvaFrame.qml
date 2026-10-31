@@ -1,7 +1,7 @@
 import QtQuick
 
 // 人類補完計畫（shellRoot.evaMode）開啟時疊在各彈出視窗上的 EVA / NERV 外框：
-// 紅色暗角 + 掃描線、四角括號、左上 NERV 標籤、右上危險斜紋、右下 MAGI 標記。
+// 紅色暗角 + NERV logo 浮水印 + 掃描線、四角括號、左上 NERV 標籤、右上危險斜紋、右下 MAGI 標記。
 // 放在容器的第一個子元件，畫在背景之上、內容之下；不吃滑鼠事件。
 Item {
     id: evaFrame
@@ -14,6 +14,7 @@ Item {
     property bool showStripes: true
     property bool showBrackets: true
     property bool showMagi: true
+    property bool showLogo: true          // 中央 NERV logo 浮水印（太小的容器自動不顯示）
 
     readonly property bool on: !!(shellRoot && shellRoot.evaMode) && active
     readonly property color red: "#FF1A1A"
@@ -29,6 +30,19 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0.5, 0, 0, 0.12)
+    }
+
+    // NERV logo 浮水印
+    Image {
+        readonly property real side: Math.min(evaFrame.width, evaFrame.height) * 0.85
+        visible: evaFrame.showLogo && evaFrame.width > 200 && evaFrame.height > 150
+        width: side; height: side
+        anchors.centerIn: parent
+        opacity: 0.06
+        source: visible ? Qt.resolvedUrl("assets/nerv_logo.png") : ""
+        fillMode: Image.PreserveAspectFit
+        smooth: true
+        mipmap: true
     }
 
     // 掃描線
