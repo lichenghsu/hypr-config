@@ -19,43 +19,20 @@ Rectangle {
     border.color: eva ? evaRed : "#27272a"
     border.width: eva ? 3 : 2
 
-    // EVA：浮水印大葉片 + 外框（掃描線 / 四角括號 / NERV 標籤）
-    Canvas {
+    // EVA：浮水印 NERV logo + 外框（掃描線 / 四角括號 / NERV 標籤）
+    Image {
         id: watermark
         visible: idCard.eva
-        width: 520; height: 640
+        width: 560; height: 560
         anchors.centerIn: parent
         anchors.verticalCenterOffset: 40
         opacity: 0.06
-        onVisibleChanged: requestPaint()
-        onPaint: idCard.paintLeaf(getContext("2d"), width, height, idCard.evaRed)
+        source: Qt.resolvedUrl("assets/nerv_logo.png")
+        sourceSize: Qt.size(width, height)
+        fillMode: Image.PreserveAspectFit
+        smooth: true
     }
     EvaFrame { shellRoot: idCard.shellRoot; label: "PERSONNEL IDENTIFICATION"; labelJp: "職員証" }
-
-    // NERV 風格半邊無花果葉：中軸在左、右側三片葉瓣、底部葉柄，再挖出三條葉脈
-    function paintLeaf(c, w, h, col) {
-        c.reset()
-        const P = (x, y) => [x * w, y * h]
-        const bz = (a, b, d) => c.bezierCurveTo(...P(...a), ...P(...b), ...P(...d))
-        c.beginPath()
-        c.moveTo(...P(0.12, 0.02))
-        bz([0.45, 0.00], [0.80, 0.08], [0.70, 0.21])   // 第一葉瓣
-        bz([0.66, 0.26], [0.54, 0.28], [0.46, 0.31])   // 缺刻
-        bz([0.82, 0.28], [1.00, 0.42], [0.88, 0.53])   // 第二葉瓣
-        bz([0.82, 0.59], [0.66, 0.60], [0.56, 0.61])   // 缺刻
-        bz([0.88, 0.66], [0.92, 0.82], [0.70, 0.85])   // 第三葉瓣
-        bz([0.55, 0.88], [0.36, 0.85], [0.27, 0.85])
-        c.lineTo(...P(0.27, 0.99)); c.lineTo(...P(0.12, 0.99))
-        c.closePath()
-        c.fillStyle = col; c.fill()
-        // 葉脈：用目的地挖空，背景色透出來
-        c.globalCompositeOperation = "destination-out"
-        c.lineWidth = Math.max(1.5, w * 0.035); c.lineCap = "round"
-        for (const v of [[0.60, 0.17], [0.76, 0.46], [0.70, 0.76]]) {
-            c.beginPath(); c.moveTo(...P(0.14, 0.92)); c.lineTo(...P(v[0], v[1])); c.stroke()
-        }
-        c.globalCompositeOperation = "source-over"
-    }
 
     // -------------------------------------------------------------------------
     // Code 39 條碼動態生成函式
@@ -143,12 +120,15 @@ Rectangle {
                 }
             }
 
-            Canvas {
+            Image {
                 visible: idCard.eva
-                Layout.preferredWidth: 54
-                Layout.preferredHeight: 68
-                onVisibleChanged: requestPaint()
-                onPaint: idCard.paintLeaf(getContext("2d"), width, height, idCard.evaRed)
+                Layout.preferredWidth: 80
+                Layout.preferredHeight: 80
+                source: Qt.resolvedUrl("assets/nerv_logo.png")
+                sourceSize: Qt.size(160, 160)
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
             }
 
             ColumnLayout {
