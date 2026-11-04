@@ -275,7 +275,6 @@ if [ "$WALLPAPER" != "black" ] && [ -f "$WALLPAPER" ]; then
     printf "preload = %s\nwallpaper = ,%s\nsplash = false\nipc = on\n" "$WALLPAPER" "$WALLPAPER" > ~/.config/hypr/hyprpaper.conf
     pgrep -x "hyprpaper" > /dev/null || hyprpaper &
     sleep 1
-    hyprctl hyprpaper preload "$WALLPAPER" > /dev/null 2>&1
     hyprctl hyprpaper wallpaper ",$WALLPAPER" > /dev/null 2>&1
 else
     pkill hyprpaper
