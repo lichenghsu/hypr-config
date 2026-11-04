@@ -12,6 +12,9 @@ Scope {
     property bool intrusionActive: false
     property int  intrusionPhase: 0
     property bool errorVisible: false
+    // Password lives here (not in a TextInput) so whichever screen's lock surface
+    // Hyprland gives the keyboard to can take input; see keyCatcher below.
+    property string pw: ""
 
     // 平常維持綠色主題，偶爾（約 3% 機率）短暫閃成橘色的彩蛋事件；
     // 人類補完計畫（evaMode）開啟時固定為 MAGI 橘
@@ -52,6 +55,7 @@ Scope {
         lockRoot.intrusionPhase = 0
         lockRoot.preLockActive = true
         lockRoot.errorVisible = false
+        lockRoot.pw = ""
         successUnlockTimer.stop()
         preLockTimer.start()
         pSubmap.running = true
@@ -63,8 +67,25 @@ Scope {
         lockRoot.authFailed = false
         lockRoot.authSuccess = false
         lockRoot.errorVisible = false
+        lockRoot.pw = ""
         pReset.running = true
-        pRestartShell.running = true
+        // Give Hyprland time to process the session unlock before qs-restart.sh
+        // kills quickshell; dying while still locked leaves the "locker died" screen.
+        restartShellTimer.restart()
+    }
+
+    function handleKey(event) {
+        if (!lockRoot.active) return
+        event.accepted = true
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            lockRoot.submitPassword(lockRoot.pw)
+        } else if (event.key === Qt.Key_Backspace) {
+            lockRoot.pw = (event.modifiers & Qt.ControlModifier) ? "" : lockRoot.pw.slice(0, -1)
+        } else if (event.key === Qt.Key_Escape) {
+            lockRoot.pw = ""
+        } else if (event.text.length > 0 && !(event.modifiers & Qt.ControlModifier)) {
+            lockRoot.pw += event.text
+        }
     }
 
     function submitPassword(pw) {
@@ -93,6 +114,12 @@ Scope {
         id: pRestartShell
         command: ["hyprctl", "dispatch", "hl.dsp.exec_cmd(\"/home/miles/.local/bin/qs-restart.sh\")"]
         running: false
+    }
+
+    Timer {
+        id: restartShellTimer
+        interval: 800
+        onTriggered: pRestartShell.running = true
     }
 
     Timer {
@@ -174,33 +201,38 @@ Scope {
         }
     }
 
-    Variants {
-        model: Quickshell.screens
+    // ext-session-lock: while locked Hyprland shows only these surfaces, routes all
+    // input to them and ignores every non-"locked" keybind. If quickshell dies while
+    // locked the session stays locked (misc.allow_session_lock_restore lets a
+    // restarted quickshell lock again and take over).
+    WlSessionLock {
+        locked: lockRoot.active || lockRoot.preLockActive
 
-        PanelWindow {
+        WlSessionLockSurface {
             id: overlayWin
-            required property var modelData
-            screen: modelData
-
-            visible: lockRoot.active || lockRoot.preLockActive
             color: "black"
-            exclusionMode: ExclusionMode.Ignore
-
-            WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: (lockRoot.active || lockRoot.preLockActive)
-            ? WlrKeyboardFocus.Exclusive
-            : WlrKeyboardFocus.None
-            WlrLayershell.namespace: "qs-lockscreen"
-
-            anchors.top: true; anchors.bottom: true
-            anchors.left: true; anchors.right: true
 
             HoverHandler { cursorShape: Qt.BlankCursor }
 
-            property bool isPrimary: overlayWin.modelData === (
+            property bool isPrimary: overlayWin.screen === (
                 Quickshell.screens.find(s => !s.name.startsWith("eDP"))
                 ?? Quickshell.screens[0]
             )
+
+            // Every screen's surface catches keys into lockRoot.pw, since Hyprland
+            // picks which lock surface gets keyboard focus (not necessarily the
+            // primary one that draws the password box).
+            Item {
+                id: keyCatcher
+                anchors.fill: parent
+                focus: true
+                Keys.onPressed: (event) => lockRoot.handleKey(event)
+                Component.onCompleted: forceActiveFocus()
+                Connections {
+                    target: lockRoot
+                    function onActiveChanged() { if (lockRoot.active) keyCatcher.forceActiveFocus() }
+                }
+            }
 
             Canvas {
                 id: atlasCanvas
@@ -402,13 +434,10 @@ Scope {
                     visible: overlayWin.isPrimary && lockRoot.active
                     spacing: 28
 
-                    onVisibleChanged: if (visible) focusTimer.start()
-
                     Connections {
                         target: lockRoot
                         function onActiveChanged() {
                             if (lockRoot.active) {
-                                passwordField.text = ""
                                 clockText.now = new Date()
                                 clockText.unlockTick = 0
                                 clockText.unlockColor = lockRoot.primaryBright
@@ -423,11 +452,6 @@ Scope {
                         }
                     }
 
-                    Timer {
-                        id: focusTimer
-                        interval: 80
-                        onTriggered: passwordField.forceActiveFocus()
-                    }
 
                     Text {
                         id: clockText
@@ -729,18 +753,6 @@ Scope {
                         }
                     }
 
-                    TextInput {
-                        id: passwordField
-                        x: -9999; y: -9999
-                        width: 1; height: 1
-                        echoMode: TextInput.Password
-                        color: "transparent"
-                        cursorVisible: false
-                        focus: lockRoot.active
-                        Keys.onReturnPressed: lockRoot.submitPassword(passwordField.text)
-                        Keys.onEnterPressed: lockRoot.submitPassword(passwordField.text)
-                    }
-
                     Rectangle {
                         id: passwordBox
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -805,7 +817,7 @@ Scope {
                                     visible: !pAuth.running && !lockRoot.authSuccess
 
                                     Repeater {
-                                        model: Math.min(passwordField.text.length, 24)
+                                        model: Math.min(lockRoot.pw.length, 24)
 
                                         Text {
                                             font.family: "Share Tech Mono"
@@ -835,7 +847,7 @@ Scope {
                                         : (dotsContainer.cursorBlink ? "█" : " ")
 
                                         color: dotsContainer.shaking ? "#ff1133" : (dotsContainer.cursorBlink ? "#ffffff" : "transparent")
-                                        visible: passwordField.text.length < 24
+                                        visible: lockRoot.pw.length < 24
                                     }
                                 }
                             }
@@ -947,7 +959,7 @@ Scope {
                                 decryptTimer.tickCount = 0
                                 errorMsg.glitchActive = false
                                 lockRoot.errorVisible = false
-                                if (typeof passwordField !== "undefined") passwordField.text = ""
+                                lockRoot.pw = ""
                             }
                         }
 
