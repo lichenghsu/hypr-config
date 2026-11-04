@@ -194,3 +194,11 @@ hl.bind(mainMod .. " + Tab", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_overv
 hl.bind(mainMod .. " + X", hl.dsp.exec_cmd("/home/miles/.local/bin/smart_keyoverlay.sh"))
 
 -- Switch: lock handled by post-sleep hook to avoid GPU context crash on resume
+
+-- Locked submap: entered by quickshell/LockScreen.qml so no keybind (SUPER+Tab,
+-- power menu, ...) can open a popup over the lock screen and steal keyboard focus
+-- from the password field. Hyprland only registers a submap that has at least one
+-- bind, so the power key gets a no-op here.
+hl.define_submap("locked", function()
+    hl.bind("XF86PowerOff", hl.dsp.exec_cmd("true"))
+end)

@@ -75,13 +75,13 @@ Scope {
 
     Process {
         id: pSubmap
-        command: ["hyprctl", "dispatch", "submap", "locked"]
+        command: ["hyprctl", "dispatch", "hl.dsp.submap(\"locked\")"]
         running: false
     }
 
     Process {
         id: pReset
-        command: ["hyprctl", "dispatch", "submap", "reset"]
+        command: ["hyprctl", "dispatch", "hl.dsp.submap(\"reset\")"]
         running: false
     }
 
@@ -91,7 +91,7 @@ Scope {
     // quickshell itself, and survives quickshell being killed.
     Process {
         id: pRestartShell
-        command: ["hyprctl", "dispatch", "exec", "/home/miles/.local/bin/qs-restart.sh"]
+        command: ["hyprctl", "dispatch", "hl.dsp.exec_cmd(\"/home/miles/.local/bin/qs-restart.sh\")"]
         running: false
     }
 
