@@ -26,3 +26,11 @@ hl.monitor({
     scale    = "auto",
 })
 
+
+-- cm_auto_hdr = 0: by default (1) a fullscreen app that tags its surface as HDR /
+-- wide gamut (e.g. Brave fullscreen video) flips the monitor into HDR cm, which
+-- re-triggers the same 10-bit warning under AQ_NO_ATOMIC. The panel can't do
+-- real HDR on the legacy path anyway, so keep it sRGB. Revert with the cm line above.
+hl.config({
+    render = { cm_auto_hdr = 0 },
+})
