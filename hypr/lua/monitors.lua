@@ -5,13 +5,7 @@
 -- Do NOT set sdr_eotf = "gamma22" / sdr_min_luminance = 0 here: tried 2026-11-04 to
 -- fix grey fullscreen video, but once they apply to the whole output the entire
 -- panel goes grey (2026-11-05). Keep the defaults, same as the external monitor.
-hl.monitor({
-    output            = "eDP-1",
-    mode              = "3840x2400@60",
-    position          = "0x0",
-    scale             = "1.5",
-    cm                = "srgb",
-})
+hl.monitor({ output = "eDP-1", mode = "3840x2400@60", position = "0x0", scale = "1.5" })
 
 -- Any external monitor is handled by the wildcard rule below (preferred mode,
 -- auto position/scale). Do NOT persist hardcoded per-port rules here -- a stale
