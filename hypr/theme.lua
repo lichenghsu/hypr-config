@@ -1,6 +1,6 @@
 return {
     gaps_in = 10,
-    gaps_out = 5,
+    gaps_out = 20,
     border_size = 1,
     active_border = { colors = { "rgba(3a8fbfff)","rgba(ff4b30ff)" }, angle = 45 },
     inactive_border = "rgba(0a151caa)",
