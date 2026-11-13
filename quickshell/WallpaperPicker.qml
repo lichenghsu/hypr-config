@@ -26,12 +26,51 @@ PanelWindow {
 
     visible: show || animRect.opacity > 0
 
+    // Every scanned wallpaper; wallpaperModel holds only the ones matching the search query.
+    property var allWallpapers: []
+
+    Timer {
+        id: focusTimer
+        interval: 50
+        onTriggered: searchInput.forceActiveFocus()
+    }
+
     onShowChanged: {
         if (show) {
+            searchInput.text = "";
+            allWallpapers = [];
             wallpaperModel.clear();
             pScan.running = true;
             pWarmCache.running = true;
+            focusTimer.start();
         }
+    }
+
+    // Every whitespace-separated term must appear in the name; "-" and "_" count as spaces.
+    function matches(name, query) {
+        var hay = name.toLowerCase().replace(/[-_]/g, " ");
+        var terms = query.toLowerCase().trim().split(/\s+/);
+        for (var i = 0; i < terms.length; i++) {
+            if (terms[i].length > 0 && hay.indexOf(terms[i]) < 0) return false;
+        }
+        return true;
+    }
+
+    function applyFilter() {
+        var q = searchInput.text;
+        wallpaperModel.clear();
+        for (var i = 0; i < allWallpapers.length; i++) {
+            if (matches(allWallpapers[i].name, q)) wallpaperModel.append(allWallpapers[i]);
+        }
+        gridView.currentIndex = wallpaperModel.count > 0 ? 0 : -1;
+    }
+
+    function applyWallpaper(path) {
+        pApply.command = matugenMode
+            ? ["/home/miles/.local/bin/matugen_theme.sh", path]
+            : ["/home/miles/.local/bin/set_wallpaper.sh", path];
+        pApply.running = true;
+        show = false;
     }
 
     Process {
@@ -45,7 +84,12 @@ PanelWindow {
                     var p = parts[0];
                     var thumb = parts[1] || p;
                     var name = p.split("/").pop().replace(/\.[^/.]+$/, "");
-                    wallpaperModel.append({ path: p, thumb: thumb, name: name });
+                    var entry = { path: p, thumb: thumb, name: name };
+                    rootWindow.allWallpapers.push(entry);
+                    if (rootWindow.matches(name, searchInput.text)) {
+                        wallpaperModel.append(entry);
+                        if (gridView.currentIndex < 0) gridView.currentIndex = 0;
+                    }
                 }
             }
         }
@@ -150,6 +194,38 @@ PanelWindow {
                         }
                     }
 
+                    TextField {
+                        id: searchInput
+                        Layout.fillWidth: true
+                        placeholderText: "SEARCH WALLPAPERS..."
+                        color: shellRoot ? shellRoot.colFg : "white"
+                        placeholderTextColor: shellRoot ? shellRoot.colMuted : "#888"
+                        font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
+                        font.pixelSize: 14
+                        font.bold: true
+
+                        background: Rectangle {
+                            color: Qt.rgba(1, 1, 1, 0.05)
+                            radius: 0
+                            border.color: searchInput.activeFocus ? rootWindow.chromeA(0.5) : "transparent"
+                            border.width: 1
+                        }
+
+                        function applyCurrent() {
+                            if (gridView.currentIndex >= 0 && gridView.currentIndex < wallpaperModel.count)
+                                rootWindow.applyWallpaper(wallpaperModel.get(gridView.currentIndex).path);
+                        }
+
+                        onTextEdited: rootWindow.applyFilter()
+                        Keys.onRightPressed: gridView.moveCurrentIndexRight()
+                        Keys.onLeftPressed: gridView.moveCurrentIndexLeft()
+                        Keys.onDownPressed: gridView.moveCurrentIndexDown()
+                        Keys.onUpPressed: gridView.moveCurrentIndexUp()
+                        Keys.onEscapePressed: rootWindow.show = false
+                        Keys.onReturnPressed: applyCurrent()
+                        Keys.onEnterPressed: applyCurrent()
+                    }
+
                     GridView {
                         id: gridView
                         Layout.fillWidth: true
@@ -157,6 +233,19 @@ PanelWindow {
                         clip: true
                         cellWidth: 174
                         cellHeight: 141
+                        keyNavigationWraps: true
+                        onCurrentIndexChanged: if (currentIndex >= 0) positionViewAtIndex(currentIndex, GridView.Contain)
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: wallpaperModel.count === 0 && searchInput.text.length > 0
+                            text: "NO MATCH"
+                            color: shellRoot ? shellRoot.colMuted : "#888"
+                            font.family: shellRoot ? shellRoot.fontFamily : "sans-serif"
+                            font.pixelSize: 14
+                            font.bold: true
+                            font.letterSpacing: 2
+                        }
 
                         model: ListModel { id: wallpaperModel }
 
@@ -169,8 +258,9 @@ PanelWindow {
                                 anchors.fill: parent
                                 anchors.margins: 6
                                 radius: 0
-                                color: ma.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.05)
-                                border.color: ma.containsMouse ? rootWindow.chromeA(0.6) : rootWindow.chromeA(0.2)
+                                readonly property bool selected: index === gridView.currentIndex
+                                color: (ma.containsMouse || selected) ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.05)
+                                border.color: selected ? rootWindow.chrome : ma.containsMouse ? rootWindow.chromeA(0.6) : rootWindow.chromeA(0.2)
                                 border.width: 1
                                 clip: true
 
@@ -206,13 +296,7 @@ PanelWindow {
                                     id: ma
                                     anchors.fill: parent
                                     hoverEnabled: true
-                                    onClicked: {
-                                        pApply.command = rootWindow.matugenMode
-                                        ? ["/home/miles/.local/bin/matugen_theme.sh", model.path]
-                                        : ["/home/miles/.local/bin/set_wallpaper.sh", model.path];
-                                        pApply.running = true;
-                                        rootWindow.show = false;
-                                    }
+                                    onClicked: rootWindow.applyWallpaper(model.path)
                                 }
 
                                 scale: ma.containsPress ? 0.94 : 1.0
