@@ -23,6 +23,7 @@ hypr/
   modules/    # windowrules, look_and_feel, input
   themes/     # 多主題 color scheme
 kde/          # ~/.config/kdeglobals（KDE 顏色/widget style）
+keyd/         # /etc/keyd/default.conf（需 root，sudo cp 後 keyd reload）
 qt6ct/        # ~/.config/qt6ct/qt6ct.conf（Qt6 非 KDE app 樣式）
 quickshell/   # shell.qml 主 UI
 waybar/       # 備用 waybar 設定
